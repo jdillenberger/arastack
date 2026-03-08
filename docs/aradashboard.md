@@ -16,7 +16,7 @@ Default config path: `/etc/arastack/config/aradashboard.yaml`
 |-----|---------|-------------|
 | `server.bind` | `0.0.0.0` | Bind address |
 | `server.port` | `8420` | Web server port |
-| `aradeploy_config` | `/etc/arastack/config/aradeploy.yaml` | Path to aradeploy config |
+| `aradeploy.config` | `/etc/arastack/config/aradeploy.yaml` | Path to aradeploy config |
 | `docker.runtime` | `docker` | Container runtime |
 | `docker.compose_command` | `docker compose` | Compose command |
 | `routing.enabled` | `true` | Enable routing features |

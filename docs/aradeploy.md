@@ -16,8 +16,8 @@ Template-based Docker Compose deployment and management tool. Deploys applicatio
 | `aradeploy list` | List apps (`--all`, `--filter`, `--category`) |
 | `aradeploy info <app>` | Show app template details |
 | `aradeploy update [app]` | Pull latest images and recreate (`--all`) |
-| `aradeploy templates` | Manage template repositories |
-| `aradeploy repos` | Manage template repos |
+| `aradeploy templates` | Manage app templates (list, create, export, lint) |
+| `aradeploy repos` | Manage template source repositories (add/remove/update git repos) |
 | `aradeploy export <app>` | Export app configuration |
 | `aradeploy eject <app>` | Remove deployment templating |
 | `aradeploy upgrade <app>` | Upgrade app to new version |

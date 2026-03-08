@@ -7,11 +7,14 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/jdillenberger/arastack/internal/arabackup/api"
 	"github.com/jdillenberger/arastack/internal/arabackup/scheduler"
 	"github.com/jdillenberger/arastack/pkg/executil"
+	"github.com/jdillenberger/arastack/pkg/version"
 )
 
 func init() {
@@ -19,9 +22,10 @@ func init() {
 }
 
 var daemonCmd = &cobra.Command{
-	Use:   "daemon",
-	Short: "Run arabackup as a daemon (used by systemd)",
-	Long:  "Start the backup daemon that runs scheduled backups and prunes.",
+	Use:     "run",
+	Aliases: []string{"daemon"},
+	Short:   "Run arabackup as a daemon (used by systemd)",
+	Long:  "Start the backup daemon that runs scheduled backups, prunes, and an API server.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		runner := &executil.Runner{Verbose: verbose}
 		sched := scheduler.New()
@@ -56,15 +60,41 @@ var daemonCmd = &cobra.Command{
 		defer sched.Stop()
 
 		slog.Info("arabackup daemon started",
+			"port", cfg.Server.Port,
+			"bind", cfg.Server.Bind,
 			"backup_schedule", cfg.Schedule.Backup,
 			"prune_schedule", cfg.Schedule.Prune)
 
-		// Wait for shutdown signal
-		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-		defer stop()
-		<-ctx.Done()
+		// Start API server in background.
+		srv := api.New(cfg, sched, version.Version)
+		srvErr := make(chan error, 1)
+		go func() {
+			if err := srv.Start(cfg.Server.Bind, cfg.Server.Port); err != nil {
+				srvErr <- err
+			}
+		}()
 
-		slog.Info("arabackup daemon shutting down")
+		// Signal handling.
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
+		// Block until signal or server error.
+		select {
+		case sig := <-sigCh:
+			slog.Info("received signal, shutting down", "signal", sig)
+		case err := <-srvErr:
+			return err
+		}
+
+		// Graceful shutdown.
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer shutdownCancel()
+
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			slog.Error("API server shutdown error", "error", err)
+		}
+
+		slog.Info("arabackup daemon stopped")
 		return nil
 	},
 }

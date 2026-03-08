@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"time"
 
 	"github.com/robfig/cron/v3"
 )
@@ -77,4 +78,28 @@ func (s *Scheduler) Start() {
 func (s *Scheduler) Stop() {
 	s.cron.Stop()
 	slog.Info("Scheduler stopped")
+}
+
+// NextRun returns the next scheduled run time for a named job.
+func (s *Scheduler) NextRun(name string) time.Time {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	id, ok := s.entries[name]
+	if !ok {
+		return time.Time{}
+	}
+	return s.cron.Entry(id).Next
+}
+
+// PrevRun returns the last run time for a named job.
+func (s *Scheduler) PrevRun(name string) time.Time {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	id, ok := s.entries[name]
+	if !ok {
+		return time.Time{}
+	}
+	return s.cron.Entry(id).Prev
 }

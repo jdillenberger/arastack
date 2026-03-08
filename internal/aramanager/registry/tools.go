@@ -92,7 +92,7 @@ var tools = []Tool{
 		BinaryName:  "arabackup",
 		ServiceName: "arabackup",
 		Description: "arabackup backup service",
-		ExecArgs:    "daemon",
+		ExecArgs:    "run",
 		Port:        7160,
 		ConfigPath:  "/etc/arastack/config/arabackup.yaml",
 		Order:       4,
@@ -100,7 +100,7 @@ var tools = []Tool{
 			BinaryName:  "arabackup",
 			ServiceName: "arabackup",
 			Description: "arabackup backup service",
-			ExecArgs:    "daemon",
+			ExecArgs:    "run",
 		},
 		DoctorCheck: func() ([]doctor.CheckResult, error) {
 			return arabackupdoc.CheckAll(), nil

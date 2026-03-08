@@ -4,30 +4,40 @@ A modular homelab infrastructure toolkit written in Go. AraStack provides a suit
 
 ## Architecture
 
-AraStack consists of 8 tools that communicate via REST APIs:
+AraStack consists of 8 tools that integrate via a mix of REST APIs (aradashboard querying arascanner/araalert/arabackup) and filesystem-based integration (tools reading aradeploy's config and app directories):
 
 ```
-                        +-----------------+
-                        |  aradashboard   |  Web UI (:8420)
-                        |  (monitoring)   |
+  +------------+         manages all tools
+  | aramanager |------------------------------------+
+  |  (setup)   |                                    |
+  +------------+                                    |
+                                                    v
+                        +-----------------+    installs &
+                        |  aradashboard   |    configures
+                        |  Web UI (:8420) |
                         +---+----+----+---+
-                            |    |    |
+                 REST API   |    |    |   REST API
               +-------------+    |    +--------------+
-              |                  |                   |
+              |                  | REST API          |
         +-----v-----+    +------v------+    +--------v-------+
         |  araalert  |    |  arabackup  |    |   arascanner   |
-        |   (:7150)  |    |  (backup)   |    |    (:7120)     |
+        |   (:7150)  |    |   (:7160)   |    |    (:7120)     |
         +-----+------+    +------+------+    | (peer discov.) |
-              |                  |           +----------------+
-        +-----v------+    +-----v------+
-        |  aranotify |    |  aradeploy |
-        |   (:7140)  |    | (deployer) |
-        | (channels) |    +-----+------+
+     REST API |                  |           +----------------+
+        +-----v------+          |
+        |  aranotify |          | reads config & apps dir
+        |   (:7140)  |          |
+        | (channels) |          |
         +------------+          |
-                          +-----v------+    +------------+
-                          |   aramdns  |    | aramanager |
-                          | (mDNS pub) |    |  (setup)   |
-                          +------------+    +------------+
+                          +-----v------+
+  reads config & ---------+  aradeploy |
+  apps dir                | (deployer) |
+                          +-----+------+
+                                |
+                          +-----v------+
+                          |   aramdns  |  watches containers
+                          | (mDNS pub) |
+                          +------------+
 ```
 
 ## Tools
@@ -39,7 +49,7 @@ AraStack consists of 8 tools that communicate via REST APIs:
 | [aradashboard](docs/aradashboard.md) | Daemon | 8420 | Web dashboard for monitoring | [docs](docs/aradashboard.md) |
 | [araalert](docs/araalert.md) | Daemon | 7150 | Health check evaluation and alert dispatching | [docs](docs/araalert.md) |
 | [aranotify](docs/aranotify.md) | Daemon | 7140 | Multi-channel notification delivery | [docs](docs/aranotify.md) |
-| [arabackup](docs/arabackup.md) | CLI/Daemon | - | Borg backup and database dump management | [docs](docs/arabackup.md) |
+| [arabackup](docs/arabackup.md) | CLI/Daemon | 7160 | Borg backup and database dump management | [docs](docs/arabackup.md) |
 | [arascanner](docs/arascanner.md) | Daemon | 7120 | mDNS-based fleet peer discovery | [docs](docs/arascanner.md) |
 | [aramdns](docs/aramdns.md) | Daemon | - | Publishes Traefik .local domains via Avahi mDNS | [docs](docs/aramdns.md) |
 
@@ -83,7 +93,7 @@ make release
 
 ## Configuration
 
-All tools use a layered YAML configuration system:
+Most tools use a layered YAML configuration system (aramdns and arascanner use CLI flags and environment variables instead):
 
 1. System-wide: `/etc/arastack/config/{tool}.yaml`
 2. User-level: `~/.arastack/config/{tool}.yaml`
@@ -102,9 +112,14 @@ All tools use a layered YAML configuration system:
 cmd/                    # Entry points for all 8 tools
 internal/               # App-specific logic (cli, api, config, etc.)
 pkg/                    # Shared libraries
+  aradeployconfig/      # Aradeploy config loader
   clients/              # HTTP API clients for inter-app communication
   config/               # Unified YAML config framework
+  doctor/               # System diagnostics utilities
+  executil/             # Shell command execution helpers
   health/               # Health check utilities
+  netutil/              # Network utility functions
+  selfupdate/           # Binary self-update mechanism
   systemd/              # Systemd service management
   version/              # Version/build metadata
 ```

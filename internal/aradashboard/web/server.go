@@ -64,7 +64,7 @@ func NewServer(cfg *config.Config, ldc *config.AradeployYAML, version string) (*
 
 	// Health cache with app discovery from aradeploy's apps_dir
 	listFn := func() ([]string, error) {
-		return discovery.ListApps(cfg.AradeployConfig)
+		return discovery.ListApps(cfg.Aradeploy.Config)
 	}
 	healthCache := health.NewHealthCache(
 		compose,

@@ -36,7 +36,7 @@ func runDaemon() error {
 		return fmt.Errorf("loading config: %w", err)
 	}
 
-	ldc, err := config.ReadAradeployConfig(cfg.AradeployConfig)
+	ldc, err := config.ReadAradeployConfig(cfg.Aradeploy.Config)
 	if err != nil {
 		return fmt.Errorf("reading aradeploy config: %w", err)
 	}
@@ -47,7 +47,7 @@ func runDaemon() error {
 		"bind", cfg.Server.Bind,
 		"port", cfg.Server.Port,
 		"apps_dir", ldc.AppsDir,
-		"aradeploy_config", cfg.AradeployConfig,
+		"aradeploy_config", cfg.Aradeploy.Config,
 	)
 
 	srv, err := web.NewServer(&cfg, ldc, version.Version)

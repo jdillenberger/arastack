@@ -7,13 +7,18 @@ import (
 
 // Config holds the aradashboard configuration.
 type Config struct {
-	AradeployConfig string        `yaml:"aradeploy_config"`
-	Server          ServerConfig  `yaml:"server"`
-	Web             WebConfig     `yaml:"web"`
-	Docker          DockerConfig  `yaml:"docker"`
-	Routing         RoutingConfig `yaml:"routing"`
-	Services        Services      `yaml:"services"`
-	CA              CAConfig      `yaml:"ca"`
+	Aradeploy AradeployRef  `yaml:"aradeploy"`
+	Server    ServerConfig  `yaml:"server"`
+	Web       WebConfig     `yaml:"web"`
+	Docker    DockerConfig  `yaml:"docker"`
+	Routing   RoutingConfig `yaml:"routing"`
+	Services  Services      `yaml:"services"`
+	CA        CAConfig      `yaml:"ca"`
+}
+
+// AradeployRef points to the aradeploy configuration file.
+type AradeployRef struct {
+	Config string `yaml:"config"`
 }
 
 type ServerConfig struct {
@@ -63,7 +68,9 @@ type AradeployYAML = aradeployconfig.Config
 
 func Defaults() Config {
 	return Config{
-		AradeployConfig: "/etc/arastack/config/aradeploy.yaml",
+		Aradeploy: AradeployRef{
+			Config: "/etc/arastack/config/aradeploy.yaml",
+		},
 		Server: ServerConfig{
 			Bind: "0.0.0.0",
 			Port: 8420,

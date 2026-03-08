@@ -10,10 +10,17 @@ import (
 
 // Config holds the arabackup configuration.
 type Config struct {
+	Server    ServerConfig   `yaml:"server"`
 	Borg      BorgConfig     `yaml:"borg"`
 	Dumps     DumpsConfig    `yaml:"dumps"`
 	Schedule  ScheduleConfig `yaml:"schedule"`
 	Aradeploy AradeployRef   `yaml:"aradeploy"`
+}
+
+// ServerConfig holds HTTP server settings.
+type ServerConfig struct {
+	Bind string `yaml:"bind"`
+	Port int    `yaml:"port"`
 }
 
 // BorgConfig holds borg-related configuration.
@@ -50,6 +57,10 @@ type AradeployRef struct {
 // Defaults returns a Config populated with built-in defaults.
 func Defaults() *Config {
 	return &Config{
+		Server: ServerConfig{
+			Bind: "127.0.0.1",
+			Port: 7160,
+		},
 		Borg: BorgConfig{
 			BaseDir:        "/mnt/backup/borg",
 			PassphraseFile: "/etc/arastack/borg-passphrase",
@@ -146,6 +157,10 @@ func (c *Config) LoadAradeploySettings() (*aradeployconfig.Config, error) {
 // DefaultConfigYAML returns the default configuration as YAML for config init.
 func DefaultConfigYAML() string {
 	return `# arabackup configuration
+server:
+  bind: 127.0.0.1
+  port: 7160
+
 borg:
   base_dir: /mnt/backup/borg
   passphrase_file: /etc/arastack/borg-passphrase

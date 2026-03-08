@@ -49,6 +49,15 @@ Each discovered peer tracks:
 - Last seen timestamp and online/offline status
 - Discovery source (mDNS or remote)
 
+## Fleet Authentication
+
+API endpoints (except `/api/health`) are protected by a Pre-Shared Key (PSK).
+
+- **Auto-generated on first start:** When the daemon starts for the first time, a PSK is generated (32 bytes, hex-encoded) and stored in `peers.yaml` in the data directory.
+- **Sharing via invite/join:** Use `arascanner invite` to generate a time-limited invite token that embeds the PSK. The new peer runs `arascanner join <token>` to join the fleet and receive the PSK.
+- **Display the PSK:** Use `arascanner show-secret` to view the current fleet secret.
+- **aradashboard integration:** The PSK must be configured manually in aradashboard's config under `services.peer_scanner.secret`.
+
 ## How It Works
 
 1. Advertises itself via mDNS on the local network.

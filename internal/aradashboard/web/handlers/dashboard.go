@@ -119,7 +119,7 @@ func (h *Handler) Dashboard(c echo.Context) error {
 
 // DashboardHealth returns out-of-band health badge updates for all deployed apps.
 func (h *Handler) DashboardHealth(c echo.Context) error {
-	names, _ := discovery.ListApps(h.cfg.AradeployConfig)
+	names, _ := discovery.ListApps(h.cfg.Aradeploy.Config)
 
 	var buf strings.Builder
 	buf.WriteString("<span></span>")

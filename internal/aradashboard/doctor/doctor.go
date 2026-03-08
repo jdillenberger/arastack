@@ -23,10 +23,10 @@ func CheckAll(cfg config.Config) []doctor.CheckResult {
 	results = append(results, checkBinary("docker compose", "docker", "compose", "version"))
 
 	// aradeploy config
-	results = append(results, checkFile("aradeploy config", cfg.AradeployConfig))
+	results = append(results, checkFile("aradeploy config", cfg.Aradeploy.Config))
 
 	// apps_dir
-	ldc, err := config.ReadAradeployConfig(cfg.AradeployConfig)
+	ldc, err := config.ReadAradeployConfig(cfg.Aradeploy.Config)
 	if err == nil {
 		results = append(results, checkDir("apps directory", ldc.AppsDir))
 	} else {

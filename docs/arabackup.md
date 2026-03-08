@@ -6,7 +6,7 @@ Backup management tool for applications deployed via aradeploy. Supports borg fi
 
 | Command | Description |
 |---------|-------------|
-| `arabackup daemon` | Run as a daemon with scheduled backups and prunes |
+| `arabackup run` | Run as a daemon with scheduled backups and prunes |
 | `arabackup backup [app]` | Create backup (`--type`: `all`, `borg`, `dump`) |
 | `arabackup list [app]` | List backup archives |
 | `arabackup restore <app> <archive>` | Restore from a backup |
@@ -17,6 +17,13 @@ Backup management tool for applications deployed via aradeploy. Supports borg fi
 ## Configuration
 
 Default config path: `/etc/arastack/config/arabackup.yaml`
+
+### Server
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `server.bind` | `127.0.0.1` | Bind address for the API server |
+| `server.port` | `7160` | Port for the API server |
 
 ### Borg Settings
 
@@ -53,6 +60,49 @@ Default config path: `/etc/arastack/config/arabackup.yaml`
 |-----|-------------|
 | `aradeploy.config` | Path to aradeploy config for app discovery |
 
+## API Endpoints
+
+Available when running in daemon mode (`arabackup run`).
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/health` | Health check (version, uptime) |
+| `GET` | `/api/status` | Backup status (schedule, app count, last/next run) |
+
+## Docker Compose Labels
+
+Backup behavior is configured per-service via Docker Compose labels. Add these to the `labels` section of services in your `docker-compose.yml`:
+
+| Label | Required | Description |
+|-------|----------|-------------|
+| `arabackup.enable` | Yes | Set to `true` to enable backups for this service |
+| `arabackup.borg.paths` | No | Comma-separated paths relative to data_dir to back up |
+| `arabackup.dump.driver` | No | Database dump driver: `postgres`, `mysql`, `mongodb`, `sqlite`, `custom` |
+| `arabackup.dump.user` | No | Database user for dump authentication |
+| `arabackup.dump.password-env` | No | Environment variable name containing the database password |
+| `arabackup.dump.database` | No | Database name to dump |
+| `arabackup.dump.command` | No | Custom dump command (for `custom` driver) |
+| `arabackup.dump.restore-command` | No | Custom restore command (for `custom` driver) |
+| `arabackup.dump.file-ext` | No | File extension for custom dump output |
+| `arabackup.retention.keep-daily` | No | Override daily retention (default: 7) |
+| `arabackup.retention.keep-weekly` | No | Override weekly retention (default: 4) |
+| `arabackup.retention.keep-monthly` | No | Override monthly retention (default: 6) |
+
+### Example
+
+```yaml
+services:
+  postgres:
+    image: postgres:16
+    labels:
+      arabackup.enable: "true"
+      arabackup.dump.driver: postgres
+      arabackup.dump.user: myapp
+      arabackup.dump.password-env: POSTGRES_PASSWORD
+      arabackup.dump.database: myapp
+      arabackup.retention.keep-daily: "14"
+```
+
 ## How It Works
 
 1. Reads aradeploy's app directory and docker-compose files to discover services with backup labels.
@@ -64,5 +114,5 @@ Default config path: `/etc/arastack/config/arabackup.yaml`
 ## Interactions with Other Tools
 
 - **aradeploy** - reads the aradeploy apps directory and docker-compose files to discover which apps to back up. Backup behavior is driven by labels on compose services.
-- **araalert** - can post events to araalert's `/api/events` endpoint to report backup failures.
+- **araalert** - araalert evaluates backup-related alert rules by checking backup status.
 - **aradashboard** - exposes backup status via its REST API, which aradashboard queries for the backups page.

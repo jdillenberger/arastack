@@ -51,4 +51,4 @@ Default config path: `/etc/arastack/config/araalert.yaml`
 - **aranotify** - sends alert notifications via the aranotify `/api/send` endpoint. Configured via `aranotify.url`.
 - **aradeploy** - reads the aradeploy configuration to discover deployed apps and check their container health status.
 - **aradashboard** - exposes alert rules and history via its REST API, which aradashboard queries for display.
-- **arabackup, aradeploy** - these tools can post events to araalert's `/api/events` endpoint to report backup or deployment failures.
+- **Events API** - external tools can post events to the `/api/events` endpoint to trigger alerts (e.g. for backup or deployment failures).

@@ -15,6 +15,12 @@ type Config struct {
 	Dumps     DumpsConfig    `yaml:"dumps"`
 	Schedule  ScheduleConfig `yaml:"schedule"`
 	Aradeploy AradeployRef   `yaml:"aradeploy"`
+	Araalert  AraalertRef    `yaml:"araalert"`
+}
+
+// AraalertRef holds the araalert connection settings for event notifications.
+type AraalertRef struct {
+	URL string `yaml:"url"`
 }
 
 // ServerConfig holds HTTP server settings.
@@ -80,6 +86,9 @@ func Defaults() *Config {
 		},
 		Aradeploy: AradeployRef{
 			Config: "/etc/arastack/config/aradeploy.yaml",
+		},
+		Araalert: AraalertRef{
+			URL: "http://127.0.0.1:7150",
 		},
 	}
 }
@@ -179,5 +188,8 @@ schedule:
 
 aradeploy:
   config: /etc/arastack/config/aradeploy.yaml
+
+araalert:
+  url: http://127.0.0.1:7150
 `
 }

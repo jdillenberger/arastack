@@ -62,6 +62,7 @@ var upgradeCmd = &cobra.Command{
 				if err := runUpgrade(cfg, mgr, appName, dryRun, yes, check, patchOnly); err != nil {
 					fmt.Printf("  Error: %v\n", err)
 					errs = append(errs, appName)
+					pushUpdateFailedEvent(appName, err)
 				}
 				fmt.Println()
 			}

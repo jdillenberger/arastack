@@ -28,6 +28,7 @@ Then run `sudo aramanager setup` to install and configure the remaining tools.
 
 `aramanager` is the management layer for the entire suite:
 
-- **All tools** - manages installation, updates, and systemd service lifecycle
-- **araalert, aranotify, arascanner, aradashboard, aramdns** - starts/stops their systemd services
-- **aradeploy, arabackup** - manages configuration paths and validates setup
+- **All tools** - downloads binaries, manages updates via GitHub releases, and handles systemd service install/uninstall/start/stop/restart.
+- **araalert, aranotify, arascanner, aradashboard, aramdns** - installs and manages their systemd services (`aramanager service` subcommands).
+- **aradeploy, arabackup** - runs doctor checks to validate their config files exist at `/etc/arastack/config/`, creates default configs via `aramanager config init`, and manages their systemd services.
+- **aramdns, arascanner** - managed via systemd only; these tools use CLI flags/env vars instead of YAML config files, so `aramanager config show/init` does not apply to them.

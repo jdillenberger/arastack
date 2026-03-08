@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 	"text/tabwriter"
@@ -14,6 +16,7 @@ import (
 	"github.com/jdillenberger/arastack/internal/aradeploy/repo"
 	"github.com/jdillenberger/arastack/internal/aradeploy/template"
 	"github.com/jdillenberger/arastack/internal/aradeploy/wizard"
+	"github.com/jdillenberger/arastack/pkg/clients"
 	"github.com/jdillenberger/arastack/pkg/executil"
 )
 
@@ -515,6 +518,7 @@ var updateCmd = &cobra.Command{
 				fmt.Printf("Updating %s...\n", appName)
 				if err := mgr.Update(appName); err != nil {
 					fmt.Printf("  Update failed for %s: %v\n", appName, err)
+					pushUpdateFailedEvent(appName, err)
 					continue
 				}
 				fmt.Printf("  %s updated.\n", appName)
@@ -528,4 +532,21 @@ var updateCmd = &cobra.Command{
 
 		return mgr.Update(args[0])
 	},
+}
+
+// pushUpdateFailedEvent sends an update-failed event to araalert (best-effort).
+func pushUpdateFailedEvent(appName string, updateErr error) {
+	if cfg.Araalert.URL == "" {
+		return
+	}
+	ac := clients.NewAlertClient(cfg.Araalert.URL)
+	err := ac.PushEvent(context.Background(), clients.Event{
+		Type:     "update-failed",
+		App:      appName,
+		Message:  fmt.Sprintf("Update failed for %s: %v", appName, updateErr),
+		Severity: "error",
+	})
+	if err != nil {
+		slog.Warn("Failed to push alert event", "app", appName, "error", err)
+	}
 }

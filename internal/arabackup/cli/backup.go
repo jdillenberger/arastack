@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -15,6 +16,7 @@ import (
 	"github.com/jdillenberger/arastack/internal/arabackup/config"
 	"github.com/jdillenberger/arastack/internal/arabackup/discovery"
 	"github.com/jdillenberger/arastack/internal/arabackup/dump"
+	"github.com/jdillenberger/arastack/pkg/clients"
 	"github.com/jdillenberger/arastack/pkg/executil"
 )
 
@@ -159,7 +161,25 @@ func BackupAll(cfg *config.Config, runner *executil.Runner) {
 	for _, app := range apps {
 		if err := backupApp(cfg, runner, &app, "all"); err != nil {
 			slog.Error("Backup failed", "app", app.Name, "error", err)
+			pushAlertEvent(cfg, app.Name, err)
 		}
+	}
+}
+
+// pushAlertEvent sends a backup-failed event to araalert (best-effort).
+func pushAlertEvent(cfg *config.Config, appName string, backupErr error) {
+	if cfg.Araalert.URL == "" {
+		return
+	}
+	ac := clients.NewAlertClient(cfg.Araalert.URL)
+	err := ac.PushEvent(context.Background(), clients.Event{
+		Type:     "backup-failed",
+		App:      appName,
+		Message:  fmt.Sprintf("Backup failed for %s: %v", appName, backupErr),
+		Severity: "error",
+	})
+	if err != nil {
+		slog.Warn("Failed to push alert event", "app", appName, "error", err)
 	}
 }
 

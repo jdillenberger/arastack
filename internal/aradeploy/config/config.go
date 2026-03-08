@@ -26,9 +26,15 @@ type Config struct {
 	DataDir      string `yaml:"data_dir"`
 	TemplatesDir string `yaml:"templates_dir"`
 
-	Network NetworkConfig `yaml:"network"`
-	Docker  DockerConfig  `yaml:"docker"`
-	Routing RoutingConfig `yaml:"routing"`
+	Network  NetworkConfig `yaml:"network"`
+	Docker   DockerConfig  `yaml:"docker"`
+	Routing  RoutingConfig `yaml:"routing"`
+	Araalert AraalertRef   `yaml:"araalert"`
+}
+
+// AraalertRef holds the araalert connection settings for event notifications.
+type AraalertRef struct {
+	URL string `yaml:"url"`
 }
 
 // NetworkConfig holds network-related configuration.
@@ -82,6 +88,9 @@ func DefaultConfig() *Config {
 			HTTPS: HTTPSConfig{
 				Enabled: true,
 			},
+		},
+		Araalert: AraalertRef{
+			URL: "http://127.0.0.1:7150",
 		},
 	}
 }

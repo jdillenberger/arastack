@@ -45,6 +45,7 @@ Default config path: `/etc/arastack/config/aradeploy.yaml`
 | `routing.domain` | - | Custom routing domain |
 | `routing.https.enabled` | `true` | Enable HTTPS |
 | `routing.https.acme_email` | - | ACME email for Let's Encrypt |
+| `araalert.url` | `http://127.0.0.1:7150` | araalert URL for pushing update-failed events |
 
 ## How It Works
 
@@ -57,6 +58,6 @@ Default config path: `/etc/arastack/config/aradeploy.yaml`
 ## Interactions with Other Tools
 
 - **arabackup** - reads aradeploy's app directory and compose files to discover what to back up. Backup labels in compose services define backup behavior.
-- **araalert** - reads aradeploy config to discover deployed apps for health monitoring.
+- **araalert** - reads aradeploy config to discover deployed apps for health monitoring (`app-down` rules). Also receives `update-failed` events when `aradeploy update --all` or `aradeploy upgrade --all` encounters failures. Configured via `araalert.url`.
 - **aradashboard** - reads aradeploy config to list and display deployed apps, their status, and logs.
 - **aramdns** - watches containers deployed by aradeploy for Traefik labels and publishes their `.local` domains via mDNS.

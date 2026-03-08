@@ -56,9 +56,10 @@ Default config path: `/etc/arastack/config/arabackup.yaml`
 
 ### Integration
 
-| Key | Description |
-|-----|-------------|
-| `aradeploy.config` | Path to aradeploy config for app discovery |
+| Key | Default | Description |
+|-----|---------|-------------|
+| `aradeploy.config` | `/etc/arastack/config/aradeploy.yaml` | Path to aradeploy config for app discovery |
+| `araalert.url` | `http://127.0.0.1:7150` | araalert URL for pushing backup-failed events |
 
 ## API Endpoints
 
@@ -114,5 +115,5 @@ services:
 ## Interactions with Other Tools
 
 - **aradeploy** - reads the aradeploy apps directory and docker-compose files to discover which apps to back up. Backup behavior is driven by labels on compose services.
-- **araalert** - araalert evaluates backup-related alert rules by checking backup status.
+- **araalert** - pushes `backup-failed` events to araalert's `/api/events` endpoint when a backup fails. araalert matches these against configured alert rules and dispatches notifications via aranotify.
 - **aradashboard** - exposes backup status via its REST API, which aradashboard queries for the backups page.

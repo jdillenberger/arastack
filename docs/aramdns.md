@@ -30,3 +30,4 @@ Configuration via CLI flags and environment variables:
 ## Interactions with Other Tools
 
 - **aradeploy** - works in conjunction with aradeploy deployments. When aradeploy deploys an app with Traefik routing labels, aramdns automatically picks up the `.local` domain and publishes it via mDNS, making the app resolvable on the local network without manual DNS configuration.
+- **arascanner** - both tools use mDNS but do not conflict. aramdns publishes address (A) records via `avahi-publish`, while arascanner uses `_arascanner._tcp` service records via the zeroconf library. They operate on different mDNS record types and namespaces.

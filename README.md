@@ -22,22 +22,22 @@ AraStack consists of 8 tools that integrate via a mix of REST APIs (aradashboard
         +-----v-----+    +------v------+    +--------v-------+
         |  araalert  |    |  arabackup  |    |   arascanner   |
         |   (:7150)  |    |   (:7160)   |    |    (:7120)     |
-        +-----+------+    +------+------+    | (peer discov.) |
-     REST API |                  |           +----------------+
-        +-----v------+          |
-        |  aranotify |          | reads config & apps dir
-        |   (:7140)  |          |
-        | (channels) |          |
-        +------------+          |
-                          +-----v------+
-  reads config & ---------+  aradeploy |
-  apps dir                | (deployer) |
-                          +-----+------+
-                                |
-                          +-----v------+
-                          |   aramdns  |  watches containers
-                          | (mDNS pub) |
-                          +------------+
+        +--+------+--+    +------+------+    | (peer discov.) |
+   REST    |      ^ events       |           +----------------+
+   API     |      | (push)       |
+     +-----v--+   |              |
+     |aranotify|   +-------+     | reads config
+     | (:7140) |   |       |     | & apps dir
+     +--------+   |       |     |
+                   |  +----v-----v--+
+                   +--+  aradeploy  |
+                      |  (deployer) |
+                      +------+------+
+                             |
+                       +-----v------+
+                       |   aramdns  |  watches containers
+                       | (mDNS pub) |
+                       +------------+
 ```
 
 ## Tools
@@ -52,6 +52,8 @@ AraStack consists of 8 tools that integrate via a mix of REST APIs (aradashboard
 | [arabackup](docs/arabackup.md) | CLI/Daemon | 7160 | Borg backup and database dump management | [docs](docs/arabackup.md) |
 | [arascanner](docs/arascanner.md) | Daemon | 7120 | mDNS-based fleet peer discovery | [docs](docs/arascanner.md) |
 | [aramdns](docs/aramdns.md) | Daemon | - | Publishes Traefik .local domains via Avahi mDNS | [docs](docs/aramdns.md) |
+
+> **Note on mDNS:** aramdns and arascanner both use mDNS but for different purposes and do not conflict. aramdns publishes address (A) records for `.local` domains via Avahi. arascanner advertises and discovers `_arascanner._tcp` service records via zeroconf. They operate on different mDNS record types.
 
 ## Quick Start
 
@@ -99,6 +101,10 @@ Most tools use a layered YAML configuration system (aramdns and arascanner use C
 2. User-level: `~/.arastack/config/{tool}.yaml`
 3. Environment variables: `{TOOL}_{SECTION}_{KEY}`
 4. CLI flag: `--config /path/to/config.yaml`
+
+## API Authentication
+
+arascanner's API is protected by a Pre-Shared Key (PSK). The other service APIs (araalert, aranotify, arabackup) bind to `127.0.0.1` by default and are only accessible locally. aradashboard binds to `0.0.0.0` by default to serve its web UI — use a reverse proxy or firewall to restrict access in untrusted networks.
 
 ## Supported Platforms
 

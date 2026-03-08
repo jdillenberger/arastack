@@ -70,3 +70,4 @@ API endpoints (except `/api/health`) are protected by a Pre-Shared Key (PSK).
 ## Interactions with Other Tools
 
 - **aradashboard** - exposes peer data via the `/api/peers` endpoint (authenticated via PSK). aradashboard displays fleet information on its fleet page.
+- **aramdns** - both tools use mDNS but do not conflict. arascanner advertises/discovers `_arascanner._tcp` service records for peer discovery, while aramdns publishes address (A) records for Traefik `.local` domains. They use different mDNS record types.

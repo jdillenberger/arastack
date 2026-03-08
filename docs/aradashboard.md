@@ -17,8 +17,8 @@ Default config path: `/etc/arastack/config/aradashboard.yaml`
 | `server.bind` | `0.0.0.0` | Bind address |
 | `server.port` | `8420` | Web server port |
 | `aradeploy.config` | `/etc/arastack/config/aradeploy.yaml` | Path to aradeploy config |
-| `docker.runtime` | `docker` | Container runtime |
-| `docker.compose_command` | `docker compose` | Compose command |
+| `docker.runtime` | `docker` | Container runtime (must match aradeploy's `docker.runtime`) |
+| `docker.compose_command` | `docker compose` | Compose command (must match aradeploy's `docker.compose_command`) |
 | `routing.enabled` | `true` | Enable routing features |
 | `routing.https_enabled` | `true` | Enable HTTPS |
 | `web.nav_color` | - | Navigation bar color |

@@ -1,0 +1,99 @@
+{{template "base.html" .}}
+
+{{define "title"}}{{.Hostname}} - labdashboard{{end}}
+
+{{define "content"}}
+{{if gt .ActiveAlertCount 0}}
+<div class="alert-banner">
+    <span>{{.ActiveAlertCount}} alert{{if gt .ActiveAlertCount 1}}s{{end}} in the last 24h</span>
+    <a href="/alerts">View &rarr;</a>
+</div>
+{{end}}
+
+{{if .Apps}}
+<div class="apps-grid">
+    {{range .Apps}}
+    <div class="app-card">
+        <div class="app-card-header">
+            <a class="app-card-name" {{if .AccessURL}}href="{{.AccessURL}}" target="_blank" rel="noopener"{{else}}href="/apps/{{.Name}}"{{end}} {{if .RoutingURL}}data-routing-url="{{.RoutingURL}}"{{end}}>{{.Name}}</a>
+            <span id="health-{{.Name}}" class="badge badge-available">...</span>
+        </div>
+        {{if .Description}}<div class="app-card-desc">{{.Description}}</div>{{end}}
+        <div class="app-card-meta">
+            {{if .Version}}<span>v{{.Version}}</span>{{end}}
+            {{if .DisplayURL}}<span class="app-display-url">{{.DisplayURL}}</span>{{end}}
+            <a href="/apps/{{.Name}}" class="app-card-manage">details &rarr;</a>
+        </div>
+    </div>
+    {{end}}
+</div>
+<!-- Load health badges asynchronously -->
+<div hx-get="/dashboard/health" hx-trigger="load" hx-swap="innerHTML" style="display:none;"></div>
+{{else}}
+<article>
+    <div class="empty-state">
+        <strong>No apps deployed yet</strong>
+        <p>Deploy apps with labdeploy to see them here.</p>
+        <p><code>labdeploy deploy &lt;app&gt;</code></p>
+    </div>
+</article>
+{{end}}
+
+<!-- Fleet + Alerts: loaded async, hidden when empty -->
+<div id="dashboard-fleet" class="dashboard-extra" hx-get="/dashboard/peers" hx-trigger="load" hx-swap="innerHTML">
+</div>
+
+{{if gt .ActiveAlertCount 0}}
+<div id="dashboard-alerts" class="dashboard-extra">
+    <article>
+        <header><strong>Recent Alerts</strong></header>
+        <div hx-get="/alerts/partial" hx-trigger="load, every 30s" hx-swap="innerHTML">
+        </div>
+        <footer><a href="/alerts">View all alerts &rarr;</a></footer>
+    </article>
+</div>
+{{end}}
+
+<script>
+(function() {
+    var CACHE_KEY = 'labdashboard-routing';
+    var CACHE_TTL = 30000;
+
+    function upgradeURLs(domains) {
+        document.querySelectorAll('[data-routing-url]').forEach(function(el) {
+            var url = el.dataset.routingUrl;
+            try {
+                var domain = new URL(url).hostname;
+                if (domains.indexOf(domain) !== -1) {
+                    el.href = url;
+                    var card = el.closest('.app-card');
+                    if (card) {
+                        var span = card.querySelector('.app-display-url');
+                        if (span) span.textContent = domain;
+                    }
+                }
+            } catch(e) {}
+        });
+    }
+
+    var cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+        try {
+            var data = JSON.parse(cached);
+            if (Date.now() - data.ts < CACHE_TTL) {
+                upgradeURLs(data.domains || []);
+                return;
+            }
+        } catch(e) {}
+    }
+
+    fetch('/api/routing/status')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            localStorage.setItem(CACHE_KEY, JSON.stringify({domains: data.domains || [], ts: Date.now()}));
+            upgradeURLs(data.domains || []);
+        })
+        .catch(function() {});
+})();
+</script>
+{{end}}

@@ -1,0 +1,68 @@
+{{template "base.html" .}}
+
+{{define "title"}}{{.App.Name}} - labdashboard{{end}}
+
+{{define "content"}}
+<nav aria-label="breadcrumb">
+    <ul>
+        <li><a href="/">Portal</a></li>
+        <li><a href="/apps">Apps</a></li>
+        <li>{{.App.Name}}</li>
+    </ul>
+</nav>
+
+<h2>{{.App.Name}}</h2>
+
+<div class="grid">
+    <article>
+        <header><strong>Details</strong></header>
+        <table>
+            <tr><td><strong>Name</strong></td><td>{{.App.Name}}</td></tr>
+            <tr><td><strong>Template</strong></td><td>{{.App.Template}}</td></tr>
+            <tr><td><strong>Version</strong></td><td>{{.App.Version}}</td></tr>
+            <tr><td><strong>Deployed</strong></td><td>{{.App.DeployedAt.Format "2006-01-02 15:04:05"}}</td></tr>
+        </table>
+    </article>
+    <article>
+        <header><strong>Containers</strong></header>
+        {{if .Containers}}
+        <table>
+            <thead>
+                <tr>
+                    <th>Service</th>
+                    <th>State</th>
+                    <th>Status</th>
+                    <th>Ports</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Containers}}
+                <tr>
+                    <td>{{.Service}}</td>
+                    <td>
+                        {{if .Running}}<span class="badge badge-running">running</span>
+                        {{else}}<span class="badge badge-stopped">{{.State}}</span>{{end}}
+                    </td>
+                    <td><small>{{.Status}}</small></td>
+                    <td><small>{{.Ports}}</small></td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+        {{else if .StatusRaw}}
+        <pre style="font-size:0.8rem;overflow-x:auto;">{{.StatusRaw}}</pre>
+        {{else}}
+        <div class="empty-state">
+            <p>Unable to retrieve container status.</p>
+        </div>
+        {{end}}
+    </article>
+</div>
+
+<article>
+    <header><strong>Actions</strong></header>
+    <div class="actions" style="margin-top:0;">
+        <a href="/apps/{{.App.Name}}/logs" role="button" class="outline">View Logs</a>
+    </div>
+</article>
+{{end}}

@@ -1,0 +1,154 @@
+package executil
+
+import (
+	"bytes"
+	"context"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"strings"
+)
+
+// Runner wraps os/exec with logging support.
+type Runner struct {
+	Verbose bool
+}
+
+// Result holds command execution results.
+type Result struct {
+	Stdout   string
+	Stderr   string
+	ExitCode int
+}
+
+// Run executes a command and returns captured output.
+func (r *Runner) Run(name string, args ...string) (*Result, error) {
+	if r.Verbose {
+		fmt.Fprintf(os.Stderr, "exec: %s %s\n", name, strings.Join(args, " "))
+	}
+
+	cmd := exec.Command(name, args...)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	result := &Result{
+		Stdout: stdout.String(),
+		Stderr: stderr.String(),
+	}
+
+	if exitErr, ok := err.(*exec.ExitError); ok {
+		result.ExitCode = exitErr.ExitCode()
+		return result, fmt.Errorf("command %q exited with code %d: %s", name, result.ExitCode, stderr.String())
+	}
+	if err != nil {
+		return result, fmt.Errorf("command %q failed: %w", name, err)
+	}
+
+	return result, nil
+}
+
+// RunWithEnv executes a command with additional environment variables.
+func (r *Runner) RunWithEnv(env []string, name string, args ...string) (*Result, error) {
+	if r.Verbose {
+		fmt.Fprintf(os.Stderr, "exec: %s %s\n", name, strings.Join(args, " "))
+	}
+
+	cmd := exec.Command(name, args...)
+	cmd.Env = append(os.Environ(), env...)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	result := &Result{
+		Stdout: stdout.String(),
+		Stderr: stderr.String(),
+	}
+
+	if exitErr, ok := err.(*exec.ExitError); ok {
+		result.ExitCode = exitErr.ExitCode()
+		return result, fmt.Errorf("command %q exited with code %d: %s", name, result.ExitCode, stderr.String())
+	}
+	if err != nil {
+		return result, fmt.Errorf("command %q failed: %w", name, err)
+	}
+
+	return result, nil
+}
+
+// RunWithContext executes a command with context support for cancellation/timeouts.
+func (r *Runner) RunWithContext(ctx context.Context, name string, args ...string) (*Result, error) {
+	if r.Verbose {
+		fmt.Fprintf(os.Stderr, "exec: %s %s\n", name, strings.Join(args, " "))
+	}
+
+	cmd := exec.CommandContext(ctx, name, args...)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	result := &Result{
+		Stdout: stdout.String(),
+		Stderr: stderr.String(),
+	}
+
+	if ctx.Err() != nil {
+		return result, fmt.Errorf("command %q: %w", name, ctx.Err())
+	}
+	if exitErr, ok := err.(*exec.ExitError); ok {
+		result.ExitCode = exitErr.ExitCode()
+		return result, fmt.Errorf("command %q exited with code %d: %s", name, result.ExitCode, stderr.String())
+	}
+	if err != nil {
+		return result, fmt.Errorf("command %q failed: %w", name, err)
+	}
+
+	return result, nil
+}
+
+// RunInteractive runs a command with stdin/stdout/stderr attached.
+func (r *Runner) RunInteractive(name string, args ...string) error {
+	if r.Verbose {
+		fmt.Fprintf(os.Stderr, "exec: %s %s\n", name, strings.Join(args, " "))
+	}
+
+	cmd := exec.Command(name, args...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run()
+}
+
+// RunStream runs a command streaming stdout to the given writer.
+func (r *Runner) RunStream(w io.Writer, name string, args ...string) error {
+	if r.Verbose {
+		fmt.Fprintf(os.Stderr, "exec: %s %s\n", name, strings.Join(args, " "))
+	}
+
+	cmd := exec.Command(name, args...)
+	cmd.Stdout = w
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run()
+}
+
+// RunPipe runs a command and pipes stdout to the given writer, with custom env.
+func (r *Runner) RunPipe(w io.Writer, env []string, name string, args ...string) error {
+	if r.Verbose {
+		fmt.Fprintf(os.Stderr, "exec: %s %s\n", name, strings.Join(args, " "))
+	}
+
+	cmd := exec.Command(name, args...)
+	if len(env) > 0 {
+		cmd.Env = append(os.Environ(), env...)
+	}
+	cmd.Stdout = w
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run()
+}

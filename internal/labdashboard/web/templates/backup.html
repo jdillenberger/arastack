@@ -1,0 +1,35 @@
+{{template "base.html" .}}
+
+{{define "title"}}Backups - labdashboard{{end}}
+
+{{define "content"}}
+<h2>Backups</h2>
+
+{{if .Unavailable}}
+<article>
+    <div class="service-unavailable">
+        <strong>labbackup service unavailable</strong>
+        <p>Backup information requires labbackup to be running.</p>
+    </div>
+</article>
+{{else}}
+<article>
+    <header><strong>Status</strong></header>
+    <table>
+        <tr>
+            <td><strong>Enabled</strong></td>
+            <td>
+                {{if .Status.Enabled}}<span class="badge badge-running">enabled</span>
+                {{else}}<span class="badge badge-stopped">disabled</span>{{end}}
+            </td>
+        </tr>
+        {{if .Status.Schedule}}<tr><td><strong>Schedule</strong></td><td>{{.Status.Schedule}}</td></tr>{{end}}
+        {{if .Status.RepoPath}}<tr><td><strong>Repository</strong></td><td>{{.Status.RepoPath}}</td></tr>{{end}}
+        {{if .Status.LastRun}}<tr><td><strong>Last Run</strong></td><td>{{.Status.LastRun}}</td></tr>{{end}}
+        {{if .Status.NextRun}}<tr><td><strong>Next Run</strong></td><td>{{.Status.NextRun}}</td></tr>{{end}}
+        {{if .Status.TotalSize}}<tr><td><strong>Total Size</strong></td><td>{{.Status.TotalSize}}</td></tr>{{end}}
+        {{if gt .Status.AppCount 0}}<tr><td><strong>Apps</strong></td><td>{{.Status.AppCount}} apps configured</td></tr>{{end}}
+    </table>
+</article>
+{{end}}
+{{end}}

@@ -1,0 +1,18 @@
+<div class="sidebar-stats">
+    <div class="sidebar-stat">
+        <div class="value">{{printf "%.0f" .CPUPercent}}%</div>
+        <div class="label">CPU</div>
+    </div>
+    <div class="sidebar-stat">
+        <div class="value">{{printf "%.0f" .MemPercent}}%</div>
+        <div class="label">MEM {{.MemUsedGB}}/{{.MemTotalGB}}G</div>
+    </div>
+    <div class="sidebar-stat">
+        <div class="value">{{printf "%.0f" .DiskPercent}}%</div>
+        <div class="label">DISK {{.DiskUsedGB}}/{{.DiskTotalGB}}G</div>
+    </div>
+    <div class="sidebar-stat">
+        <div class="value">{{.Uptime}}</div>
+        <div class="label">Uptime</div>
+    </div>
+</div>

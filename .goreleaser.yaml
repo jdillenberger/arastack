@@ -1,0 +1,102 @@
+version: 2
+
+builds:
+  - id: labalert
+    main: ./cmd/labalert
+    binary: labalert
+    env: [CGO_ENABLED=0]
+    goos: [linux]
+    goarch: [amd64, arm64, arm]
+    goarm: ["7"]
+    ldflags: &ldflags
+      - -s -w
+      - -X main.ver={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+    flags: [-trimpath]
+
+  - id: labbackup
+    main: ./cmd/labbackup
+    binary: labbackup
+    env: [CGO_ENABLED=0]
+    goos: [linux]
+    goarch: [amd64, arm64, arm]
+    goarm: ["7"]
+    ldflags: *ldflags
+    flags: [-trimpath]
+
+  - id: labdashboard
+    main: ./cmd/labdashboard
+    binary: labdashboard
+    env: [CGO_ENABLED=0]
+    goos: [linux]
+    goarch: [amd64, arm64, arm]
+    goarm: ["7"]
+    ldflags: *ldflags
+    flags: [-trimpath]
+
+  - id: labdeploy
+    main: ./cmd/labdeploy
+    binary: labdeploy
+    env: [CGO_ENABLED=0]
+    goos: [linux]
+    goarch: [amd64, arm64, arm]
+    goarm: ["7"]
+    ldflags: *ldflags
+    flags: [-trimpath]
+
+  - id: labmanager
+    main: ./cmd/labmanager
+    binary: labmanager
+    env: [CGO_ENABLED=0]
+    goos: [linux]
+    goarch: [amd64, arm64, arm]
+    goarm: ["7"]
+    ldflags: *ldflags
+    flags: [-trimpath]
+
+  - id: labnotify
+    main: ./cmd/labnotify
+    binary: labnotify
+    env: [CGO_ENABLED=0]
+    goos: [linux]
+    goarch: [amd64, arm64, arm]
+    goarm: ["7"]
+    ldflags: *ldflags
+    flags: [-trimpath]
+
+  - id: peer-scanner
+    main: ./cmd/peer-scanner
+    binary: peer-scanner
+    env: [CGO_ENABLED=0]
+    goos: [linux]
+    goarch: [amd64, arm64, arm]
+    goarm: ["7"]
+    ldflags: *ldflags
+    flags: [-trimpath]
+
+  - id: traefik-mdns
+    main: ./cmd/traefik-mdns
+    binary: traefik-mdns
+    env: [CGO_ENABLED=0]
+    goos: [linux]
+    goarch: [amd64, arm64, arm]
+    goarm: ["7"]
+    ldflags: *ldflags
+    flags: [-trimpath]
+
+archives:
+  - id: per-tool
+    formats: [tar.gz]
+    name_template: "{{ .Binary }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"

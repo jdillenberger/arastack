@@ -8,6 +8,10 @@ func DetectLocalIP() string {
 	if err != nil {
 		return ""
 	}
-	defer conn.Close()
-	return conn.LocalAddr().(*net.UDPAddr).IP.String()
+	defer conn.Close() //nolint:errcheck // UDP connection close
+	addr, ok := conn.LocalAddr().(*net.UDPAddr)
+	if !ok || addr == nil {
+		return ""
+	}
+	return addr.IP.String()
 }

@@ -1,0 +1,86 @@
+{{template "base.html" .}}
+
+{{define "title"}}Alerts - aradashboard{{end}}
+
+{{define "content"}}
+<h2>Alerts</h2>
+
+{{if .Unavailable}}
+<article>
+    <div class="service-unavailable">
+        <strong>araalert service unavailable</strong>
+        <p>Alert management requires araalert to be running.</p>
+    </div>
+</article>
+{{else}}
+<article>
+    <header><strong>Rules</strong></header>
+    {{if .Rules}}
+    <div class="overflow-auto">
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Type</th>
+                <th>Threshold</th>
+                <th>App</th>
+                <th>Channels</th>
+                <th>Enabled</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Rules}}
+            <tr>
+                <td>{{slice .ID 0 8}}</td>
+                <td>{{.Type}}</td>
+                <td>{{if gt .Threshold 0.0}}{{printf "%.0f%%" .Threshold}}{{else}}-{{end}}</td>
+                <td>{{if .App}}{{.App}}{{else}}*{{end}}</td>
+                <td>{{range $i, $ch := .Channels}}{{if $i}}, {{end}}{{$ch}}{{end}}</td>
+                <td>{{if .Enabled}}Yes{{else}}No{{end}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    </div>
+    {{else}}
+    <div class="empty-state">
+        <strong>No alert rules configured</strong>
+        <p>Create rules via araalert CLI.</p>
+    </div>
+    {{end}}
+</article>
+
+<article>
+    <header><strong>Recent History</strong></header>
+    {{if .History}}
+    <div class="overflow-auto">
+    <table>
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Severity</th>
+                <th>Type</th>
+                <th>Message</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .History}}
+            <tr>
+                <td>{{.Timestamp.Format "2006-01-02 15:04:05"}}</td>
+                <td><span class="badge badge-{{if eq (print .Severity) "critical"}}stopped{{else if eq (print .Severity) "warning"}}available{{else}}deployed{{end}}">{{.Severity}}</span></td>
+                <td>{{.Type}}</td>
+                <td>{{.Message}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    </div>
+    {{else}}
+    <div class="empty-state">
+        <strong>No alert history</strong>
+        <p>Alerts will appear here when rules trigger.</p>
+    </div>
+    {{end}}
+</article>
+{{end}}
+{{end}}

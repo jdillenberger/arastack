@@ -1,4 +1,4 @@
-TOOLS := labalert labbackup labdashboard labdeploy labmanager labnotify peer-scanner traefik-mdns
+TOOLS := araalert arabackup aradashboard aradeploy aramanager aranotify arascanner aramdns
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
@@ -12,6 +12,8 @@ LDFLAGS := -s -w \
 GOFLAGS := -trimpath
 
 .PHONY: all build build-arm64 install test lint fmt vet clean release help $(addprefix build-,$(TOOLS)) $(addprefix run-,$(TOOLS))
+
+.DEFAULT_GOAL := help
 
 all: build ## Build all tools
 

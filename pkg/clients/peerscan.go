@@ -1,10 +1,7 @@
 package clients
 
 import (
-	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
+	"context"
 	"time"
 )
 
@@ -35,66 +32,34 @@ type HealthResponse struct {
 	Uptime   int64  `json:"uptime_seconds"`
 }
 
-// PeerScannerClient talks to the local peer-scanner REST API.
-type PeerScannerClient struct {
-	baseURL string
-	secret  string
-	http    *http.Client
+// AraScannerClient talks to the local arascanner REST API.
+type AraScannerClient struct {
+	BaseClient
 }
 
-// NewPeerScannerClient creates a new peer-scanner API client.
-func NewPeerScannerClient(url, secret string) *PeerScannerClient {
-	return &PeerScannerClient{
-		baseURL: url,
-		secret:  secret,
-		http:    &http.Client{Timeout: 5 * time.Second},
+// NewAraScannerClient creates a new arascanner API client.
+func NewAraScannerClient(url, secret string) *AraScannerClient {
+	c := &AraScannerClient{
+		BaseClient: NewBaseClient(url, 5*time.Second),
 	}
+	c.auth = secret
+	return c
 }
 
-// Peers returns all known peers from the peer-scanner daemon.
-func (c *PeerScannerClient) Peers() (*PeersResponse, error) {
-	req, err := http.NewRequest("GET", c.baseURL+"/api/peers", nil)
-	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
-	}
-	if c.secret != "" {
-		req.Header.Set("Authorization", "Bearer "+c.secret)
-	}
-
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("querying peer-scanner: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("peer-scanner returned %d: %s", resp.StatusCode, string(body))
-	}
-
+// Peers returns all known peers from the arascanner daemon.
+func (c *AraScannerClient) Peers() (*PeersResponse, error) {
 	var result PeersResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("decoding response: %w", err)
+	if err := c.GetJSON(context.Background(), "/api/peers", &result); err != nil {
+		return nil, err
 	}
 	return &result, nil
 }
 
-// PeerScannerHealth returns the health status of the peer-scanner daemon.
-func (c *PeerScannerClient) PeerScannerHealth() (*HealthResponse, error) {
-	resp, err := c.http.Get(c.baseURL + "/api/health")
-	if err != nil {
-		return nil, fmt.Errorf("querying peer-scanner health: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("peer-scanner returned %d: %s", resp.StatusCode, string(body))
-	}
-
+// AraScannerHealth returns the health status of the arascanner daemon.
+func (c *AraScannerClient) AraScannerHealth() (*HealthResponse, error) {
 	var result HealthResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("decoding response: %w", err)
+	if err := c.GetJSON(context.Background(), "/api/health", &result); err != nil {
+		return nil, err
 	}
 	return &result, nil
 }

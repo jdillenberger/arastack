@@ -152,3 +152,68 @@ func (r *Runner) RunPipe(w io.Writer, env []string, name string, args ...string)
 
 	return cmd.Run()
 }
+
+// RunWithEnvAndDir executes a command with additional environment variables and
+// working directory.
+func (r *Runner) RunWithEnvAndDir(env []string, dir, name string, args ...string) (*Result, error) {
+	if r.Verbose {
+		fmt.Fprintf(os.Stderr, "exec: %s %s\n", name, strings.Join(args, " "))
+	}
+
+	cmd := exec.Command(name, args...)
+	if len(env) > 0 {
+		cmd.Env = append(os.Environ(), env...)
+	}
+	if dir != "" {
+		cmd.Dir = dir
+	}
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	result := &Result{
+		Stdout: stdout.String(),
+		Stderr: stderr.String(),
+	}
+
+	if exitErr, ok := err.(*exec.ExitError); ok {
+		result.ExitCode = exitErr.ExitCode()
+		return result, fmt.Errorf("command %q exited with code %d: %s", name, result.ExitCode, stderr.String())
+	}
+	if err != nil {
+		return result, fmt.Errorf("command %q failed: %w", name, err)
+	}
+
+	return result, nil
+}
+
+// RunPipeStdin runs a command with stdin piped from the given reader and
+// captures output. This avoids using sh -c for piping.
+func (r *Runner) RunPipeStdin(stdin io.Reader, name string, args ...string) (*Result, error) {
+	if r.Verbose {
+		fmt.Fprintf(os.Stderr, "exec: %s %s\n", name, strings.Join(args, " "))
+	}
+
+	cmd := exec.Command(name, args...)
+	cmd.Stdin = stdin
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	result := &Result{
+		Stdout: stdout.String(),
+		Stderr: stderr.String(),
+	}
+
+	if exitErr, ok := err.(*exec.ExitError); ok {
+		result.ExitCode = exitErr.ExitCode()
+		return result, fmt.Errorf("command %q exited with code %d: %s", name, result.ExitCode, stderr.String())
+	}
+	if err != nil {
+		return result, fmt.Errorf("command %q failed: %w", name, err)
+	}
+
+	return result, nil
+}

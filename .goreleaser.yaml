@@ -1,9 +1,9 @@
 version: 2
 
 builds:
-  - id: labalert
-    main: ./cmd/labalert
-    binary: labalert
+  - id: araalert
+    main: ./cmd/araalert
+    binary: araalert
     env: [CGO_ENABLED=0]
     goos: [linux]
     goarch: [amd64, arm64, arm]
@@ -15,9 +15,9 @@ builds:
       - -X main.date={{.Date}}
     flags: [-trimpath]
 
-  - id: labbackup
-    main: ./cmd/labbackup
-    binary: labbackup
+  - id: arabackup
+    main: ./cmd/arabackup
+    binary: arabackup
     env: [CGO_ENABLED=0]
     goos: [linux]
     goarch: [amd64, arm64, arm]
@@ -25,9 +25,9 @@ builds:
     ldflags: *ldflags
     flags: [-trimpath]
 
-  - id: labdashboard
-    main: ./cmd/labdashboard
-    binary: labdashboard
+  - id: aradashboard
+    main: ./cmd/aradashboard
+    binary: aradashboard
     env: [CGO_ENABLED=0]
     goos: [linux]
     goarch: [amd64, arm64, arm]
@@ -35,9 +35,9 @@ builds:
     ldflags: *ldflags
     flags: [-trimpath]
 
-  - id: labdeploy
-    main: ./cmd/labdeploy
-    binary: labdeploy
+  - id: aradeploy
+    main: ./cmd/aradeploy
+    binary: aradeploy
     env: [CGO_ENABLED=0]
     goos: [linux]
     goarch: [amd64, arm64, arm]
@@ -45,9 +45,9 @@ builds:
     ldflags: *ldflags
     flags: [-trimpath]
 
-  - id: labmanager
-    main: ./cmd/labmanager
-    binary: labmanager
+  - id: aramanager
+    main: ./cmd/aramanager
+    binary: aramanager
     env: [CGO_ENABLED=0]
     goos: [linux]
     goarch: [amd64, arm64, arm]
@@ -55,9 +55,9 @@ builds:
     ldflags: *ldflags
     flags: [-trimpath]
 
-  - id: labnotify
-    main: ./cmd/labnotify
-    binary: labnotify
+  - id: aranotify
+    main: ./cmd/aranotify
+    binary: aranotify
     env: [CGO_ENABLED=0]
     goos: [linux]
     goarch: [amd64, arm64, arm]
@@ -65,9 +65,9 @@ builds:
     ldflags: *ldflags
     flags: [-trimpath]
 
-  - id: peer-scanner
-    main: ./cmd/peer-scanner
-    binary: peer-scanner
+  - id: arascanner
+    main: ./cmd/arascanner
+    binary: arascanner
     env: [CGO_ENABLED=0]
     goos: [linux]
     goarch: [amd64, arm64, arm]
@@ -75,9 +75,9 @@ builds:
     ldflags: *ldflags
     flags: [-trimpath]
 
-  - id: traefik-mdns
-    main: ./cmd/traefik-mdns
-    binary: traefik-mdns
+  - id: aramdns
+    main: ./cmd/aramdns
+    binary: aramdns
     env: [CGO_ENABLED=0]
     goos: [linux]
     goarch: [amd64, arm64, arm]
@@ -86,9 +86,24 @@ builds:
     flags: [-trimpath]
 
 archives:
-  - id: per-tool
+  - id: aramanager
     formats: [tar.gz]
-    name_template: "{{ .Binary }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
+    builds:
+      - aramanager
+    name_template: "aramanager_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
+
+  - id: combined
+    formats: [tar.gz]
+    builds:
+      - araalert
+      - arabackup
+      - aradashboard
+      - aradeploy
+      - aramanager
+      - aranotify
+      - arascanner
+      - aramdns
+    name_template: "arastack_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
 
 checksum:
   name_template: "checksums.txt"

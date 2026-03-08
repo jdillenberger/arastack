@@ -1,15 +1,13 @@
 package clients
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"time"
 )
 
-// Event represents an event pushed to labalert's /api/events endpoint.
+// Event represents an event pushed to araalert's /api/events endpoint.
 type Event struct {
 	Type     string `json:"type"`
 	App      string `json:"app,omitempty"`
@@ -17,80 +15,41 @@ type Event struct {
 	Severity string `json:"severity"`
 }
 
-// AlertClient is a thin HTTP client for labalert's API.
+// AlertClient is a thin HTTP client for araalert's API.
 type AlertClient struct {
-	baseURL string
-	client  *http.Client
+	BaseClient
 }
 
-// NewAlertClient creates a new labalert API client.
+// NewAlertClient creates a new araalert API client.
 func NewAlertClient(baseURL string) *AlertClient {
 	return &AlertClient{
-		baseURL: baseURL,
-		client: &http.Client{
-			Timeout: 10 * time.Second,
-		},
+		BaseClient: NewBaseClient(baseURL, 10*time.Second),
 	}
 }
 
-// PushEvent sends an event to labalert for rule evaluation and notification.
+// PushEvent sends an event to araalert for rule evaluation and notification.
 func (c *AlertClient) PushEvent(ctx context.Context, e Event) error {
-	body, err := json.Marshal(e)
-	if err != nil {
-		return fmt.Errorf("marshaling event: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/api/events", bytes.NewReader(body))
-	if err != nil {
-		return fmt.Errorf("creating request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return fmt.Errorf("posting event to labalert: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
-		return fmt.Errorf("labalert returned HTTP %d", resp.StatusCode)
-	}
-	return nil
+	return c.PostJSON(ctx, "/api/events", e)
 }
 
-// Rules fetches alert rules from labalert.
+// Rules fetches alert rules from araalert.
 func (c *AlertClient) Rules(ctx context.Context) (json.RawMessage, error) {
-	return c.getJSON(ctx, "/api/rules")
+	var raw json.RawMessage
+	if err := c.GetJSON(ctx, "/api/rules", &raw); err != nil {
+		return nil, fmt.Errorf("fetching rules: %w", err)
+	}
+	return raw, nil
 }
 
-// History fetches alert history from labalert.
+// History fetches alert history from araalert.
 func (c *AlertClient) History(ctx context.Context, limit int) (json.RawMessage, error) {
 	path := "/api/history"
 	if limit > 0 {
 		path = fmt.Sprintf("/api/history?limit=%d", limit)
 	}
-	return c.getJSON(ctx, path)
-}
-
-func (c *AlertClient) getJSON(ctx context.Context, path string) (json.RawMessage, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+path, http.NoBody)
-	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
-	}
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("requesting %s: %w", path, err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("labalert returned HTTP %d for %s", resp.StatusCode, path)
-	}
-
 	var raw json.RawMessage
-	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
-		return nil, fmt.Errorf("decoding response: %w", err)
+	if err := c.GetJSON(ctx, path, &raw); err != nil {
+		return nil, fmt.Errorf("fetching history: %w", err)
 	}
 	return raw, nil
 }

@@ -28,8 +28,8 @@ func (c *ServiceConfig) unitPath() string {
 
 func (c *ServiceConfig) generateUnitFile() string {
 	binPath := "/usr/local/bin/" + c.BinaryName
-	// When running from the tool's own binary (e.g. `labalert service install`),
-	// try to use the actual executable path. When running from labmanager for a
+	// When running from the tool's own binary (e.g. `araalert service install`),
+	// try to use the actual executable path. When running from aramanager for a
 	// different tool, always use the standard install path.
 	if exe, err := os.Executable(); err == nil {
 		resolved, _ := filepath.EvalSymlinks(exe)

@@ -11,6 +11,7 @@ type CheckResult struct {
 	Name           string `json:"name"`
 	Installed      bool   `json:"installed"`
 	Version        string `json:"version,omitempty"`
+	Optional       bool   `json:"optional,omitempty"`
 	InstallCommand string `json:"install_command,omitempty"`
 }
 

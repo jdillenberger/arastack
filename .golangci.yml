@@ -1,5 +1,11 @@
+version: "2"
+
 run:
   timeout: 5m
+
+formatters:
+  enable:
+    - gofmt
 
 linters:
   enable:
@@ -9,14 +15,12 @@ linters:
     - unused
     - ineffassign
     - gocritic
-    - gofmt
-    - gosimple
 
-linters-settings:
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - style
+  settings:
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
 
 issues:
   exclude-use-default: true

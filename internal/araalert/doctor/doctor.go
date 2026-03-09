@@ -130,7 +130,9 @@ func Fix(r doctor.CheckResult, cfg config.Config) error {
 
 	switch r.Name {
 	case "data-dir":
-		if err := os.MkdirAll(cfg.DataDir, 0o755); err != nil {
+		cmd := exec.Command("sudo", "mkdir", "-p", cfg.DataDir)
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("creating %s: %w", cfg.DataDir, err)
 		}
 		fmt.Printf("    Created %s\n", cfg.DataDir)

@@ -101,7 +101,9 @@ func fixConfigFile() error {
 	dir := "/etc/arastack/config"
 	path := filepath.Join(dir, "aranotify.yaml")
 
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	mkdirCmd := exec.Command("sudo", "mkdir", "-p", dir)
+	mkdirCmd.Stderr = os.Stderr
+	if err := mkdirCmd.Run(); err != nil {
 		return fmt.Errorf("creating %s: %w", dir, err)
 	}
 
@@ -127,8 +129,18 @@ channels:
     webhook_url: ""
 `
 
-	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+	teeCmd := exec.Command("sudo", "tee", path)
+	teeCmd.Stdin = strings.NewReader(content)
+	teeCmd.Stderr = os.Stderr
+	teeCmd.Stdout = nil
+	if err := teeCmd.Run(); err != nil {
 		return fmt.Errorf("writing %s: %w", path, err)
+	}
+	// Restrict permissions on config file (may contain secrets).
+	chmodCmd := exec.Command("sudo", "chmod", "600", path)
+	chmodCmd.Stderr = os.Stderr
+	if err := chmodCmd.Run(); err != nil {
+		return fmt.Errorf("chmod %s: %w", path, err)
 	}
 	fmt.Printf("    Created %s\n", path)
 	return nil
@@ -136,7 +148,9 @@ channels:
 
 func fixDataDir() error {
 	dataDir := "/var/lib/aranotify"
-	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+	cmd := exec.Command("sudo", "mkdir", "-p", dataDir)
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("creating %s: %w", dataDir, err)
 	}
 	fmt.Printf("    Created %s\n", dataDir)

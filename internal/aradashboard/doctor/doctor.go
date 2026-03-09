@@ -107,7 +107,9 @@ func Fix(r doctor.CheckResult, cfg config.Config) error {
 
 	if r.Name == "aradeploy config" {
 		dir := "/etc/arastack/config/"
-		if err := os.MkdirAll(dir, 0o755); err != nil {
+		cmd := exec.Command("sudo", "mkdir", "-p", dir)
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("creating %s: %w", dir, err)
 		}
 		fmt.Printf("    Created %s\n", dir)

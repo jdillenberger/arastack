@@ -352,7 +352,9 @@ func Fix(result doctor.CheckResult, dataDir string) error {
 }
 
 func fixDataDir(dataDir string) error {
-	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+	cmd := exec.Command("sudo", "mkdir", "-p", dataDir)
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("creating %s: %w", dataDir, err)
 	}
 	fmt.Printf("    Created %s\n", dataDir)

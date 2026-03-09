@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -72,8 +73,12 @@ WantedBy=multi-user.target
 func (c *ServiceConfig) Install() error {
 	unit := c.generateUnitFile()
 
-	if err := os.WriteFile(c.unitPath(), []byte(unit), 0o644); err != nil {
-		return fmt.Errorf("writing unit file: %w (are you root?)", err)
+	cmd := exec.Command("sudo", "tee", c.unitPath())
+	cmd.Stdin = strings.NewReader(unit)
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = nil // suppress tee's stdout
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("writing unit file: %w", err)
 	}
 	fmt.Printf("Unit file written to %s\n", c.unitPath())
 
@@ -111,7 +116,9 @@ func (c *ServiceConfig) Uninstall() error {
 	_ = runSystemctl("stop", c.unitName())
 	_ = runSystemctl("disable", c.unitName())
 
-	if err := os.Remove(c.unitPath()); err != nil && !os.IsNotExist(err) {
+	cmd := exec.Command("sudo", "rm", "-f", c.unitPath())
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("removing unit file: %w", err)
 	}
 
@@ -158,19 +165,7 @@ func newUninstallCmd(cfg *ServiceConfig) *cobra.Command {
 		Use:   "uninstall",
 		Short: "Stop and remove the systemd service",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_ = runSystemctl("stop", cfg.unitName())
-			_ = runSystemctl("disable", cfg.unitName())
-
-			if err := os.Remove(cfg.unitPath()); err != nil && !os.IsNotExist(err) {
-				return fmt.Errorf("removing unit file: %w", err)
-			}
-
-			if err := runSystemctl("daemon-reload"); err != nil {
-				return err
-			}
-
-			fmt.Println("Service uninstalled.")
-			return nil
+			return cfg.Uninstall()
 		},
 	}
 }
@@ -190,7 +185,8 @@ func newStatusCmd(cfg *ServiceConfig) *cobra.Command {
 }
 
 func runSystemctl(args ...string) error {
-	c := exec.Command("systemctl", args...)
+	sudoArgs := append([]string{"systemctl"}, args...)
+	c := exec.Command("sudo", sudoArgs...)
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
 	if err := c.Run(); err != nil {

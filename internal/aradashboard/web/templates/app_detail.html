@@ -26,6 +26,7 @@
     <article>
         <header><strong>Containers</strong></header>
         {{if .Containers}}
+        <div class="overflow-auto">
         <table>
             <thead>
                 <tr>
@@ -49,6 +50,7 @@
                 {{end}}
             </tbody>
         </table>
+        </div>
         {{else if .StatusRaw}}
         <pre style="font-size:0.8rem;overflow-x:auto;">{{.StatusRaw}}</pre>
         {{else}}
@@ -62,6 +64,7 @@
 {{if .Addresses}}
 <article>
     <header><strong>Addresses</strong></header>
+    <div class="overflow-auto">
     <table>
         <thead>
             <tr>
@@ -87,6 +90,7 @@
             {{end}}
         </tbody>
     </table>
+    </div>
 </article>
 {{end}}
 

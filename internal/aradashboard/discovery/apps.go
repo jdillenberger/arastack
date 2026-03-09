@@ -9,6 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/jdillenberger/arastack/internal/aradashboard/config"
+	"github.com/jdillenberger/arastack/pkg/aradeployconfig"
 )
 
 // DeployedRoute holds per-app routing state (mirrors aradeploy's struct).
@@ -50,7 +51,7 @@ func listAppsInDir(appsDir string) ([]string, error) {
 		if !entry.IsDir() {
 			continue
 		}
-		stateFile := filepath.Join(appsDir, entry.Name(), ".aradeploy.yaml")
+		stateFile := filepath.Join(appsDir, entry.Name(), aradeployconfig.StateFileName)
 		if _, err := os.Stat(stateFile); err == nil {
 			apps = append(apps, entry.Name())
 		}
@@ -60,7 +61,7 @@ func listAppsInDir(appsDir string) ([]string, error) {
 
 // GetApp reads the deployed state for a specific app.
 func GetApp(appsDir, appName string) (*DeployedApp, error) {
-	stateFile := filepath.Join(appsDir, appName, ".aradeploy.yaml")
+	stateFile := filepath.Join(appsDir, appName, aradeployconfig.StateFileName)
 	data, err := os.ReadFile(stateFile)
 	if err != nil {
 		return nil, fmt.Errorf("reading state file for %s: %w", appName, err)

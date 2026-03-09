@@ -85,7 +85,7 @@ func Defaults() *Config {
 			Prune:  "0 5 * * 0",
 		},
 		Aradeploy: AradeployRef{
-			Config: "/etc/arastack/config/aradeploy.yaml",
+			Config: aradeployconfig.DefaultConfigPath,
 		},
 		Araalert: AraalertRef{
 			URL: "http://127.0.0.1:7150",
@@ -165,7 +165,7 @@ func (c *Config) LoadAradeploySettings() (*aradeployconfig.Config, error) {
 
 // DefaultConfigYAML returns the default configuration as YAML for config init.
 func DefaultConfigYAML() string {
-	return `# arabackup configuration
+	return fmt.Sprintf(`# arabackup configuration
 server:
   bind: 127.0.0.1
   port: 7160
@@ -187,9 +187,9 @@ schedule:
   prune: "0 5 * * 0"
 
 aradeploy:
-  config: /etc/arastack/config/aradeploy.yaml
+  config: %s
 
 araalert:
   url: http://127.0.0.1:7150
-`
+`, aradeployconfig.DefaultConfigPath)
 }

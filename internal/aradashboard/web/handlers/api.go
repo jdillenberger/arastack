@@ -69,8 +69,8 @@ func (h *Handler) APIApps(c echo.Context) error {
 // APIRoutingStatus returns the list of domains currently routed by traefik.
 func (h *Handler) APIRoutingStatus(c echo.Context) error {
 	var domains []string
-	if h.cfg.Routing.Enabled {
-		active, err := docker.DiscoverTraefikDomains(h.runner, h.cfg.Docker.Runtime)
+	if h.ldc.Routing.Enabled {
+		active, err := docker.DiscoverTraefikDomains(h.runner, h.ldc.Docker.Runtime)
 		if err == nil {
 			for domain := range active {
 				domains = append(domains, domain)

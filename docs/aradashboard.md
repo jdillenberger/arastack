@@ -17,16 +17,14 @@ Default config path: `/etc/arastack/config/aradashboard.yaml`
 | `server.bind` | `0.0.0.0` | Bind address |
 | `server.port` | `8420` | Web server port |
 | `aradeploy.config` | `/etc/arastack/config/aradeploy.yaml` | Path to aradeploy config |
-| `docker.runtime` | `docker` | Container runtime (must match aradeploy's `docker.runtime`) |
-| `docker.compose_command` | `docker compose` | Compose command (must match aradeploy's `docker.compose_command`) |
-| `routing.enabled` | `true` | Enable routing features |
-| `routing.https_enabled` | `true` | Enable HTTPS |
 | `web.nav_color` | - | Navigation bar color |
 | `services.peer_scanner.url` | `http://localhost:7120` | arascanner URL |
 | `services.peer_scanner.secret` | - | PSK for arascanner auth |
 | `services.araalert.url` | `http://127.0.0.1:7150` | araalert URL |
 | `services.arabackup.url` | `http://127.0.0.1:7160` | arabackup URL |
 | `ca.cert_path` | - | CA certificate path |
+
+> **Note:** Docker runtime, compose command, routing, and HTTPS settings are read directly from aradeploy's config file (via `aradeploy.config`). They do not need to be configured separately in aradashboard.
 
 ## Web Routes
 

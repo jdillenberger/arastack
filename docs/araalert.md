@@ -55,6 +55,9 @@ araalert uses two different evaluation models depending on the rule type:
 Both models share:
 - A cooldown period that prevents duplicate notifications for the same issue.
 - Alert history persisted to the data directory.
+- Retry with exponential backoff on notification delivery failures.
+
+**Self-monitoring:** araalert periodically checks aranotify reachability alongside its health checks. If aranotify is unreachable, a warning is logged so operators can detect notification outages via journal/logs.
 
 ## Interactions with Other Tools
 

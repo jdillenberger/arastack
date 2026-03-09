@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/jdillenberger/arastack/pkg/aradeployconfig"
 	"github.com/jdillenberger/arastack/pkg/executil"
 )
 
@@ -38,7 +40,7 @@ func (c *Compose) run(projectDir string, timeout time.Duration, args ...string) 
 	bin, baseArgs := c.cmdParts()
 	fullArgs := make([]string, 0, len(baseArgs)+len(args)+2)
 	fullArgs = append(fullArgs, baseArgs...)
-	fullArgs = append(fullArgs, "-f", projectDir+"/docker-compose.yml")
+	fullArgs = append(fullArgs, "-f", filepath.Join(projectDir, aradeployconfig.ComposeFileName))
 	fullArgs = append(fullArgs, args...)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -55,7 +57,7 @@ func (c *Compose) Logs(projectDir string, w io.Writer, follow bool, lines int) e
 	bin, baseArgs := c.cmdParts()
 	fullArgs := make([]string, 0, len(baseArgs)+7)
 	fullArgs = append(fullArgs, baseArgs...)
-	fullArgs = append(fullArgs, "-f", projectDir+"/docker-compose.yml", "logs", "--no-color")
+	fullArgs = append(fullArgs, "-f", filepath.Join(projectDir, aradeployconfig.ComposeFileName), "logs", "--no-color")
 	if follow {
 		fullArgs = append(fullArgs, "-f")
 	}

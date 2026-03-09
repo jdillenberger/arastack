@@ -7,13 +7,11 @@ import (
 
 // Config holds the aradashboard configuration.
 type Config struct {
-	Aradeploy AradeployRef  `yaml:"aradeploy"`
-	Server    ServerConfig  `yaml:"server"`
-	Web       WebConfig     `yaml:"web"`
-	Docker    DockerConfig  `yaml:"docker"`
-	Routing   RoutingConfig `yaml:"routing"`
-	Services  Services      `yaml:"services"`
-	CA        CAConfig      `yaml:"ca"`
+	Aradeploy AradeployRef `yaml:"aradeploy"`
+	Server    ServerConfig `yaml:"server"`
+	Web       WebConfig    `yaml:"web"`
+	Services  Services     `yaml:"services"`
+	CA        CAConfig     `yaml:"ca"`
 }
 
 // AradeployRef points to the aradeploy configuration file.
@@ -28,16 +26,6 @@ type ServerConfig struct {
 
 type WebConfig struct {
 	NavColor string `yaml:"nav_color"`
-}
-
-type DockerConfig struct {
-	Runtime        string `yaml:"runtime"`
-	ComposeCommand string `yaml:"compose_command"`
-}
-
-type RoutingConfig struct {
-	Enabled      bool `yaml:"enabled"`
-	HTTPSEnabled bool `yaml:"https_enabled"`
 }
 
 type Services struct {
@@ -69,19 +57,11 @@ type AradeployYAML = aradeployconfig.Config
 func Defaults() Config {
 	return Config{
 		Aradeploy: AradeployRef{
-			Config: "/etc/arastack/config/aradeploy.yaml",
+			Config: aradeployconfig.DefaultConfigPath,
 		},
 		Server: ServerConfig{
 			Bind: "0.0.0.0",
 			Port: 8420,
-		},
-		Docker: DockerConfig{
-			Runtime:        "docker",
-			ComposeCommand: "docker compose",
-		},
-		Routing: RoutingConfig{
-			Enabled:      true,
-			HTTPSEnabled: true,
 		},
 		Services: Services{
 			AraScanner: AraScannerConfig{

@@ -73,7 +73,7 @@ func (h *Handler) Dashboard(c echo.Context) error {
 		// Set routing URL
 		if info.Routing != nil && info.Routing.Enabled && len(info.Routing.Domains) > 0 {
 			scheme := "http"
-			if h.cfg.Routing.HTTPSEnabled {
+			if h.ldc.Routing.HTTPS.Enabled {
 				scheme = "https"
 			}
 			pa.RoutingURL = fmt.Sprintf("%s://%s", scheme, info.Routing.Domains[0])

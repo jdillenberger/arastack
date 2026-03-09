@@ -22,23 +22,31 @@ AraStack consists of 8 tools that integrate via a mix of REST APIs (aradashboard
         +-----v-----+    +------v------+    +--------v-------+
         |  araalert  |    |  arabackup  |    |   arascanner   |
         |   (:7150)  |    |   (:7160)   |    |    (:7120)     |
-        +--+------+--+    +------+------+    | (peer discov.) |
-   REST    |      ^ events       |           +----------------+
-   API     |      | (push)       |
-     +-----v--+   |              |
-     |aranotify|   +-------+     | reads config
-     | (:7140) |   |       |     | & apps dir
-     +--------+   |       |     |
-                   |  +----v-----v--+
-                   +--+  aradeploy  |
-                      |  (deployer) |
-                      +------+------+
-                             |
-                       +-----v------+
-                       |   aramdns  |  watches containers
-                       | (mDNS pub) |
-                       +------------+
+        +--+---+--+--+    +---+----+----+    | (peer discov.) |
+   REST    |   |  ^ events    |    |         +----------------+
+   API     |   |  | (push)    |    |
+     +-----v-+ |  |           |    | reads config
+     |aranotif| |  +-----------+   | & apps dir
+     | (:7140)| |  |               |
+     +--------+ |  | events (push) |
+                 |  |               |
+        reads    |  +----+-----+----+
+        config   +------>|           |
+        & apps dir       | aradeploy |
+                         | (deployer)|
+                         +-----+-----+
+                               |
+                         +-----v------+
+                         |   aramdns  |  watches containers
+                         | (mDNS pub) |
+                         +------------+
 ```
+
+**Integration types:**
+- **REST API queries**: aradashboard → arascanner, araalert, arabackup
+- **REST API events (push)**: arabackup → araalert (`backup-failed`), aradeploy → araalert (`update-failed`)
+- **REST API notifications**: araalert → aranotify
+- **Filesystem (config + app dirs)**: araalert, arabackup, aradashboard all read aradeploy's config and app directories
 
 ## Tools
 
@@ -95,12 +103,14 @@ make release
 
 ## Configuration
 
-Most tools use a layered YAML configuration system (aramdns and arascanner use CLI flags and environment variables instead):
+Most tools use a layered YAML configuration system:
 
 1. System-wide: `/etc/arastack/config/{tool}.yaml`
 2. User-level: `~/.arastack/config/{tool}.yaml`
 3. Environment variables: `{TOOL}_{SECTION}_{KEY}`
 4. CLI flag: `--config /path/to/config.yaml`
+
+**Exception:** aramdns and arascanner use CLI flags and environment variables (`ARAMDNS_*`, `ARASCANNER_*`) instead of YAML config files. These tools have very few settings (2 and 6 respectively) and are configured via their systemd unit environment. `aramanager config show/init` does not apply to them.
 
 ## API Authentication
 

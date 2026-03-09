@@ -75,6 +75,13 @@ func runDaemon() error {
 		}
 		slog.Debug("health check completed", "apps", len(results))
 		mgr.Evaluate(results)
+
+		// Check aranotify reachability so operators can spot notification outages.
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := client.NotifyHealth(ctx); err != nil {
+			slog.Warn("aranotify is unreachable, notifications will fail", "url", cfg.Aranotify.URL, "error", err)
+		}
 	})
 	if err != nil {
 		return err

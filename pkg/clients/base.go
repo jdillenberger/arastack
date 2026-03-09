@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 )
@@ -81,6 +82,35 @@ func (b *BaseClient) PostJSON(ctx context.Context, path string, body any) error 
 		return fmt.Errorf("HTTP %d for %s: %s", resp.StatusCode, path, string(body))
 	}
 	return nil
+}
+
+// PostJSONWithRetry sends a POST request with retries using exponential backoff.
+// It retries on network errors and 5xx responses, up to maxRetries times.
+func (b *BaseClient) PostJSONWithRetry(ctx context.Context, path string, body any, maxRetries int) error {
+	var lastErr error
+	delay := 1 * time.Second
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			slog.Debug("retrying request", "path", path, "attempt", attempt, "delay", delay)
+			select {
+			case <-ctx.Done():
+				return fmt.Errorf("context cancelled during retry: %w", ctx.Err())
+			case <-time.After(delay):
+			}
+			delay *= 2
+			if delay > 10*time.Second {
+				delay = 10 * time.Second
+			}
+		}
+
+		lastErr = b.PostJSON(ctx, path, body)
+		if lastErr == nil {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("after %d retries: %w", maxRetries, lastErr)
 }
 
 // Health checks if the service is reachable via GET /api/health.

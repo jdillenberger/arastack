@@ -15,12 +15,13 @@ import (
 	"github.com/jdillenberger/arastack/internal/aradeploy/compose"
 	"github.com/jdillenberger/arastack/internal/aradeploy/routing"
 	"github.com/jdillenberger/arastack/internal/aradeploy/template"
+	"github.com/jdillenberger/arastack/pkg/aradeployconfig"
 	"github.com/jdillenberger/arastack/pkg/executil"
 	"gopkg.in/yaml.v3"
 )
 
 // StateFileName is the name of the deployment state file.
-const StateFileName = ".aradeploy.yaml"
+const StateFileName = aradeployconfig.StateFileName
 
 // Manager handles app lifecycle operations.
 type Manager struct {

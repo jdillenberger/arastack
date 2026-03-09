@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/jdillenberger/arastack/pkg/aradeployconfig"
 )
 
 // Checker performs health checks on apps using docker compose.
@@ -144,7 +146,7 @@ func (c *Checker) runComposePS(appDir string) (string, error) {
 }
 
 func hasComposeFile(dir string) bool {
-	if _, err := os.Stat(filepath.Join(dir, "docker-compose.yml")); err == nil {
+	if _, err := os.Stat(filepath.Join(dir, aradeployconfig.ComposeFileName)); err == nil {
 		return true
 	}
 	slog.Debug("no compose file found", "dir", dir)

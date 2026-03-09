@@ -42,7 +42,7 @@ func (h *Handler) HandleSettingsPage(c echo.Context) error {
 		AraScannerURL:   h.cfg.Services.AraScanner.URL,
 		AraalertURL:     h.cfg.Services.Araalert.URL,
 		ArabackupURL:    h.cfg.Services.Arabackup.URL,
-		HTTPSEnabled:    h.cfg.Routing.HTTPSEnabled,
+		HTTPSEnabled:    h.ldc.Routing.HTTPS.Enabled,
 	}
 
 	return c.Render(http.StatusOK, "settings.html", data)

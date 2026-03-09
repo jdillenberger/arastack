@@ -27,8 +27,9 @@ func NewNotifyClient(baseURL string) *NotifyClient {
 }
 
 // Send posts a notification to aranotify's /api/send endpoint.
+// Retries up to 2 times on failure with exponential backoff.
 func (c *NotifyClient) Send(ctx context.Context, n Notification) error {
-	return c.PostJSON(ctx, "/api/send", n)
+	return c.PostJSONWithRetry(ctx, "/api/send", n, 2)
 }
 
 // NotifyHealth checks if aranotify is reachable via GET /api/health.

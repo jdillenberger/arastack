@@ -60,7 +60,7 @@ func NewServer(cfg *config.Config, ldc *config.AradeployYAML, version string) (*
 
 	// Create dependencies
 	runner := &executil.Runner{}
-	compose := docker.NewCompose(runner, cfg.Docker.ComposeCommand)
+	compose := docker.NewCompose(runner, ldc.Docker.ComposeCommand)
 
 	// Health cache with app discovery from aradeploy's apps_dir
 	listFn := func() ([]string, error) {

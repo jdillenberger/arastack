@@ -6,9 +6,8 @@ import (
 	"path/filepath"
 
 	"github.com/jdillenberger/arastack/internal/arabackup/config"
+	"github.com/jdillenberger/arastack/pkg/aradeployconfig"
 )
-
-const stateFileName = ".aradeploy.yaml"
 
 // App represents a discovered deployed application.
 type App struct {
@@ -63,7 +62,7 @@ func Discover(cfg *config.Config) ([]App, error) {
 		appDir := filepath.Join(ldSettings.AppsDir, name)
 		dataDir := filepath.Join(ldSettings.DataDir, name)
 
-		composePath := filepath.Join(appDir, "docker-compose.yml")
+		composePath := filepath.Join(appDir, aradeployconfig.ComposeFileName)
 		services, err := parseComposeLabels(composePath)
 		if err != nil {
 			// Skip apps without docker-compose.yml or with parse errors
@@ -110,7 +109,7 @@ func DiscoverAll(cfg *config.Config) ([]App, error) {
 		appDir := filepath.Join(ldSettings.AppsDir, name)
 		dataDir := filepath.Join(ldSettings.DataDir, name)
 
-		composePath := filepath.Join(appDir, "docker-compose.yml")
+		composePath := filepath.Join(appDir, aradeployconfig.ComposeFileName)
 		services, err := parseComposeLabels(composePath)
 		if err != nil {
 			services = nil
@@ -147,7 +146,7 @@ func DiscoverApp(cfg *config.Config, appName string) (*App, error) {
 	}
 
 	dataDir := filepath.Join(ldSettings.DataDir, appName)
-	composePath := filepath.Join(appDir, "docker-compose.yml")
+	composePath := filepath.Join(appDir, aradeployconfig.ComposeFileName)
 	services, err := parseComposeLabels(composePath)
 	if err != nil {
 		return nil, fmt.Errorf("parsing compose file for %q: %w", appName, err)
@@ -224,7 +223,7 @@ func listDeployed(appsDir string) ([]string, error) {
 
 // isDeployed checks if an app directory contains a state file.
 func isDeployed(appDir string) bool {
-	if _, err := os.Stat(filepath.Join(appDir, stateFileName)); err == nil {
+	if _, err := os.Stat(filepath.Join(appDir, aradeployconfig.StateFileName)); err == nil {
 		return true
 	}
 	return false

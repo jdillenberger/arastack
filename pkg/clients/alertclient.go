@@ -28,8 +28,9 @@ func NewAlertClient(baseURL string) *AlertClient {
 }
 
 // PushEvent sends an event to araalert for rule evaluation and notification.
+// Retries up to 2 times on failure with exponential backoff.
 func (c *AlertClient) PushEvent(ctx context.Context, e Event) error {
-	return c.PostJSON(ctx, "/api/events", e)
+	return c.PostJSONWithRetry(ctx, "/api/events", e, 2)
 }
 
 // Rules fetches alert rules from araalert.

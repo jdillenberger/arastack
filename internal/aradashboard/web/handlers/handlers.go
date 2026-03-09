@@ -13,9 +13,9 @@ import (
 
 // BasePage holds common template data shared across all pages.
 type BasePage struct {
-	Hostname string
-	Domain   string
-	NavColor string
+	Hostname    string
+	Domain      string
+	NavColor    string
 	AuthEnabled bool
 }
 

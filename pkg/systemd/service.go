@@ -17,6 +17,7 @@ type ServiceConfig struct {
 	Description string
 	ExecArgs    string   // additional args after the binary path (e.g. "run --port 7120")
 	After       []string // additional After= units (e.g. "docker.service")
+	Group       string   // supplementary group for the service (e.g. "arastack")
 }
 
 func (c *ServiceConfig) unitName() string {
@@ -49,6 +50,10 @@ func (c *ServiceConfig) generateUnitFile() string {
 	for _, a := range c.After {
 		afterLine += " " + a
 	}
+	groupLine := ""
+	if c.Group != "" {
+		groupLine = fmt.Sprintf("\nGroup=%s", c.Group)
+	}
 	return fmt.Sprintf(`[Unit]
 Description=%s
 After=%s
@@ -56,7 +61,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=%s
+ExecStart=%s%s
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal
@@ -64,7 +69,7 @@ StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
-`, c.Description, afterLine, execStart)
+`, c.Description, afterLine, execStart, groupLine)
 }
 
 // Install writes the systemd unit file, reloads the daemon, and enables+starts

@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jdillenberger/arastack/internal/aramanager/registry"
+	"github.com/jdillenberger/arastack/internal/aramanager/syscheck"
 	"github.com/jdillenberger/arastack/pkg/doctor"
 )
 
@@ -34,6 +35,41 @@ var doctorCmd = &cobra.Command{
 		}
 
 		allOK := true
+
+		// Run system-level checks when not targeting a specific tool
+		if len(args) == 0 {
+			fmt.Println("=== system ===")
+			sysResults := syscheck.CheckAll()
+
+			var sysFailed []doctor.CheckResult
+			for _, r := range sysResults {
+				if r.Installed {
+					fmt.Printf("  [x] %-30s %s\n", r.Name, r.Version)
+				} else {
+					if r.Version != "" {
+						fmt.Printf("  [ ] %-30s %s\n", r.Name, r.Version)
+					} else {
+						fmt.Printf("  [ ] %-30s missing\n", r.Name)
+					}
+					allOK = false
+					sysFailed = append(sysFailed, r)
+				}
+			}
+
+			if fix && len(sysFailed) > 0 {
+				fmt.Println("  Fixing issues...")
+				for _, r := range sysFailed {
+					fmt.Printf("    Fixing %s...\n", r.Name)
+					if err := syscheck.Fix(r); err != nil {
+						fmt.Printf("      Failed: %v\n", err)
+					} else {
+						fmt.Printf("      Fixed.\n")
+					}
+				}
+			}
+			fmt.Println()
+		}
+
 		for _, tool := range tools {
 			if tool.DoctorCheck == nil {
 				continue

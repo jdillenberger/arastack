@@ -66,6 +66,31 @@ func (m *Manager) Config() *ManagerConfig {
 	return m.cfg
 }
 
+// ensureTraefik auto-deploys traefik when routing is enabled and traefik
+// is not yet deployed. Skipped when deploying traefik itself to prevent recursion.
+func (m *Manager) ensureTraefik(appName string) error {
+	if appName == "traefik" {
+		return nil
+	}
+	if !m.cfg.Routing.Enabled || m.cfg.Routing.Provider != "traefik" {
+		return nil
+	}
+	if m.isTraefikDeployed() {
+		return nil
+	}
+	if _, ok := m.registry.Get("traefik"); !ok {
+		return fmt.Errorf("routing is enabled but traefik template is not available; install it or disable routing")
+	}
+
+	fmt.Println("Routing is enabled — auto-deploying traefik...")
+	if err := m.Deploy("traefik", DeployOptions{Confirm: true}); err != nil {
+		return fmt.Errorf("auto-deploying traefik: %w", err)
+	}
+	fmt.Println("Traefik deployed successfully.")
+	fmt.Println()
+	return nil
+}
+
 // ensureNetwork creates the Docker network if it does not already exist.
 func (m *Manager) ensureNetwork() error {
 	network := m.cfg.Docker.DefaultNetwork
@@ -118,8 +143,11 @@ func (m *Manager) Deploy(appName string, opts DeployOptions) error {
 		mergedValues["certs_dir"] = filepath.Join(m.cfg.DataPath("traefik"), "certs")
 	}
 
-	// Generate local certificates for traefik
+	// Generate local certificates for traefik (data dir must exist first)
 	if appName == "traefik" && m.cfg.Routing.HTTPS.Enabled {
+		if err := os.MkdirAll(m.cfg.DataPath("traefik"), 0o2775); err != nil {
+			return fmt.Errorf("creating traefik data directory: %w", err)
+		}
 		cm := certs.NewManager(m.cfg.DataPath("traefik"))
 		certDomains := m.collectAllRoutingDomains(appName, mergedValues)
 		if err := cm.EnsureCerts(certDomains); err != nil {
@@ -213,17 +241,22 @@ func (m *Manager) Deploy(appName string, opts DeployOptions) error {
 		}
 	}
 
+	// Ensure traefik is deployed when routing is enabled
+	if err := m.ensureTraefik(appName); err != nil {
+		return err
+	}
+
 	// Ensure docker network exists
 	if err := m.ensureNetwork(); err != nil {
 		return err
 	}
 
-	// Create directories
-	if err := os.MkdirAll(appDir, 0o755); err != nil {
+	// Create directories (group-writable + setgid to match parent)
+	if err := os.MkdirAll(appDir, 0o2775); err != nil {
 		return fmt.Errorf("creating app directory: %w", err)
 	}
 	dataDir := m.cfg.DataPath(appName)
-	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+	if err := os.MkdirAll(dataDir, 0o2775); err != nil {
 		return fmt.Errorf("creating data directory: %w", err)
 	}
 
@@ -356,6 +389,29 @@ func (m *Manager) Remove(appName string, keepData bool) error {
 	appDir := m.cfg.AppDir(appName)
 	if _, err := os.Stat(appDir); os.IsNotExist(err) {
 		return fmt.Errorf("app %s is not deployed", appName)
+	}
+
+	// Prevent removing traefik while other routed apps depend on it
+	if appName == "traefik" && m.cfg.Routing.Enabled {
+		if deployed, err := m.ListDeployed(); err == nil {
+			var dependents []string
+			for _, name := range deployed {
+				if name == "traefik" {
+					continue
+				}
+				info, err := m.GetDeployedInfo(name)
+				if err != nil {
+					continue
+				}
+				if info.Routing != nil && info.Routing.Enabled {
+					dependents = append(dependents, name)
+				}
+			}
+			if len(dependents) > 0 {
+				return fmt.Errorf("cannot remove traefik: the following apps depend on it for routing: %s\nRemove them first, or disable routing in the config",
+					strings.Join(dependents, ", "))
+			}
+		}
 	}
 
 	meta, ok := m.registry.Get(appName)
@@ -698,21 +754,26 @@ func (m *Manager) collectAllRoutingDomains(currentApp string, mergedValues map[s
 }
 
 // generateCABundle creates a CA certificate bundle.
+// If the local CA cert is not available (e.g. traefik not yet deployed),
+// it falls back to using just the system CA bundle so the mount still works.
 func generateCABundle(caCertPath, dataDir string) error {
 	systemBundle, err := os.ReadFile("/etc/ssl/certs/ca-certificates.crt")
 	if err != nil {
 		return fmt.Errorf("reading system CA bundle: %w", err)
 	}
+
+	bundle := systemBundle
 	localCA, err := os.ReadFile(caCertPath)
 	if err != nil {
-		return fmt.Errorf("reading local CA cert: %w", err)
+		slog.Warn("Local CA cert not available, using system bundle only", "path", caCertPath, "error", err)
+	} else {
+		bundle = make([]byte, 0, len(systemBundle)+1+len(localCA))
+		bundle = append(bundle, systemBundle...)
+		bundle = append(bundle, '\n')
+		bundle = append(bundle, localCA...)
 	}
 
 	bundlePath := filepath.Join(dataDir, "ca-bundle.crt")
-	bundle := make([]byte, 0, len(systemBundle)+1+len(localCA))
-	bundle = append(bundle, systemBundle...)
-	bundle = append(bundle, '\n')
-	bundle = append(bundle, localCA...)
 	return os.WriteFile(bundlePath, bundle, 0o644)
 }
 

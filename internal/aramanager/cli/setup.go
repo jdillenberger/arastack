@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jdillenberger/arastack/internal/aramanager/registry"
+	"github.com/jdillenberger/arastack/internal/aramanager/syscheck"
 )
 
 func init() {
@@ -27,6 +28,29 @@ var setupCmd = &cobra.Command{
 				skipSet[strings.TrimSpace(s)] = true
 			}
 		}
+
+		// System prerequisites: group, user membership, directories
+		fmt.Println("=== system ===")
+		sysResults := syscheck.CheckAll()
+		groupJustAdded := false
+		for _, r := range sysResults {
+			if !r.Installed {
+				fmt.Printf("  Fixing %s...\n", r.Name)
+				if err := syscheck.Fix(r); err != nil {
+					fmt.Printf("    Failed: %v\n", err)
+				}
+				if r.Name == "user-in-group" {
+					groupJustAdded = true
+				}
+			}
+		}
+		if groupJustAdded {
+			fmt.Println()
+			fmt.Println("  NOTE: You were just added to the 'arastack' group.")
+			fmt.Println("  Please log out and back in (or run: newgrp arastack)")
+			fmt.Println("  for group permissions to take effect, then re-run setup.")
+		}
+		fmt.Println()
 
 		// Check for missing tool binaries and download them
 		var missing []string

@@ -29,6 +29,7 @@ var tools = []Tool{
 			ServiceName: "arascanner",
 			Description: "arascanner - Homelab peer discovery daemon",
 			ExecArgs:    "run",
+			Group:       "arastack",
 		},
 		DoctorCheck: func() ([]doctor.CheckResult, error) {
 			return arascannerdoc.CheckAll("/var/lib/arascanner"), nil
@@ -51,6 +52,7 @@ var tools = []Tool{
 			ServiceName: "aranotify",
 			Description: "aranotify - Notification delivery service",
 			ExecArgs:    "run",
+			Group:       "arastack",
 		},
 		DoctorCheck: func() ([]doctor.CheckResult, error) {
 			return aranotifydoc.CheckAll(), nil
@@ -71,6 +73,7 @@ var tools = []Tool{
 			ServiceName: "araalert",
 			Description: "araalert - Alert rule evaluation daemon",
 			ExecArgs:    "run",
+			Group:       "arastack",
 		},
 		DoctorCheck: func() ([]doctor.CheckResult, error) {
 			cfg, err := config.Load("")
@@ -101,6 +104,7 @@ var tools = []Tool{
 			ServiceName: "arabackup",
 			Description: "arabackup backup service",
 			ExecArgs:    "run",
+			Group:       "arastack",
 		},
 		DoctorCheck: func() ([]doctor.CheckResult, error) {
 			return arabackupdoc.CheckAll(), nil
@@ -121,6 +125,7 @@ var tools = []Tool{
 			ServiceName: "aradashboard",
 			Description: "aradashboard - Homelab dashboard",
 			ExecArgs:    "run",
+			Group:       "arastack",
 		},
 		DoctorCheck: func() ([]doctor.CheckResult, error) {
 			cfg, err := dashcfg.Load("")
@@ -151,6 +156,7 @@ var tools = []Tool{
 			ServiceName: "aradeploy",
 			Description: "aradeploy deployment manager",
 			ExecArgs:    "update --all",
+			Group:       "arastack",
 		},
 		DoctorCheck: func() ([]doctor.CheckResult, error) {
 			return aradeploydoc.CheckAll(), nil
@@ -171,6 +177,7 @@ var tools = []Tool{
 			Description: "aramdns - Traefik Docker mDNS publisher",
 			ExecArgs:    "run",
 			After:       []string{"docker.service"},
+			Group:       "arastack",
 		},
 		DoctorCheck: func() ([]doctor.CheckResult, error) {
 			return aramdnsdoc.CheckAll(), nil

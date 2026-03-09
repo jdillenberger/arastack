@@ -1,119 +1,136 @@
 # arabackup
 
-Backup management tool for applications deployed via aradeploy. Supports borg filesystem backups and database dumps (PostgreSQL, MySQL, SQLite, MongoDB).
-
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `arabackup run` | Run as a daemon with scheduled backups and prunes |
-| `arabackup backup [app]` | Create backup (`--type`: `all`, `borg`, `dump`) |
-| `arabackup list [app]` | List backup archives |
-| `arabackup restore <app> <archive>` | Restore from a backup |
-| `arabackup prune [app]` | Prune old backups per retention policy |
-| `arabackup status [app]` | Show backup status |
-| `arabackup config` | Configuration management |
-
-## Configuration
-
-Default config path: `/etc/arastack/config/arabackup.yaml`
-
-### Server
-
-| Key | Default | Description |
-|-----|---------|-------------|
-| `server.bind` | `127.0.0.1` | Bind address for the API server |
-| `server.port` | `7160` | Port for the API server |
-
-### Borg Settings
-
-| Key | Default | Description |
-|-----|---------|-------------|
-| `borg.base_dir` | `/mnt/backup/borg` | Base directory for borg repositories |
-| `borg.passphrase_file` | `/etc/arastack/borg-passphrase` | Path to borg passphrase |
-| `borg.encryption` | `repokey` | Encryption method |
-
-### Retention Policy
-
-| Key | Default | Description |
-|-----|---------|-------------|
-| `borg.retention.keep_daily` | `7` | Daily backups to keep |
-| `borg.retention.keep_weekly` | `4` | Weekly backups to keep |
-| `borg.retention.keep_monthly` | `6` | Monthly backups to keep |
-
-### Dumps
-
-| Key | Default | Description |
-|-----|---------|-------------|
-| `dumps.dir` | `/opt/arabackup/dumps` | Directory for database dumps |
-
-### Schedule (daemon mode)
-
-| Key | Default | Description |
-|-----|---------|-------------|
-| `schedule.backup` | `0 3 * * *` | Cron schedule for backups (3 AM daily) |
-| `schedule.prune` | `0 5 * * 0` | Cron schedule for prune (5 AM Sunday) |
-
-### Integration
-
-| Key | Default | Description |
-|-----|---------|-------------|
-| `aradeploy.config` | `/etc/arastack/config/aradeploy.yaml` | Path to aradeploy config for app discovery |
-| `araalert.url` | `http://127.0.0.1:7150` | araalert URL for pushing backup-failed events |
-
-## API Endpoints
-
-Available when running in daemon mode (`arabackup run`).
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/health` | Health check (version, uptime) |
-| `GET` | `/api/status` | Backup status (schedule, app count, last/next run) |
-
-## Docker Compose Labels
-
-Backup behavior is configured per-service via Docker Compose labels. Add these to the `labels` section of services in your `docker-compose.yml`:
-
-| Label | Required | Description |
-|-------|----------|-------------|
-| `arabackup.enable` | Yes | Set to `true` to enable backups for this service |
-| `arabackup.borg.paths` | No | Comma-separated paths relative to data_dir to back up |
-| `arabackup.dump.driver` | No | Database dump driver: `postgres`, `mysql`, `mongodb`, `sqlite`, `custom` |
-| `arabackup.dump.user` | No | Database user for dump authentication |
-| `arabackup.dump.password-env` | No | Environment variable name containing the database password |
-| `arabackup.dump.database` | No | Database name to dump |
-| `arabackup.dump.command` | No | Custom dump command (for `custom` driver) |
-| `arabackup.dump.restore-command` | No | Custom restore command (for `custom` driver) |
-| `arabackup.dump.file-ext` | No | File extension for custom dump output |
-| `arabackup.retention.keep-daily` | No | Override daily retention (default: 7) |
-| `arabackup.retention.keep-weekly` | No | Override weekly retention (default: 4) |
-| `arabackup.retention.keep-monthly` | No | Override monthly retention (default: 6) |
-
-### Example
-
-```yaml
-services:
-  postgres:
-    image: postgres:16
-    labels:
-      arabackup.enable: "true"
-      arabackup.dump.driver: postgres
-      arabackup.dump.user: myapp
-      arabackup.dump.password-env: POSTGRES_PASSWORD
-      arabackup.dump.database: myapp
-      arabackup.retention.keep-daily: "14"
-```
+Scheduled backup service for applications deployed by aradeploy. arabackup combines Borg for filesystem backups with pluggable database dump drivers, automatic retention management, and alert integration.
 
 ## How It Works
 
-1. Reads aradeploy's app directory and docker-compose files to discover services with backup labels.
-2. For borg backups: creates/initializes borg repositories and archives app data directories.
-3. For database dumps: connects to database containers and exports dumps (supports PostgreSQL, MySQL, SQLite, MongoDB).
-4. Retention policies automatically prune old archives.
-5. Per-service label overrides in docker-compose files can customize retention settings.
+arabackup discovers applications by scanning aradeploy's app directories for docker-compose files with `arabackup.*` labels. For each enabled service, it:
+
+1. **Discovers** apps with `arabackup.enable=true` in their docker-compose labels
+2. **Dumps** databases by running driver-specific commands inside Docker containers (e.g., `pg_dump` via `docker exec`)
+3. **Archives** using Borg — creates compressed, deduplicated archives containing the app's data directory and any database dump files
+4. **Prunes** old archives based on configurable retention policies (daily/weekly/monthly)
+
+In daemon mode (`arabackup run`), it schedules backup and prune jobs via cron expressions, runs a REST API for status queries, and pushes failure events to araalert. Failed event deliveries are spooled to disk and retried on the next backup cycle.
+
+## Commands
+
+```
+arabackup backup [app]          # Create backups (all apps or specific)
+  --type borg                   # Borg archive only
+  --type dump                   # Database dumps only
+
+arabackup restore <app> [archive]  # Restore from backup
+  --yes                            # Skip confirmation
+
+arabackup prune [app]           # Apply retention policy
+arabackup list [app]            # List borg archives
+arabackup status                # Show backup status for all apps
+
+arabackup run                   # Run as daemon (scheduled backups)
+arabackup daemon                # Alias for run
+
+arabackup config show           # Display effective config
+arabackup config init           # Generate default config
+```
+
+### Restore Flow
+
+1. Shows interactive confirmation dialog (unless `--yes`)
+2. Stops the app via `docker compose down`
+3. Extracts Borg archive (filesystem restore)
+4. Starts only database services
+5. Waits 10 seconds for databases to initialize
+6. Restores database dumps
+7. Stops database services
+8. Starts the full app
+
+## Configuration
+
+File: `/etc/arastack/config/arabackup.yaml`
+
+```yaml
+server:
+  bind: 127.0.0.1
+  port: 7160
+
+borg:
+  base_dir: /mnt/backup/borg
+  passphrase_file: /etc/arastack/borg-passphrase
+  encryption: repokey
+  retention:
+    keep_daily: 7
+    keep_weekly: 4
+    keep_monthly: 6
+
+dumps:
+  dir: /opt/arabackup/dumps
+
+schedule:
+  backup: "0 3 * * *"         # daily at 3am
+  prune: "0 5 * * 0"          # weekly on Sunday at 5am
+
+aradeploy:
+  config: /etc/arastack/config/aradeploy.yaml
+
+araalert:
+  url: http://127.0.0.1:7150
+```
+
+Environment variable overrides use the `ARABACKUP_` prefix.
+
+## Docker Compose Labels
+
+Services opt into backups and configure dump drivers via labels:
+
+```yaml
+labels:
+  arabackup.enable: "true"
+  arabackup.borg.paths: "data,config"          # relative to data_dir
+  arabackup.dump.driver: "postgres"            # postgres|mysql|mongodb|sqlite|custom
+  arabackup.dump.user: "postgres"
+  arabackup.dump.password-env: "POSTGRES_PASSWORD"
+  arabackup.dump.database: "mydb"              # or "all"
+  arabackup.dump.command: "my-dump-script"     # custom driver only
+  arabackup.dump.restore-command: "my-restore" # custom driver only
+  arabackup.dump.file-ext: "bak"               # custom driver only
+  arabackup.retention.keep-daily: "14"         # override global retention
+  arabackup.retention.keep-weekly: "8"
+  arabackup.retention.keep-monthly: "12"
+```
+
+## Database Dump Drivers
+
+| Driver | Dump Command | Restore Command |
+|--------|-------------|-----------------|
+| `postgres` | `pg_dump` / `pg_dumpall` | `psql` |
+| `mysql` | `mysqldump` | `mysql` |
+| `mongodb` | `mongodump` | `mongorestore` |
+| `sqlite` | `sqlite3 .dump` | `sqlite3` |
+| `custom` | User-specified command | User-specified command |
+
+All dump/restore commands run inside the service's Docker container via `docker exec`.
+
+## API Endpoints (Daemon Mode)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/health` | GET | Health check with version info |
+| `/api/status` | GET | Backup status: schedule, next/last run, app count, repo info |
+
+## Global Flags
+
+| Flag | Description |
+|------|-------------|
+| `--config <path>` | Config file path |
+| `-v`, `--verbose` | Debug logging |
+| `-q`, `--quiet` | Suppress non-essential output |
+| `--json` | JSON output (status/config) |
 
 ## Interactions with Other Tools
 
-- **aradeploy** - reads the aradeploy apps directory and docker-compose files to discover which apps to back up. Backup behavior is driven by labels on compose services.
-- **araalert** - pushes `backup-failed` events to araalert's `/api/events` endpoint when a backup fails (with retry on failure). If araalert is unreachable after retries, events are spooled to disk (`/var/lib/arabackup/pending-events.json`) and retried on the next scheduled backup run. araalert matches these against configured alert rules and dispatches notifications via aranotify.
-- **aradashboard** - exposes backup status via its REST API, which aradashboard queries for the backups page.
+- **aradeploy**: Reads aradeploy's config (`apps_dir`, `data_dir`, `docker.compose_command`) and scans app directories for docker-compose files. Backup labels on services control what gets backed up and how.
+- **araalert**: Pushes `backup-failed` events on failures. Events are spooled to `/var/lib/arabackup/pending-events.json` if araalert is unreachable and retried at the start of each backup cycle.
+- **aradashboard**: Queries arabackup's `/api/status` endpoint to display backup status in the dashboard.
+- **Docker**: Uses `docker exec` for database dumps/restores and `docker compose` for stopping/starting apps during restore.
+- **Borg**: Direct CLI wrapper — initializes repos, creates/extracts/prunes archives, manages encryption via `BORG_REPO` and `BORG_PASSPHRASE` environment variables.

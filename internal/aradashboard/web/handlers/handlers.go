@@ -16,6 +16,7 @@ type BasePage struct {
 	Hostname string
 	Domain   string
 	NavColor string
+	AuthEnabled bool
 }
 
 // Handler holds shared dependencies for all route handlers.
@@ -44,9 +45,10 @@ func New(cfg *config.Config, ldc *config.AradeployYAML, runner *executil.Runner,
 
 func (h *Handler) basePage() BasePage {
 	return BasePage{
-		Hostname: h.ldc.Hostname,
-		Domain:   h.ldc.Network.Domain,
-		NavColor: h.cfg.Web.NavColor,
+		Hostname:    h.ldc.Hostname,
+		Domain:      h.ldc.Network.Domain,
+		NavColor:    h.cfg.Web.NavColor,
+		AuthEnabled: h.cfg.Auth.Password != "",
 	}
 }
 

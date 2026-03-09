@@ -1,63 +1,92 @@
 # aranotify
 
-Notification delivery service. Receives notification requests via REST API and dispatches them to configured channels (webhook, email, ntfy, Mattermost).
+Multi-channel notification delivery service. aranotify receives notification requests via its API and dispatches them to configured channels.
+
+## How It Works
+
+aranotify runs as a daemon with an HTTP API. When a notification is received (typically from araalert), the dispatcher routes it to all enabled channels. Each channel implementation handles formatting and delivery for its specific protocol.
+
+Notifications include a title, body, severity level, source identifier, and optionally target specific channels.
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `aranotify run` | Run the notification daemon |
-| `aranotify send` | Send a test notification |
-| `aranotify channels` | List configured notification channels |
+```
+aranotify run                   # Start daemon (API server)
+aranotify send                  # Send a test notification
+aranotify channels              # List configured channels
+```
 
 ## Configuration
 
-Default config path: `/etc/arastack/config/aranotify.yaml`
+File: `/etc/arastack/config/aranotify.yaml`
 
-### Server
+```yaml
+server:
+  port: 7140
+  bind: 127.0.0.1
 
-| Key | Default | Description |
-|-----|---------|-------------|
-| `server.port` | `7140` | API server port |
-| `server.bind` | `127.0.0.1` | Bind address |
+channels:
+  webhook:
+    url: https://webhook.example.com
 
-### Notification Channels
+  ntfy:
+    url: https://ntfy.sh
+    token: token123
 
-#### Webhook
-| Key | Description |
-|-----|-------------|
-| `channels.webhook.url` | Webhook URL for generic HTTP POST notifications |
+  email:
+    host: smtp.gmail.com
+    port: 587
+    from: alerts@example.com
+    to:
+      - admin@example.com
+    username: user
+    password: pass
 
-#### ntfy
-| Key | Description |
-|-----|-------------|
-| `channels.ntfy.url` | ntfy.sh service URL |
-| `channels.ntfy.token` | ntfy authentication token |
+  mattermost:
+    webhook_url: https://mattermost.example.com/hooks/xyz
+```
 
-#### Email
-| Key | Default | Description |
-|-----|---------|-------------|
-| `channels.email.host` | - | SMTP host |
-| `channels.email.port` | `587` | SMTP port |
-| `channels.email.from` | - | Sender address |
-| `channels.email.to` | - | Recipient address list |
-| `channels.email.username` | - | SMTP username |
-| `channels.email.password` | - | SMTP password |
+Environment variable overrides use the `ARANOTIFY_` prefix.
 
-#### Mattermost
-| Key | Description |
-|-----|-------------|
-| `channels.mattermost.webhook_url` | Mattermost incoming webhook URL |
+## Notification Channels
+
+| Channel | Protocol | Description |
+|---------|----------|-------------|
+| **Webhook** | HTTP POST | Sends JSON payload to a URL |
+| **Ntfy** | HTTP POST | Push notifications via [ntfy.sh](https://ntfy.sh) |
+| **Email** | SMTP | Email delivery with configurable from/to |
+| **Mattermost** | HTTP POST | Slack-compatible incoming webhook |
+
+Only channels with configuration present are active. The `channels` command lists which channels are enabled.
 
 ## API Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/health` | Health check |
-| `POST` | `/api/send` | Send notification to a channel |
-| `GET` | `/api/channels` | List available channels |
-| `POST` | `/api/test` | Send test notification |
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/health` | GET | Health check with version info |
+| `/api/send` | POST | Send a notification |
+
+### Notification Payload
+
+```json
+{
+  "title": "Backup Failed",
+  "body": "arabackup failed for app 'nextcloud'",
+  "severity": "critical",
+  "source": "arabackup",
+  "channels": ["webhook", "email"]
+}
+```
+
+The `channels` field is optional — if omitted, the notification goes to all enabled channels.
+
+## Global Flags
+
+| Flag | Description |
+|------|-------------|
+| `-v`, `--verbose` | Debug logging |
+| `--config <path>` | Config file path |
 
 ## Interactions with Other Tools
 
-- **araalert** - the primary consumer. araalert dispatches alert notifications to aranotify's `/api/send` endpoint when alert rules trigger.
+- **araalert**: Primary consumer. araalert sends notifications when alert rules fire or push events are received.

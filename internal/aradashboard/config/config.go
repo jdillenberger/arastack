@@ -9,9 +9,17 @@ import (
 type Config struct {
 	Aradeploy AradeployRef `yaml:"aradeploy"`
 	Server    ServerConfig `yaml:"server"`
+	Auth      AuthConfig   `yaml:"auth"`
 	Web       WebConfig    `yaml:"web"`
 	Services  Services     `yaml:"services"`
 	CA        CAConfig     `yaml:"ca"`
+}
+
+// AuthConfig holds optional password authentication settings.
+// When Password is set, the dashboard requires login.
+type AuthConfig struct {
+	Password       string `yaml:"password"`
+	SessionTTLMins int    `yaml:"session_ttl_minutes"`
 }
 
 // AradeployRef points to the aradeploy configuration file.

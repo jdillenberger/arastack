@@ -1,33 +1,47 @@
 # aramdns
 
-mDNS publisher for Traefik-managed domains. Watches Docker containers for Traefik router labels and publishes `.local` domains via Avahi mDNS, enabling local network name resolution for deployed apps.
-
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `aramdns run` | Run the mDNS publisher daemon |
-
-## Configuration
-
-Configuration via CLI flags and environment variables:
-
-| Flag | Env Var | Default | Description |
-|------|---------|---------|-------------|
-| `--runtime` | `ARAMDNS_RUNTIME` | auto-detected | Container runtime (`docker` or `podman`) |
-| `--interval` | `ARAMDNS_INTERVAL` | `30s` | Poll interval for domain reconciliation |
+Traefik domain mDNS publisher. aramdns watches running Docker containers for Traefik routing labels and publishes their domains via Avahi mDNS, making them resolvable on the local network without manual DNS configuration.
 
 ## How It Works
 
-1. Polls Docker containers at the configured interval.
-2. Inspects containers for Traefik router labels (e.g., `` traefik.http.routers.*.rule=Host(`app.local`) ``).
-3. Extracts `.local` domain names from the Traefik `Host()` rules.
-4. Publishes discovered domains via Avahi mDNS.
-5. Reconciles on each poll: removes stale publishers, adds new ones.
-6. Cleans up stale Avahi publisher processes.
-7. Ensures Avahi config uses physical interfaces only (prevents Docker bridge hijacking).
+aramdns runs as a daemon that:
+
+1. **Configures Avahi**: Ensures the Avahi daemon is configured to advertise only on physical network interfaces (excludes Docker bridge networks).
+2. **Discovers domains**: Periodically queries Docker (or Podman) for running containers with Traefik routing labels. Extracts hostnames from `traefik.http.routers.<router>.rule` labels (parsing `Host(...)` rules).
+3. **Publishes via Avahi**: For each discovered domain, publishes an `_http._tcp` or `_https._tcp` mDNS service record via Avahi's D-Bus interface. This makes the domain resolvable as `<domain>.local` on the LAN.
+4. **Unpublishes stale entries**: When a container stops or its labels change, removes the corresponding mDNS records.
+5. **Cleans up**: Removes stale Avahi publications from previous runs on startup.
+
+## Commands
+
+```
+aramdns run                     # Start daemon
+```
+
+## Configuration
+
+aramdns uses CLI flags (no config file):
+
+| Flag | Description |
+|------|-------------|
+| `--verbose` | Debug logging |
+| `--runtime <runtime>` | Container runtime: `docker` or `podman` (auto-detected if omitted) |
+
+## How Domains Flow
+
+```
+aradeploy deploys app with routing
+  → Traefik labels injected into docker-compose.yml
+    → aramdns discovers labels on running containers
+      → Avahi publishes domain.local via mDNS
+        → LAN clients resolve domain.local
+```
+
+Example: If aradeploy deploys an app with `routing.subdomain: nextcloud` and `routing.domain: home.local`, aramdns publishes `nextcloud.home.local` via mDNS.
 
 ## Interactions with Other Tools
 
-- **aradeploy** - works in conjunction with aradeploy deployments. When aradeploy deploys an app with Traefik routing labels, aramdns automatically picks up the `.local` domain and publishes it via mDNS, making the app resolvable on the local network without manual DNS configuration.
-- **arascanner** - both tools use mDNS but do not conflict. aramdns publishes address (A) records via `avahi-publish`, while arascanner uses `_arascanner._tcp` service records via the zeroconf library. They operate on different mDNS record types and namespaces.
+- **aradeploy**: aramdns reads Traefik labels that aradeploy injects into docker-compose.yml files. It does not communicate with aradeploy directly — it watches Docker containers.
+- **Docker/Podman**: Queries the container runtime API to list running containers and inspect their labels.
+- **Avahi**: Publishes and unpublishes mDNS service records via D-Bus. Manages Avahi configuration to ensure correct network interface binding.
+- **aramanager**: Manages aramdns's systemd service. aramdns depends on `docker.service` in its systemd unit.

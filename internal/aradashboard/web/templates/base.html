@@ -475,6 +475,7 @@
             <div>
                 <a href="/ca" class="theme-toggle" title="Trust CA Certificate" style="text-decoration:none;">&#x1F512;</a>
                 <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode" id="theme-btn"></button>
+                {{if .AuthEnabled}}<a href="/logout" class="theme-toggle" title="Logout" style="text-decoration:none;">&#x23FB;</a>{{end}}
                 <button class="nav-toggle" onclick="toggleNav()" aria-label="Menu">
                     <span class="nav-toggle-bar"></span>
                     <span class="nav-toggle-bar"></span>

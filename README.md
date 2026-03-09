@@ -1,145 +1,150 @@
-# AraStack
+# arastack
 
-A modular homelab infrastructure toolkit written in Go. AraStack provides a suite of autonomous CLI tools for deploying, monitoring, alerting, backing up, and discovering services across a homelab fleet.
-
-## Architecture
-
-AraStack consists of 8 tools that integrate via a mix of REST APIs (aradashboard querying arascanner/araalert/arabackup) and filesystem-based integration (tools reading aradeploy's config and app directories):
-
-```
-  +------------+         manages all tools
-  | aramanager |------------------------------------+
-  |  (setup)   |                                    |
-  +------------+                                    |
-                                                    v
-                        +-----------------+    installs &
-                        |  aradashboard   |    configures
-                        |  Web UI (:8420) |
-                        +---+----+----+---+
-                 REST API   |    |    |   REST API
-              +-------------+    |    +--------------+
-              |                  | REST API          |
-        +-----v-----+    +------v------+    +--------v-------+
-        |  araalert  |    |  arabackup  |    |   arascanner   |
-        |   (:7150)  |    |   (:7160)   |    |    (:7120)     |
-        +--+---+--+--+    +---+----+----+    | (peer discov.) |
-   REST    |   |  ^ events    |    |         +----------------+
-   API     |   |  | (push)    |    |
-     +-----v-+ |  |           |    | reads config
-     |aranotif| |  +-----------+   | & apps dir
-     | (:7140)| |  |               |
-     +--------+ |  | events (push) |
-                 |  |               |
-        reads    |  +----+-----+----+
-        config   +------>|           |
-        & apps dir       | aradeploy |
-                         | (deployer)|
-                         +-----+-----+
-                               |
-                         +-----v------+
-                         |   aramdns  |  watches containers
-                         | (mDNS pub) |
-                         +------------+
-```
-
-**Integration types:**
-- **REST API queries**: aradashboard → arascanner, araalert, arabackup
-- **REST API events (push)**: arabackup → araalert (`backup-failed`), aradeploy → araalert (`update-failed`)
-- **REST API notifications**: araalert → aranotify
-- **Filesystem (config + app dirs)**: araalert, arabackup, aradashboard all read aradeploy's config and app directories
+A self-hosted homelab management suite. arastack provides deployment, backup, monitoring, alerting, notifications, peer discovery, and a web dashboard — all managed through a unified CLI.
 
 ## Tools
 
-| Tool | Type | Default Port | Description | Docs |
-|------|------|-------------|-------------|------|
-| [aramanager](docs/aramanager.md) | CLI | - | Centralized setup, updates, and service management | [docs](docs/aramanager.md) |
-| [aradeploy](docs/aradeploy.md) | CLI | - | Template-based Docker Compose deployment | [docs](docs/aradeploy.md) |
-| [aradashboard](docs/aradashboard.md) | Daemon | 8420 | Web dashboard for monitoring | [docs](docs/aradashboard.md) |
-| [araalert](docs/araalert.md) | Daemon | 7150 | Health check evaluation and alert dispatching | [docs](docs/araalert.md) |
-| [aranotify](docs/aranotify.md) | Daemon | 7140 | Multi-channel notification delivery | [docs](docs/aranotify.md) |
-| [arabackup](docs/arabackup.md) | CLI/Daemon | 7160 | Borg backup and database dump management | [docs](docs/arabackup.md) |
-| [arascanner](docs/arascanner.md) | Daemon | 7120 | mDNS-based fleet peer discovery | [docs](docs/arascanner.md) |
-| [aramdns](docs/aramdns.md) | Daemon | - | Publishes Traefik .local domains via Avahi mDNS | [docs](docs/aramdns.md) |
+| Tool | Description | Port | Docs |
+|------|-------------|------|------|
+| [aramanager](docs/aramanager.md) | Unified manager: install, update, and orchestrate all tools | — | [docs](docs/aramanager.md) |
+| [aradeploy](docs/aradeploy.md) | Deploy Docker Compose apps from templates | — | [docs](docs/aradeploy.md) |
+| [arabackup](docs/arabackup.md) | Scheduled backups via Borg + database dumps | 7160 | [docs](docs/arabackup.md) |
+| [araalert](docs/araalert.md) | Health monitoring and alert rule evaluation | 7150 | [docs](docs/araalert.md) |
+| [aranotify](docs/aranotify.md) | Multi-channel notification delivery | 7140 | [docs](docs/aranotify.md) |
+| [arascanner](docs/arascanner.md) | Peer discovery and fleet management via mDNS | 7120 | [docs](docs/arascanner.md) |
+| [aramdns](docs/aramdns.md) | Publish Traefik domains via mDNS/Avahi | — | [docs](docs/aramdns.md) |
+| [aradashboard](docs/aradashboard.md) | Web dashboard aggregating all services | 8420 | [docs](docs/aradashboard.md) |
 
-> **Note on mDNS:** aramdns and arascanner both use mDNS but for different purposes and do not conflict. aramdns publishes address (A) records for `.local` domains via Avahi. arascanner advertises and discovers `_arascanner._tcp` service records via zeroconf. They operate on different mDNS record types.
+## Architecture
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                        aramanager                             │
+│         (setup, update, doctor, systemd orchestration)        │
+└─────────────────────────────┬────────────────────────────────┘
+                              │ manages
+      ┌──────────┬────────────┼──────────┬──────────┐
+      ▼          ▼            ▼          ▼          ▼
+ arascanner  aranotify    araalert   arabackup  aradashboard
+   :7120       :7140        :7150      :7160       :8420
+                 ▲            ▲                      │
+                 │            │ push events           │
+                 │            ├── arabackup           │
+                 │            │   (backup-failed)     │
+                 │            └── aradeploy           │
+                 │                (update-failed)     │
+                 │                                    │
+                 └── araalert                         │
+                     (sends alerts)                   │
+                                                      │
+                 queries ◄────────────────────────────┘
+                 arascanner, arabackup, araalert APIs
+
+  aradeploy (deploys Docker Compose apps)
+      │  arabackup, araalert, aradashboard read its app dirs
+      │
+      └── aramdns (watches containers, publishes Traefik domains via mDNS)
+```
+
+### How the tools interact
+
+- **aramanager** downloads, installs, and manages systemd services for all other tools. It runs each tool's doctor checks and can auto-fix missing dependencies.
+- **aradeploy** deploys Docker Compose applications from templates. Other tools discover deployed apps by reading aradeploy's configuration and scanning its apps directory.
+- **arabackup** discovers apps deployed by aradeploy (via docker-compose labels), creates Borg archives and database dumps, and pushes failure events to araalert.
+- **araalert** periodically checks the health of deployed apps (container status) and evaluates alert rules. When a rule fires, it sends notifications through aranotify.
+- **aranotify** delivers notifications to configured channels: webhooks, ntfy, email (SMTP), and Mattermost.
+- **arascanner** discovers other arastack peers on the local network via mDNS and maintains a fleet registry with heartbeat-based online/offline tracking.
+- **aramdns** watches running Docker containers for Traefik routing labels and publishes their domains via Avahi mDNS, making them resolvable on the local network.
+- **aradashboard** provides a web UI that aggregates data from arascanner (peers), arabackup (backup status), araalert (alert history), and aradeploy (deployed apps).
+
+### Shared packages
+
+All tools share common functionality via `pkg/`:
+
+| Package | Purpose |
+|---------|---------|
+| `pkg/config` | Layered configuration loading (YAML file + env overrides) |
+| `pkg/executil` | Command execution wrapper with env, streaming, and piping support |
+| `pkg/clients` | HTTP API clients for inter-tool communication (alert, notify, backup, scanner) |
+| `pkg/systemd` | systemd unit file generation and service lifecycle management |
+| `pkg/version` | Build-time version info (set via ldflags) |
+| `pkg/health` | Standardized `/api/health` endpoint |
+| `pkg/doctor` | System dependency checking and auto-fix (apt install) |
+| `pkg/selfupdate` | Binary extraction from tar.gz and atomic replacement |
+| `pkg/netutil` | Local IP detection |
+| `pkg/aradeployconfig` | Shared aradeploy config types so other tools can read deployment state |
 
 ## Quick Start
 
-Install `aramanager` (the bootstrap tool):
+### Install
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jdillenberger/arastack/main/install.sh | sudo bash
 ```
 
-Then run the setup wizard:
+This installs `aramanager`. Then set up all tools:
 
 ```bash
 sudo aramanager setup
 ```
 
-## Building from Source
+The setup command downloads all tool binaries, runs doctor checks with auto-fix, and installs systemd services in the correct dependency order.
 
-Requires Go 1.24+.
+### Build from source
 
 ```bash
-# Build all tools
-make build
+git clone https://github.com/jdillenberger/arastack.git
+cd arastack
+make build        # builds all tools to bin/
+sudo make install # installs to /usr/local/bin
+```
 
-# Build a single tool
-make build-araalert
+### Update
 
-# Run tests
-make test
-
-# Install to /usr/local/bin
-make install
-
-# Cross-compile for ARM64
-make build-arm64
-
-# Build snapshot release
-make release
+```bash
+sudo aramanager update          # update all tools
+sudo aramanager update --check  # check for updates without installing
 ```
 
 ## Configuration
 
-Most tools use a layered YAML configuration system:
+All configuration files live under `/etc/arastack/config/`:
 
-1. System-wide: `/etc/arastack/config/{tool}.yaml`
-2. User-level: `~/.arastack/config/{tool}.yaml`
-3. Environment variables: `{TOOL}_{SECTION}_{KEY}`
-4. CLI flag: `--config /path/to/config.yaml`
+| File | Tool |
+|------|------|
+| `aradeploy.yaml` | aradeploy |
+| `arabackup.yaml` | arabackup |
+| `araalert.yaml` | araalert |
+| `aranotify.yaml` | aranotify |
+| `aradashboard.yaml` | aradashboard |
 
-**Exception:** aramdns and arascanner use CLI flags and environment variables (`ARAMDNS_*`, `ARASCANNER_*`) instead of YAML config files. These tools have very few settings (2 and 6 respectively) and are configured via their systemd unit environment. `aramanager config show/init` does not apply to them.
+All tools support environment variable overrides with the pattern `TOOLNAME_SECTION_KEY` (e.g., `ARABACKUP_BORG_BASE_DIR=/custom/path`).
 
-## API Authentication
+## File Locations
 
-arascanner's API is protected by a Pre-Shared Key (PSK). The other service APIs (araalert, aranotify, arabackup) bind to `127.0.0.1` by default and are only accessible locally. aradashboard binds to `0.0.0.0` by default to serve its web UI — use a reverse proxy or firewall to restrict access in untrusted networks.
+| Path | Purpose |
+|------|---------|
+| `/etc/arastack/config/` | Configuration files |
+| `/opt/aradeploy/apps/` | Deployed application directories |
+| `/opt/aradeploy/data/` | Application data volumes |
+| `/mnt/backup/borg/` | Borg backup repositories |
+| `/var/lib/arascanner/` | arascanner peer state |
+| `/var/lib/araalert/` | araalert event history |
+| `~/.aradeploy/templates/` | Local template overrides |
+| `~/.aradeploy/repos/` | Cloned template repositories |
+
+## Development
+
+```bash
+make build           # build all tools
+make test            # run tests
+make lint            # run golangci-lint
+make fmt             # format code
+make vet             # run go vet
+make release         # goreleaser snapshot build
+make run-aradeploy ARGS="list"  # build and run a specific tool
+```
 
 ## Supported Platforms
 
-- Linux amd64
-- Linux arm64
-- Linux armv7
-
-## Project Structure
-
-```
-cmd/                    # Entry points for all 8 tools
-internal/               # App-specific logic (cli, api, config, etc.)
-pkg/                    # Shared libraries
-  aradeployconfig/      # Aradeploy config loader
-  clients/              # HTTP API clients for inter-app communication
-  config/               # Unified YAML config framework
-  doctor/               # System diagnostics utilities
-  executil/             # Shell command execution helpers
-  health/               # Health check utilities
-  netutil/              # Network utility functions
-  selfupdate/           # Binary self-update mechanism
-  systemd/              # Systemd service management
-  version/              # Version/build metadata
-```
-
-## License
-
-Private.
+- Linux (amd64, arm64, armv7)

@@ -1,63 +1,243 @@
 # aradeploy
 
-Template-based Docker Compose deployment and management tool. Deploys applications from templates with variable substitution, secret generation, and optional Traefik routing integration.
-
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `aradeploy deploy <app>` | Deploy app from template (`--values`, `--set`, `--dry-run`, `--quick`) |
-| `aradeploy remove <app>` | Remove deployed app (`--purge-data`, `--force`) |
-| `aradeploy start <app>` | Start a deployed app |
-| `aradeploy stop <app>` | Stop a deployed app |
-| `aradeploy restart <app>` | Restart a deployed app |
-| `aradeploy status [app]` | Show container status |
-| `aradeploy logs <app>` | Show app logs (`--follow`, `--lines`) |
-| `aradeploy list` | List apps (`--all`, `--filter`, `--category`) |
-| `aradeploy info <app>` | Show app template details |
-| `aradeploy update [app]` | Pull latest images and recreate (`--all`) |
-| `aradeploy templates` | Manage app templates (list, create, export, lint) |
-| `aradeploy repos` | Manage template source repositories (add/remove/update git repos) |
-| `aradeploy export <app>` | Export app configuration |
-| `aradeploy eject <app>` | Remove deployment templating |
-| `aradeploy upgrade <app>` | Upgrade app to new version |
-| `aradeploy pin <app>` | Pin app to specific version |
-| `aradeploy prune` | Cleanup dangling volumes and networks |
-| `aradeploy config` | Configuration management |
-
-## Configuration
-
-Default config path: `/etc/arastack/config/aradeploy.yaml`
-
-| Key | Default | Description |
-|-----|---------|-------------|
-| `hostname` | - | Machine hostname |
-| `apps_dir` | `/opt/aradeploy/apps` | Directory where apps are deployed |
-| `data_dir` | `/opt/aradeploy/data` | Directory for app data volumes |
-| `templates_dir` | `~/.aradeploy/templates` | Local templates directory |
-| `network.domain` | `local` | Domain suffix |
-| `network.web_port` | `8080` | Web port for routing |
-| `docker.runtime` | `docker` | Container runtime |
-| `docker.compose_command` | `docker compose` | Compose command |
-| `docker.default_network` | `aradeploy-net` | Default Docker network |
-| `routing.enabled` | `true` | Enable routing features |
-| `routing.provider` | `traefik` | Routing provider |
-| `routing.domain` | - | Custom routing domain |
-| `routing.https.enabled` | `true` | Enable HTTPS |
-| `routing.https.acme_email` | - | ACME email for Let's Encrypt |
-| `araalert.url` | `http://127.0.0.1:7150` | araalert URL for pushing update-failed events |
+Docker Compose application deployment manager. aradeploy deploys applications from templates, manages their lifecycle, handles container image versioning, and provides reverse proxy routing via Traefik.
 
 ## How It Works
 
-1. Templates define apps as parameterized Docker Compose files with values, secrets, and metadata.
-2. `aradeploy deploy` renders a template with user-provided or auto-generated values.
-3. The rendered `docker-compose.yml` is placed in the apps directory and started.
-4. Traefik labels are optionally added for automatic reverse proxy routing.
-5. App metadata (version, deploy time, values) is tracked alongside the compose file.
+aradeploy uses a **template system** where each application is defined as a template containing a `docker-compose.yml.tmpl`, an `app.yaml` metadata file, and optional static files. Templates live in git repositories that aradeploy clones and keeps updated.
+
+When you deploy an app, aradeploy:
+
+1. Loads the template from the registry (local overrides take priority over repo templates)
+2. Merges user-provided values with template defaults and auto-generated values (passwords, UUIDs)
+3. Renders Go templates to produce `docker-compose.yml`, `.env`, and any other config files
+4. Creates the Docker network if it doesn't exist
+5. Injects Traefik routing labels into the compose file (if routing is enabled)
+6. Generates TLS certificates for the domain (if HTTPS is enabled)
+7. Writes everything to `/opt/aradeploy/apps/<app>/`
+8. Runs `docker compose up -d`
+9. Saves deployment state to `.aradeploy.yaml` inside the app directory
+10. Runs any post-deploy hooks defined in the template
+
+File-based locking prevents concurrent operations on the same app.
+
+## Commands
+
+### App Management
+
+```
+aradeploy deploy <app>          # Deploy from template
+  -f values.yaml                # Values file
+  --set key=value               # Override individual values
+  --dry-run                     # Preview without deploying
+  --yes                         # Skip confirmation
+  --quick                       # Skip interactive wizard
+
+aradeploy remove <app>          # Stop and remove app
+  --purge-data                  # Also delete data volumes
+  --force                       # Skip confirmation
+
+aradeploy start <app>           # Start containers
+aradeploy stop <app>            # Stop containers
+aradeploy restart <app>         # Restart containers
+aradeploy status [app]          # Show container status
+aradeploy logs <app>            # Stream logs
+  -f                            # Follow
+  -n <lines>                    # Tail lines
+aradeploy list                  # List deployed apps
+  --all                         # Include available templates
+  --filter <text>               # Filter by name
+  --category <cat>              # Filter by category
+aradeploy info <app>            # Show template details
+```
+
+### Upgrades and Versioning
+
+```
+aradeploy update <app>          # Pull latest images, recreate containers
+aradeploy upgrade [app]         # Upgrade template or container images
+  --all                         # Upgrade all apps
+  --dry-run                     # Preview changes
+  --check                       # Check only, don't upgrade
+  --patch-only                  # Only apply patch version bumps
+aradeploy outdated [app]        # Check for newer image versions
+aradeploy pin [app]             # Resolve floating tags to pinned semver
+  --dry-run                     # Preview changes
+  --update                      # Pin and pull
+```
+
+### Template Management
+
+```
+aradeploy templates list        # List all available templates
+aradeploy templates export <t>  # Copy template locally for customization
+aradeploy templates delete <t>  # Remove local template override
+aradeploy templates path        # Print templates directory
+aradeploy templates new <name>  # Scaffold a new template
+  --dockerfile                  # Include a Dockerfile
+aradeploy templates lint [t]    # Validate templates
+```
+
+### Repository Management
+
+```
+aradeploy repos list            # List template repositories
+aradeploy repos add <url>       # Add git repo as template source
+  --name <name>                 # Custom name
+  --ref <branch|tag>            # Branch or tag to track
+aradeploy repos remove <name>   # Remove repository
+aradeploy repos update [name]   # Pull latest from repos
+```
+
+### Configuration
+
+```
+aradeploy config show           # Print current config
+aradeploy config init           # Create default config
+aradeploy config validate       # Check for errors
+```
+
+### Other
+
+```
+aradeploy export                # Export all deployed apps to YAML
+aradeploy import <file>         # Import and deploy from export
+  --dry-run                     # Preview
+aradeploy eject [-o dir]        # Export compose + env for standalone use
+aradeploy prune [--force]       # Clean Docker resources
+aradeploy completion <shell>    # Shell completion (bash/zsh/fish)
+```
+
+## Configuration
+
+File: `/etc/arastack/config/aradeploy.yaml`
+
+```yaml
+hostname: myhost
+apps_dir: /opt/aradeploy/apps
+data_dir: /opt/aradeploy/data
+templates_dir: ~/.aradeploy/templates
+
+network:
+  domain: local
+  web_port: 8080
+
+docker:
+  runtime: docker
+  compose_command: docker compose
+  default_network: aradeploy-net
+
+routing:
+  enabled: true
+  provider: traefik
+  domain: ""              # defaults to hostname.domain
+  https:
+    enabled: true
+    acme_email: admin@example.com
+
+araalert:
+  url: http://127.0.0.1:7150
+```
+
+Environment variable overrides use the `ARADEPLOY_` prefix (e.g., `ARADEPLOY_APPS_DIR=/custom/path`).
+
+## Template Format
+
+Each template contains an `app.yaml` metadata file:
+
+```yaml
+name: myapp
+description: My application
+category: media
+version: 1.0.0
+
+values:
+  - name: web_port
+    description: "Web UI port"
+    default: "8080"
+    required: false
+  - name: db_password
+    description: "Database password"
+    secret: true
+    auto_gen: password     # auto-generate 32 hex chars
+
+ports:
+  - host: 8080
+    container: 8080
+    value_name: web_port
+
+volumes:
+  - name: data
+    container: /data
+
+routing:
+  enabled: true
+  subdomain: myapp
+  container_port: 8080
+
+health_check:
+  url: "http://localhost:{{.web_port}}"
+
+hooks:
+  post_deploy:
+    - type: exec
+      command: "echo deployed"
+
+post_deploy_info:
+  access_url: "http://{{.hostname}}.{{.domain}}:{{.web_port}}"
+```
+
+Templates use Go's `text/template` syntax. Available variables include all user values plus system values: `hostname`, `domain`, `app_name`, `data_dir`, `web_port`, `routing_domain`.
+
+## Docker Compose Labels
+
+aradeploy injects Traefik labels for routing and reads backup labels for arabackup integration:
+
+```yaml
+labels:
+  # Backup integration (read by arabackup)
+  arabackup.enable: "true"
+  arabackup.dump.driver: "postgres"
+  arabackup.dump.database: "mydb"
+  arabackup.dump.user: "postgres"
+  arabackup.dump.password-env: "POSTGRES_PASSWORD"
+```
+
+## Global Flags
+
+| Flag | Description |
+|------|-------------|
+| `--config <path>` | Config file path |
+| `--apps-dir <path>` | Override apps directory |
+| `-v`, `--verbose` | Debug logging |
+| `-q`, `--quiet` | Suppress non-essential output |
+| `--json` | JSON output |
 
 ## Interactions with Other Tools
 
-- **arabackup** - reads aradeploy's app directory and compose files to discover what to back up. Backup labels in compose services define backup behavior.
-- **araalert** - reads aradeploy config to discover deployed apps for health monitoring (`app-down` rules). Also receives `update-failed` events (with retry on failure) when `aradeploy update --all` or `aradeploy upgrade --all` encounters failures. If araalert is unreachable after retries, events are spooled to disk (`/var/lib/aradeploy/pending-events.json`) and retried on the next `update --all` run. Configured via `araalert.url`.
-- **aradashboard** - reads aradeploy config to list and display deployed apps, their status, and logs.
-- **aramdns** - watches containers deployed by aradeploy for Traefik labels and publishes their `.local` domains via mDNS.
+- **arabackup**: Reads aradeploy's config and app directories to discover services with backup labels. arabackup parses docker-compose.yml files to find `arabackup.*` labels.
+- **araalert**: aradeploy pushes `update-failed` events to araalert when container image updates fail. Events are spooled to disk for retry if araalert is unreachable.
+- **aramdns**: Watches Docker containers for Traefik labels injected by aradeploy and publishes the domains via mDNS.
+- **aradashboard**: Reads aradeploy state files (`.aradeploy.yaml`) to display deployed apps.
+
+## Container Registry Support
+
+aradeploy queries these registries for image version resolution:
+
+- Docker Hub (`docker.io`)
+- GitHub Container Registry (`ghcr.io`)
+- LinuxServer (`lscr.io`)
+- Quay.io
+
+It uses registry v2 API with token authentication to resolve floating tags (like `latest`) to specific semver versions and detect available updates.
+
+## File Locations
+
+| Path | Purpose |
+|------|---------|
+| `/opt/aradeploy/apps/<app>/` | Deployed app files (compose, env, state) |
+| `/opt/aradeploy/data/<app>/` | App data volumes |
+| `~/.aradeploy/templates/` | Local template overrides |
+| `~/.aradeploy/repos/` | Cloned template repositories |
+| `~/.aradeploy/repos.yaml` | Repository manifest |
+| `/var/lib/aradeploy/pending-events.json` | Event spool for araalert |

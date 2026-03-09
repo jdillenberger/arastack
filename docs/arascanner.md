@@ -1,73 +1,77 @@
 # arascanner
 
-Fleet peer discovery and tracking service. Discovers peers on the local network via mDNS and supports remote peer joining via invite tokens.
-
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `arascanner run` | Run the scanner daemon |
-| `arascanner peers` | List known peers from the running daemon |
-| `arascanner peers discover` | Run one-shot mDNS discovery |
-| `arascanner join` | Join an existing fleet using an invite token |
-| `arascanner invite` | Generate invite tokens for remote peers |
-| `arascanner tags` | Manage peer tags |
-| `arascanner show-secret` | Display fleet secret |
-
-## Configuration
-
-Configuration via CLI flags and environment variables:
-
-| Flag | Env Var | Default | Description |
-|------|---------|---------|-------------|
-| `--port` | `ARASCANNER_PORT` | `7120` | API server port |
-| `--data-dir` | `ARASCANNER_DATA_DIR` | `/var/lib/arascanner` | Data directory |
-| `--hostname` | `ARASCANNER_HOSTNAME` | - | Hostname override |
-| `--discovery-interval` | `ARASCANNER_DISCOVERY_INTERVAL` | `30s` | mDNS discovery interval |
-| `--heartbeat-interval` | `ARASCANNER_HEARTBEAT_INTERVAL` | `60s` | Heartbeat interval |
-| `--offline-threshold` | `ARASCANNER_OFFLINE_THRESHOLD` | `3m` | Mark peer offline after this |
-
-## API Endpoints
-
-All endpoints except `/api/health` require Bearer token (PSK) authentication.
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| `GET` | `/api/health` | No | Health check |
-| `GET` | `/api/peers` | Yes | Get all known peers |
-| `GET` | `/api/peers/events` | Yes | Stream peer events |
-| `POST` | `/api/join` | Token | Join fleet with invite token |
-| `POST` | `/api/heartbeat` | Yes | Send heartbeat |
-
-## Peer Metadata
-
-Each discovered peer tracks:
-
-- Hostname, IP address, port
-- Role (compute, storage, control, etc.)
-- Tags (arbitrary key=value pairs)
-- Last seen timestamp and online/offline status
-- Discovery source (mDNS or remote)
-
-## Fleet Authentication
-
-API endpoints (except `/api/health`) are protected by a Pre-Shared Key (PSK).
-
-- **Auto-generated on first start:** When the daemon starts for the first time, a PSK is generated (32 bytes, hex-encoded) and stored in `peers.yaml` in the data directory.
-- **Sharing via invite/join:** Use `arascanner invite` to generate a time-limited invite token that embeds the PSK. The new peer runs `arascanner join <token>` to join the fleet and receive the PSK.
-- **Display the PSK:** Use `arascanner show-secret` to view the current fleet secret.
-- **aradashboard integration:** The PSK must be configured manually in aradashboard's config under `services.peer_scanner.secret`.
+Peer discovery and fleet management daemon. arascanner uses mDNS to automatically discover other arastack instances on the local network and maintains a fleet registry with heartbeat-based health tracking.
 
 ## How It Works
 
-1. Advertises itself via mDNS on the local network.
-2. Runs periodic mDNS discovery (default: every 30s) to find other peers.
-3. Maintains a persistent peer database on disk.
-4. Tracks peer liveness via heartbeats; marks peers offline after the threshold.
-5. Supports remote peers (outside the LAN) via time-limited invite tokens.
-6. Gossips peer information between cluster members.
+arascanner operates as a daemon with four main subsystems:
+
+1. **mDNS Advertiser**: Publishes this node as a `_arascanner._tcp` service via mDNS, making it discoverable by other arastack peers.
+2. **mDNS Discoverer**: Periodically scans the local network for other `_arascanner._tcp` services and adds discovered peers to the store.
+3. **Heartbeat Loop**: Periodically pings known peers via their HTTP API to track online/offline status based on response time.
+4. **API Server**: Exposes a REST API for querying peers, handling join requests, and responding to heartbeats.
+
+Peers are organized into **fleets**. A fleet has a name and shared secret. New nodes can join an existing fleet using an invite token (displayed as a QR code).
+
+## Commands
+
+```
+arascanner run                  # Start daemon
+arascanner peers                # List known peers
+arascanner invite               # Generate join token (+ QR code)
+arascanner join <token>         # Join an existing fleet
+arascanner tags                 # Manage peer tags
+```
+
+## Configuration
+
+arascanner uses CLI flags and environment variables (no config file):
+
+| Flag | Env Var | Default | Description |
+|------|---------|---------|-------------|
+| `--port` | `ARASCANNER_PORT` | 7120 | API listen port |
+| `--data-dir` | `ARASCANNER_DATA_DIR` | `/var/lib/arascanner` | State directory |
+| `--hostname` | `ARASCANNER_HOSTNAME` | System hostname | Node display name |
+| `--discovery-interval` | `ARASCANNER_DISCOVERY_INTERVAL` | — | mDNS scan interval |
+| `--heartbeat-interval` | `ARASCANNER_HEARTBEAT_INTERVAL` | — | Peer ping interval |
+| `--offline-threshold` | `ARASCANNER_OFFLINE_THRESHOLD` | — | Time before marking peer offline |
+
+## State
+
+Fleet and peer data is persisted as YAML in the data directory:
+
+```yaml
+fleet:
+  name: homelab
+  secret: <shared-secret>
+peers:
+  - hostname: server1
+    address: 192.168.1.10
+    port: 7120
+    version: 1.2.3
+    role: member
+    tags: [docker, backup]
+    online: true
+    last_seen: 2025-03-09T12:00:00Z
+```
+
+## API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/health` | GET | Health check with version info |
+| `/api/peers` | GET | Fleet info and peer list |
+| `/api/join` | POST | Remote peer join request |
+| `/api/heartbeat` | POST | Peer ping/pong |
+
+## Global Flags
+
+| Flag | Description |
+|------|-------------|
+| `-v`, `--verbose` | Debug logging |
 
 ## Interactions with Other Tools
 
-- **aradashboard** - exposes peer data via the `/api/peers` endpoint (authenticated via PSK). aradashboard displays fleet information on its fleet page.
-- **aramdns** - both tools use mDNS but do not conflict. arascanner advertises/discovers `_arascanner._tcp` service records for peer discovery, while aramdns publishes address (A) records for Traefik `.local` domains. They use different mDNS record types.
+- **aradashboard**: Queries `/api/peers` to display the fleet overview (peer list, online/offline status, versions).
+- **aramanager**: Manages arascanner's systemd service and runs its doctor checks.
+- **Network**: Uses mDNS (multicast DNS) on local network interfaces for zero-configuration peer discovery. Detects the local IP via `pkg/netutil`.

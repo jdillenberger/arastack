@@ -55,5 +55,8 @@ clean: ## Remove build artifacts
 release: ## Build snapshot release with goreleaser
 	goreleaser build --snapshot --clean
 
+path-dev: ## Print PATH export for dev tools (usage: eval "$(make path-dev)")
+	@echo 'export PATH="$(CURDIR)/bin:$$PATH"'
+
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'

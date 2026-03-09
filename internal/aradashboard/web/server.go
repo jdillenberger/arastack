@@ -9,6 +9,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
+	"github.com/jdillenberger/arastack/internal/aradashboard/auth"
 	"github.com/jdillenberger/arastack/internal/aradashboard/config"
 	"github.com/jdillenberger/arastack/internal/aradashboard/discovery"
 	"github.com/jdillenberger/arastack/internal/aradashboard/docker"
@@ -44,6 +45,13 @@ func NewServer(cfg *config.Config, ldc *config.AradeployYAML, version string) (*
 	}))
 	e.Use(middleware.Recover())
 
+	// Authentication
+	sessionTTL := 24 * time.Hour
+	if cfg.Auth.SessionTTLMins > 0 {
+		sessionTTL = time.Duration(cfg.Auth.SessionTTLMins) * time.Minute
+	}
+	authStore := auth.NewStore(cfg.Auth.Password, sessionTTL)
+
 	// Template renderer
 	renderer, err := templates.NewRenderer()
 	if err != nil {
@@ -57,6 +65,14 @@ func NewServer(cfg *config.Config, ldc *config.AradeployYAML, version string) (*
 		return nil, err
 	}
 	e.GET("/static/*", echo.WrapHandler(http.StripPrefix("/static/", http.FileServer(http.FS(staticFS)))))
+
+	// Auth routes (before auth middleware)
+	e.GET("/login", auth.LoginPageHandler(authStore))
+	e.POST("/login", auth.LoginHandler(authStore))
+	e.GET("/logout", auth.LogoutHandler(authStore))
+
+	// Auth middleware (skips /login, /static, /api/health)
+	e.Use(auth.Middleware(authStore, "/login", "/static", "/api/health"))
 
 	// Create dependencies
 	runner := &executil.Runner{}

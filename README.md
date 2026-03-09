@@ -14,7 +14,7 @@ That's it. Nextcloud is running, backed up nightly, monitored, and reachable at 
 
 | Feature | Tool | Description |
 |---------|------|-------------|
-| **App deployment** | [aradeploy](docs/aradeploy.md) | Deploy apps from templates with one command |
+| **App deployment** | [aradeploy](docs/aradeploy.md) | Deploy apps from [ready-made templates](https://github.com/jdillenberger/arastack-templates) with one command |
 | **Reverse proxy** | Traefik (auto-managed) | HTTPS, subdomains, automatic certificate management |
 | **Local DNS** | [aramdns](docs/aramdns.md) | Apps reachable as `appname.local` on your LAN via mDNS |
 | **Backups** | [arabackup](docs/arabackup.md) | Scheduled Borg archives + database dumps with retention |

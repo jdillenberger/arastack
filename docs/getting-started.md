@@ -121,8 +121,7 @@ server:
 
 channels:
   ntfy:
-    url: https://ntfy.sh
-    topic: my-homelab-alerts
+    url: https://ntfy.sh/my-homelab-alerts
 ```
 
 Then restart the service:

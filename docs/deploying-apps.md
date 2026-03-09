@@ -75,11 +75,6 @@ routing:
   subdomain: nextcloud
   container_port: 80
 
-# Health check endpoint
-health_check:
-  url: "http://localhost:{{.web_port}}"
-  interval: "30s"
-
 # Info shown after deploy
 post_deploy_info:
   access_url: "http://{{.hostname}}.{{.domain}}:{{.web_port}}"
@@ -371,13 +366,13 @@ aradeploy upgrade --all             # Upgrade everything
 
 ### Export for Standalone Use
 
-If you want to take an app out of arastack and manage it with plain Docker Compose:
+If you want to take your apps out of arastack and manage them with plain Docker Compose:
 
 ```bash
-aradeploy eject nextcloud -o ./my-nextcloud
+aradeploy eject -o ./my-apps
 ```
 
-This copies the rendered `docker-compose.yml` and `.env` to the output directory. You can then manage it with `docker compose` directly.
+This exports all deployed apps into the output directory, with each app in its own subdirectory containing its rendered `docker-compose.yml` and `.env`. You can then manage them with `docker compose` directly.
 
 ## Configuration Reference
 

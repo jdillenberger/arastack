@@ -28,6 +28,9 @@ type Manager struct {
 	cooldowns        map[string]time.Time
 	cooldownDuration time.Duration
 	mu               sync.Mutex
+
+	latestHealth []health.Result
+	healthMu     sync.RWMutex
 }
 
 // NewManager creates a new alert Manager.
@@ -43,6 +46,22 @@ func NewManager(store *Store, client *clients.NotifyClient, cooldown time.Durati
 // Store returns the underlying alert store.
 func (m *Manager) Store() *Store {
 	return m.store
+}
+
+// StoreHealth saves the latest health check results.
+func (m *Manager) StoreHealth(results []health.Result) {
+	m.healthMu.Lock()
+	m.latestHealth = results
+	m.healthMu.Unlock()
+}
+
+// LatestHealth returns the most recent health check results.
+func (m *Manager) LatestHealth() []health.Result {
+	m.healthMu.RLock()
+	defer m.healthMu.RUnlock()
+	out := make([]health.Result, len(m.latestHealth))
+	copy(out, m.latestHealth)
+	return out
 }
 
 // Evaluate checks rules against health results, firing alerts as needed.

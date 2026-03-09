@@ -11,7 +11,6 @@ import (
 
 	"github.com/jdillenberger/arastack/internal/aradashboard/auth"
 	"github.com/jdillenberger/arastack/internal/aradashboard/config"
-	"github.com/jdillenberger/arastack/internal/aradashboard/discovery"
 	"github.com/jdillenberger/arastack/internal/aradashboard/docker"
 	"github.com/jdillenberger/arastack/internal/aradashboard/health"
 	"github.com/jdillenberger/arastack/internal/aradashboard/static"
@@ -78,14 +77,10 @@ func NewServer(cfg *config.Config, ldc *config.AradeployYAML, version string) (*
 	runner := &executil.Runner{}
 	compose := docker.NewCompose(runner, ldc.Docker.ComposeCommand)
 
-	// Health cache with app discovery from aradeploy's apps_dir
-	listFn := func() ([]string, error) {
-		return discovery.ListApps(cfg.Aradeploy.Config)
-	}
+	// Health cache polls araalert for app health status
+	alertClient := clients.NewAlertClient(cfg.Services.Araalert.URL)
 	healthCache := health.NewHealthCache(
-		compose,
-		ldc.AppsDir,
-		listFn,
+		alertClient,
 		30*time.Second,
 		2*time.Minute,
 	)

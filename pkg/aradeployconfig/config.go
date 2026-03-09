@@ -2,7 +2,9 @@ package aradeployconfig
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
+	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 )
@@ -39,22 +41,63 @@ type Config struct {
 }
 
 // Load reads aradeploy's config file and returns the parsed settings.
+// When path is empty or the default, it searches /etc/arastack/config/ then
+// ~/.arastack/config/. If neither file exists, defaults are returned.
+// An explicit non-default path that does not exist returns an error.
 func Load(path string) (*Config, error) {
-	if path == "" {
-		path = DefaultConfigPath
+	var cfg Config
+
+	if path == "" || path == DefaultConfigPath {
+		if err := loadFromSearchPaths(&cfg); err != nil {
+			return nil, err
+		}
+	} else {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("reading aradeploy config %s: %w", path, err)
+		}
+		if err := yaml.Unmarshal(data, &cfg); err != nil {
+			return nil, fmt.Errorf("parsing aradeploy config: %w", err)
+		}
 	}
 
+	applyDefaults(&cfg)
+	return &cfg, nil
+}
+
+// loadFromSearchPaths tries system then user config, logging warnings for
+// permission errors. If no file is found, cfg keeps its zero values (defaults
+// are applied by the caller).
+func loadFromSearchPaths(cfg *Config) error {
+	const fileName = "aradeploy.yaml"
+
+	// System-wide config.
+	sysPath := filepath.Join("/etc/arastack/config", fileName)
+	if err := mergeFromFile(cfg, sysPath); err != nil && !os.IsNotExist(err) {
+		slog.Warn("failed to load aradeploy config", "path", sysPath, "error", err)
+	}
+
+	// User-level config.
+	home, err := os.UserHomeDir()
+	if err == nil {
+		userPath := filepath.Join(home, ".arastack", "config", fileName)
+		if err := mergeFromFile(cfg, userPath); err != nil && !os.IsNotExist(err) {
+			slog.Warn("failed to load aradeploy config", "path", userPath, "error", err)
+		}
+	}
+
+	return nil
+}
+
+func mergeFromFile(cfg *Config, path string) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("reading aradeploy config %s: %w", path, err)
+		return err
 	}
+	return yaml.Unmarshal(data, cfg)
+}
 
-	var cfg Config
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return nil, fmt.Errorf("parsing aradeploy config: %w", err)
-	}
-
-	// Apply defaults for missing fields.
+func applyDefaults(cfg *Config) {
 	if cfg.Hostname == "" {
 		cfg.Hostname, _ = os.Hostname()
 	}
@@ -76,6 +119,4 @@ func Load(path string) (*Config, error) {
 	if cfg.Docker.ComposeCommand == "" {
 		cfg.Docker.ComposeCommand = "docker compose"
 	}
-
-	return &cfg, nil
 }

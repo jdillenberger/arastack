@@ -36,6 +36,7 @@ func (srv *Server) Start(bind string, port int) error {
 	mux := http.NewServeMux()
 
 	mux.Handle("GET /api/health", srv.health)
+	mux.HandleFunc("GET /api/app-health", srv.handleAppHealth)
 	mux.HandleFunc("GET /api/rules", srv.handleGetRules)
 	mux.HandleFunc("POST /api/rules", srv.handleCreateRule)
 	mux.HandleFunc("DELETE /api/rules/{id}", srv.handleDeleteRule)

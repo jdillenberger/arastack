@@ -45,6 +45,8 @@ arabackup config init           # Generate default config
 7. Stops database services
 8. Starts the full app
 
+**Warning:** Restore does not have rollback. If a step fails partway through (e.g., borg extraction succeeds but the database restore fails), your app may be left in an inconsistent state. Consider creating a fresh backup before restoring from an older archive.
+
 ## Configuration
 
 File: `/etc/arastack/config/arabackup.yaml`

@@ -2,15 +2,11 @@ package health
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"log/slog"
-	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
-	"github.com/jdillenberger/arastack/internal/aradashboard/docker"
+	"github.com/jdillenberger/arastack/pkg/clients"
 )
 
 // HealthStatus represents the health state of an app.
@@ -38,22 +34,20 @@ type CachedHealthResult struct {
 }
 
 // HealthCache provides an in-memory cache of app health status,
-// updated by a background goroutine polling docker compose ps.
+// updated by polling araalert's /api/app-health endpoint.
 type HealthCache struct {
-	mu       sync.RWMutex
-	results  map[string]CachedHealthResult
-	interval time.Duration
-	ttl      time.Duration
-	compose  *docker.Compose
-	appsDir  string
-	listFn   func() ([]string, error)
+	mu          sync.RWMutex
+	results     map[string]CachedHealthResult
+	interval    time.Duration
+	ttl         time.Duration
+	alertClient *clients.AlertClient
 
 	cancel context.CancelFunc
 	done   chan struct{}
 }
 
 // NewHealthCache creates a HealthCache. Call Start() to begin polling.
-func NewHealthCache(compose *docker.Compose, appsDir string, listFn func() ([]string, error), interval, ttl time.Duration) *HealthCache {
+func NewHealthCache(alertClient *clients.AlertClient, interval, ttl time.Duration) *HealthCache {
 	if interval <= 0 {
 		interval = 30 * time.Second
 	}
@@ -61,12 +55,10 @@ func NewHealthCache(compose *docker.Compose, appsDir string, listFn func() ([]st
 		ttl = 2 * time.Minute
 	}
 	return &HealthCache{
-		results:  make(map[string]CachedHealthResult),
-		interval: interval,
-		ttl:      ttl,
-		compose:  compose,
-		appsDir:  appsDir,
-		listFn:   listFn,
+		results:     make(map[string]CachedHealthResult),
+		interval:    interval,
+		ttl:         ttl,
+		alertClient: alertClient,
 	}
 }
 
@@ -131,112 +123,29 @@ func (hc *HealthCache) All() []CachedHealthResult {
 }
 
 func (hc *HealthCache) poll() {
-	deployed, err := hc.listFn()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	results, err := hc.alertClient.AppHealth(ctx)
 	if err != nil {
-		slog.Error("Health cache: failed to list deployed apps", "error", err)
+		slog.Error("Health cache: failed to fetch from araalert", "error", err)
 		return
 	}
 
 	now := time.Now()
-	newResults := make(map[string]CachedHealthResult, len(deployed))
-
-	for _, appName := range deployed {
-		appDir := filepath.Join(hc.appsDir, appName)
-		result := hc.checkApp(appName, appDir)
-		result.CheckedAt = now
-		newResults[appName] = result
+	newResults := make(map[string]CachedHealthResult, len(results))
+	for _, r := range results {
+		newResults[r.App] = CachedHealthResult{
+			HealthResult: HealthResult{
+				App:    r.App,
+				Status: HealthStatus(r.Status),
+				Detail: r.Detail,
+			},
+			CheckedAt: now,
+		}
 	}
 
 	hc.mu.Lock()
 	hc.results = newResults
 	hc.mu.Unlock()
-}
-
-type composeJSONContainer struct {
-	Service string `json:"Service"`
-	Name    string `json:"Name"`
-	State   string `json:"State"`
-	Health  string `json:"Health"`
-}
-
-func (hc *HealthCache) checkApp(appName, appDir string) CachedHealthResult {
-	result, err := hc.compose.PSJson(appDir)
-	if err != nil {
-		return CachedHealthResult{
-			HealthResult: HealthResult{App: appName, Status: HealthStatusUnknown, Detail: err.Error()},
-		}
-	}
-
-	stdout := strings.TrimSpace(result.Stdout)
-	if stdout == "" {
-		return CachedHealthResult{
-			HealthResult: HealthResult{App: appName, Status: HealthStatusUnhealthy, Detail: "no containers running"},
-		}
-	}
-
-	var containers []composeJSONContainer
-	for _, line := range strings.Split(stdout, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		var c composeJSONContainer
-		if err := json.Unmarshal([]byte(line), &c); err != nil {
-			continue
-		}
-		containers = append(containers, c)
-	}
-
-	if len(containers) == 0 {
-		return CachedHealthResult{
-			HealthResult: HealthResult{App: appName, Status: HealthStatusUnhealthy, Detail: "no containers found"},
-		}
-	}
-
-	aggregated := HealthStatusHealthy
-	detail := fmt.Sprintf("%d container(s)", len(containers))
-	hasAnyHealthcheck := false
-
-	for _, c := range containers {
-		if c.State != "running" {
-			return CachedHealthResult{
-				HealthResult: HealthResult{
-					App:    appName,
-					Status: HealthStatusUnhealthy,
-					Detail: fmt.Sprintf("container %s is %s", c.Service, c.State),
-				},
-			}
-		}
-
-		switch c.Health {
-		case "unhealthy":
-			return CachedHealthResult{
-				HealthResult: HealthResult{
-					App:    appName,
-					Status: HealthStatusUnhealthy,
-					Detail: fmt.Sprintf("container %s is unhealthy", c.Service),
-				},
-			}
-		case "starting":
-			hasAnyHealthcheck = true
-			if aggregated == HealthStatusHealthy {
-				aggregated = HealthStatusStarting
-				detail = fmt.Sprintf("container %s is starting", c.Service)
-			}
-		case "healthy":
-			hasAnyHealthcheck = true
-		case "":
-			// No healthcheck defined — treat as neutral.
-		}
-	}
-
-	if !hasAnyHealthcheck {
-		return CachedHealthResult{
-			HealthResult: HealthResult{App: appName, Status: HealthStatusNone, Detail: "no healthcheck defined"},
-		}
-	}
-
-	return CachedHealthResult{
-		HealthResult: HealthResult{App: appName, Status: aggregated, Detail: detail},
-	}
 }

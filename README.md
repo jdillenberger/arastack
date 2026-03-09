@@ -8,7 +8,7 @@ sudo aramanager setup
 aradeploy deploy nextcloud
 ```
 
-That's it. Nextcloud is running, backed up nightly, monitored, and reachable at `nextcloud.local` on your LAN.
+That's it. Nextcloud is running, backed up nightly, monitored, and reachable at `nextcloud.<hostname>.local` on your LAN.
 
 ## What You Get
 
@@ -16,11 +16,11 @@ That's it. Nextcloud is running, backed up nightly, monitored, and reachable at 
 |---------|------|-------------|
 | **App deployment** | [aradeploy](docs/aradeploy.md) | Deploy apps from [ready-made templates](https://github.com/jdillenberger/arastack-templates) with one command |
 | **Reverse proxy** | Traefik (auto-managed) | HTTPS, subdomains, automatic certificate management |
-| **Local DNS** | [aramdns](docs/aramdns.md) | Apps reachable as `appname.local` on your LAN via mDNS |
+| **Local DNS** | [aramdns](docs/aramdns.md) | Apps reachable via mDNS on your LAN (e.g. `appname.home.local`) |
 | **Backups** | [arabackup](docs/arabackup.md) | Scheduled Borg archives + database dumps with retention |
 | **Monitoring** | [araalert](docs/araalert.md) | Health checks on deployed apps every 5 minutes |
 | **Notifications** | [aranotify](docs/aranotify.md) | Alerts via email, ntfy, webhooks, or Mattermost |
-| **Fleet discovery** | [arascanner](docs/arascanner.md) | Discover other arastack nodes on your network |
+| **Peer discovery** | [arascanner](docs/arascanner.md) | Discover other arastack nodes on your network |
 | **Web dashboard** | [aradashboard](docs/aradashboard.md) | See everything in one place at port 8420 |
 | **Management** | [aramanager](docs/aramanager.md) | Install, update, and health-check the whole stack |
 
@@ -49,7 +49,7 @@ See the **[Getting Started Guide](docs/getting-started.md)** for a complete walk
        ▼            ▼            ▼              ▼
    aramdns      arabackup    araalert     aradashboard
    publishes    backs up     monitors     shows it all
-   .local DNS   data nightly health       in a web UI
+   mDNS names   data nightly health       in a web UI
 ```
 
 All tools discover deployed apps automatically by reading aradeploy's state files and docker-compose labels. No extra configuration needed.
@@ -92,7 +92,7 @@ All tools discover deployed apps automatically by reading aradeploy's state file
                  │ alerts     │ via docker compose    │
                  │            ▼                       │
                  │        aradeploy ──► aramdns       │
-                 │        (deploys)    (.local DNS)   │
+                 │        (deploys)    (mDNS)          │
                  │                                    │
                  │    queries arascanner, arabackup,   │
                  └──── araalert APIs ◄────────────────┘

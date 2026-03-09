@@ -8,7 +8,7 @@ aramdns runs as a daemon that:
 
 1. **Configures Avahi**: Ensures the Avahi daemon is configured to advertise only on physical network interfaces (excludes Docker bridge networks).
 2. **Discovers domains**: Periodically queries Docker (or Podman) for running containers with Traefik routing labels. Extracts hostnames from `traefik.http.routers.<router>.rule` labels (parsing `Host(...)` rules).
-3. **Publishes via Avahi**: For each discovered domain, publishes an `_http._tcp` or `_https._tcp` mDNS service record via Avahi's D-Bus interface. This makes the domain resolvable as `<domain>.local` on the LAN.
+3. **Publishes via Avahi**: For each discovered domain, publishes an address record (A record) using `avahi-publish -a -R`. This makes the domain resolvable on the LAN.
 4. **Unpublishes stale entries**: When a container stops or its labels change, removes the corresponding mDNS records.
 5. **Cleans up**: Removes stale Avahi publications from previous runs on startup.
 

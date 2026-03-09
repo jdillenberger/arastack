@@ -52,6 +52,7 @@ Environment variable overrides use the `ARAALERT_` prefix.
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/health` | GET | Health check with version info |
+| `/api/app-health` | GET | Latest health check results for all deployed apps |
 | `/api/events` | POST | Push events (used by arabackup, aradeploy) |
 | `/api/rules` | GET | List configured alert rules |
 | `/api/history` | GET | Query alert history (optional `?limit=N`) |
@@ -69,4 +70,4 @@ Environment variable overrides use the `ARAALERT_` prefix.
 - **aradeploy**: Reads aradeploy config to locate deployed apps. Runs `docker compose ps` to check container health.
 - **arabackup**: Receives `backup-failed` push events via the `/api/events` endpoint.
 - **aradeploy**: Receives `update-failed` push events via the `/api/events` endpoint.
-- **aradashboard**: Queries `/api/rules` and `/api/history` to display alert information.
+- **aradashboard**: Queries `/api/app-health` for app health status, and `/api/rules` and `/api/history` to display alert information.

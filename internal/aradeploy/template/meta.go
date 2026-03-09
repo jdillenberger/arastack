@@ -20,7 +20,6 @@ type AppMeta struct {
 	Volumes        []VolumeMapping `yaml:"volumes"`
 	Values         []Value         `yaml:"values"`
 	Dependencies   []string        `yaml:"dependencies"`
-	HealthCheck    *HealthCheck    `yaml:"health_check"`
 	Backup         *BackupMeta     `yaml:"backup"`
 	Requirements   *Requirements   `yaml:"requirements"`
 	PostDeployInfo *PostDeployInfo `yaml:"post_deploy_info"`
@@ -54,13 +53,6 @@ type Value struct {
 	Required    bool   `yaml:"required"`
 	Secret      bool   `yaml:"secret"`
 	AutoGen     string `yaml:"auto_gen"`
-}
-
-// HealthCheck defines an HTTP health check endpoint.
-type HealthCheck struct {
-	URL      string `yaml:"url"`
-	Interval string `yaml:"interval"`
-	Timeout  string `yaml:"timeout"`
 }
 
 // BackupMeta defines backup configuration for an app.

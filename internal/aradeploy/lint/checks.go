@@ -92,16 +92,6 @@ func (l *Linter) lintAppYAML(name string, meta *template.AppMeta) []Finding {
 		})
 	}
 
-	if meta.HealthCheck == nil {
-		findings = append(findings, Finding{
-			Template: name,
-			File:     "app.yaml",
-			Severity: SeverityWarning,
-			Check:    "healthcheck-missing",
-			Message:  "No health_check defined",
-		})
-	}
-
 	if meta.Backup == nil {
 		findings = append(findings, Finding{
 			Template: name,

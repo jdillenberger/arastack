@@ -74,6 +74,7 @@ func runDaemon() error {
 			return
 		}
 		slog.Debug("health check completed", "apps", len(results))
+		mgr.StoreHealth(results)
 		mgr.Evaluate(results)
 
 		// Check aranotify reachability so operators can spot notification outages.
@@ -88,6 +89,19 @@ func runDaemon() error {
 	}
 	c.Start()
 	defer c.Stop()
+
+	// Run an initial health check immediately so data is available right away.
+	go func() {
+		slog.Info("running initial health check")
+		results, err := checker.CheckAll()
+		if err != nil {
+			slog.Error("initial health check failed", "error", err)
+			return
+		}
+		slog.Info("initial health check completed", "apps", len(results))
+		mgr.StoreHealth(results)
+		mgr.Evaluate(results)
+	}()
 
 	// Start API server in background.
 	srv := api.New(mgr, store, version.Version)

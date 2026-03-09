@@ -42,6 +42,22 @@ func (c *AlertClient) Rules(ctx context.Context) (json.RawMessage, error) {
 	return raw, nil
 }
 
+// AppHealthResult holds a single app's health status from araalert.
+type AppHealthResult struct {
+	App    string `json:"app"`
+	Status string `json:"status"`
+	Detail string `json:"detail,omitempty"`
+}
+
+// AppHealth fetches the latest app health check results from araalert.
+func (c *AlertClient) AppHealth(ctx context.Context) ([]AppHealthResult, error) {
+	var results []AppHealthResult
+	if err := c.GetJSON(ctx, "/api/app-health", &results); err != nil {
+		return nil, fmt.Errorf("fetching app health: %w", err)
+	}
+	return results, nil
+}
+
 // History fetches alert history from araalert.
 func (c *AlertClient) History(ctx context.Context, limit int) (json.RawMessage, error) {
 	path := "/api/history"

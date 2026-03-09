@@ -7,7 +7,7 @@ Web dashboard for arastack. aradashboard aggregates data from all other arastack
 aradashboard runs as a web server that:
 
 1. **Discovers apps**: Scans aradeploy's apps directory and reads `.aradeploy.yaml` state files to build the list of deployed applications.
-2. **Monitors health**: Periodically runs `docker compose ps` to check container status (running, stopped, error) and caches the results.
+2. **Monitors health**: Polls araalert's `/api/app-health` endpoint to get container health status and caches the results.
 3. **Queries services**: Fetches data from other arastack APIs:
    - **arascanner** → fleet/peer list and online status
    - **arabackup** → backup status and schedules
@@ -71,5 +71,4 @@ Environment variable overrides use the `ARADASHBOARD_` prefix (e.g., `ARADASHBOA
 - **aradeploy**: Reads app directories and `.aradeploy.yaml` state files to list deployed applications. Also reads aradeploy config for `apps_dir` and Docker settings.
 - **arascanner**: Queries `/api/peers` to display the fleet overview with peer status.
 - **arabackup**: Queries `/api/status` to show backup schedules and last run times.
-- **araalert**: Queries `/api/rules` and `/api/history` for alert information.
-- **Docker**: Runs `docker compose ps` to check container health status.
+- **araalert**: Queries `/api/app-health` for health status, `/api/rules` and `/api/history` for alert information.

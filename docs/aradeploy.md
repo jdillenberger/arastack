@@ -51,11 +51,17 @@ aradeploy list                  # List deployed apps
 aradeploy info <app>            # Show template details
 ```
 
-### Upgrades and Versioning
+### Updates and Upgrades
+
+`update` pulls the latest container images and recreates containers. It does not touch templates or configuration — it's a quick "refresh" for an already-deployed app.
+
+`upgrade` is more comprehensive: it checks for newer template versions **and** newer container images, shows a diff of what will change, and applies both together. Use `upgrade` when you want to pick up template changes (new environment variables, updated compose structure) in addition to image updates.
 
 ```
 aradeploy update <app>          # Pull latest images, recreate containers
-aradeploy upgrade [app]         # Upgrade template or container images
+  --all                         # Update all apps
+
+aradeploy upgrade [app]         # Upgrade templates + container images
   --all                         # Upgrade all apps
   --dry-run                     # Preview changes
   --check                       # Check only, don't upgrade
@@ -174,9 +180,6 @@ routing:
   enabled: true
   subdomain: myapp
   container_port: 8080
-
-health_check:
-  url: "http://localhost:{{.web_port}}"
 
 hooks:
   post_deploy:

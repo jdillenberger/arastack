@@ -115,7 +115,9 @@ func checkDir(d dirSpec) doctor.CheckResult {
 	}
 
 	var gid uint32
-	fmt.Sscanf(grp.Gid, "%d", &gid)
+	if _, err := fmt.Sscanf(grp.Gid, "%d", &gid); err != nil {
+		return doctor.CheckResult{Name: name, Version: fmt.Sprintf("invalid gid %q", grp.Gid)}
+	}
 
 	if stat.Gid != gid {
 		return doctor.CheckResult{Name: name, Version: fmt.Sprintf("wrong group (gid %d)", stat.Gid)}
@@ -156,7 +158,7 @@ func userInGroup(gid string) bool {
 	if err != nil {
 		return false
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {

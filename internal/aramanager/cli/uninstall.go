@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/charmbracelet/huh"
@@ -122,7 +123,10 @@ var uninstallCmd = &cobra.Command{
 		// 2. Remove all tool binaries
 		fmt.Println("Removing tool binaries...")
 		for _, tool := range tools {
-			binPath := "/usr/local/bin/" + tool.BinaryName
+			binPath, err := exec.LookPath(tool.BinaryName)
+			if err != nil {
+				binPath = "/usr/local/bin/" + tool.BinaryName
+			}
 			fmt.Printf("  Removing %s...\n", binPath)
 			if err := os.Remove(binPath); err != nil && !os.IsNotExist(err) {
 				errs = append(errs, fmt.Sprintf("%s binary: %v", tool.Name, err))

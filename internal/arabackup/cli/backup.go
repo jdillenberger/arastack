@@ -152,6 +152,9 @@ func borgBackup(cfg *config.Config, b *borg.Borg, app *discovery.App) error {
 
 // BackupAll runs backup for all discovered apps (used by daemon).
 func BackupAll(cfg *config.Config, runner *executil.Runner) {
+	// Retry any previously failed alert events before starting new backups.
+	flushSpooledEvents(cfg)
+
 	apps, err := discovery.Discover(cfg)
 	if err != nil {
 		slog.Error("Discovery failed", "error", err)
@@ -166,21 +169,38 @@ func BackupAll(cfg *config.Config, runner *executil.Runner) {
 	}
 }
 
-// pushAlertEvent sends a backup-failed event to araalert (best-effort).
+const eventSpoolPath = "/var/lib/arabackup/pending-events.json"
+
+// pushAlertEvent sends a backup-failed event to araalert.
+// If delivery fails after retries, the event is spooled to disk for later retry.
 func pushAlertEvent(cfg *config.Config, appName string, backupErr error) {
 	if cfg.Araalert.URL == "" {
 		return
 	}
-	ac := clients.NewAlertClient(cfg.Araalert.URL)
-	err := ac.PushEvent(context.Background(), clients.Event{
+	event := clients.Event{
 		Type:     "backup-failed",
 		App:      appName,
 		Message:  fmt.Sprintf("Backup failed for %s: %v", appName, backupErr),
 		Severity: "error",
-	})
-	if err != nil {
-		slog.Warn("Failed to push alert event", "app", appName, "error", err)
 	}
+	ac := clients.NewAlertClient(cfg.Araalert.URL)
+	if err := ac.PushEvent(context.Background(), event); err != nil {
+		slog.Warn("Failed to push alert event, spooling for retry", "app", appName, "error", err)
+		spool := clients.NewEventSpool(eventSpoolPath)
+		if spoolErr := spool.Add(event); spoolErr != nil {
+			slog.Error("Failed to spool alert event", "app", appName, "error", spoolErr)
+		}
+	}
+}
+
+// flushSpooledEvents retries sending any previously spooled alert events.
+func flushSpooledEvents(cfg *config.Config) {
+	if cfg.Araalert.URL == "" {
+		return
+	}
+	spool := clients.NewEventSpool(eventSpoolPath)
+	ac := clients.NewAlertClient(cfg.Araalert.URL)
+	spool.Flush(ac)
 }
 
 // PruneAll runs prune for all discovered apps (used by daemon).

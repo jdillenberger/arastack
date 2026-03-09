@@ -58,6 +58,6 @@ Default config path: `/etc/arastack/config/aradeploy.yaml`
 ## Interactions with Other Tools
 
 - **arabackup** - reads aradeploy's app directory and compose files to discover what to back up. Backup labels in compose services define backup behavior.
-- **araalert** - reads aradeploy config to discover deployed apps for health monitoring (`app-down` rules). Also receives `update-failed` events (with retry on failure) when `aradeploy update --all` or `aradeploy upgrade --all` encounters failures. Configured via `araalert.url`.
+- **araalert** - reads aradeploy config to discover deployed apps for health monitoring (`app-down` rules). Also receives `update-failed` events (with retry on failure) when `aradeploy update --all` or `aradeploy upgrade --all` encounters failures. If araalert is unreachable after retries, events are spooled to disk (`/var/lib/aradeploy/pending-events.json`) and retried on the next `update --all` run. Configured via `araalert.url`.
 - **aradashboard** - reads aradeploy config to list and display deployed apps, their status, and logs.
 - **aramdns** - watches containers deployed by aradeploy for Traefik labels and publishes their `.local` domains via mDNS.

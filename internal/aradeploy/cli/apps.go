@@ -506,6 +506,8 @@ var updateCmd = &cobra.Command{
 		updateAll, _ := cmd.Flags().GetBool("all")
 
 		if updateAll {
+			flushSpooledEvents()
+
 			deployed, err := mgr.ListDeployed()
 			if err != nil {
 				return err
@@ -534,19 +536,36 @@ var updateCmd = &cobra.Command{
 	},
 }
 
-// pushUpdateFailedEvent sends an update-failed event to araalert (best-effort).
+const eventSpoolPath = "/var/lib/aradeploy/pending-events.json"
+
+// pushUpdateFailedEvent sends an update-failed event to araalert.
+// If delivery fails after retries, the event is spooled to disk for later retry.
 func pushUpdateFailedEvent(appName string, updateErr error) {
 	if cfg.Araalert.URL == "" {
 		return
 	}
-	ac := clients.NewAlertClient(cfg.Araalert.URL)
-	err := ac.PushEvent(context.Background(), clients.Event{
+	event := clients.Event{
 		Type:     "update-failed",
 		App:      appName,
 		Message:  fmt.Sprintf("Update failed for %s: %v", appName, updateErr),
 		Severity: "error",
-	})
-	if err != nil {
-		slog.Warn("Failed to push alert event", "app", appName, "error", err)
 	}
+	ac := clients.NewAlertClient(cfg.Araalert.URL)
+	if err := ac.PushEvent(context.Background(), event); err != nil {
+		slog.Warn("Failed to push alert event, spooling for retry", "app", appName, "error", err)
+		spool := clients.NewEventSpool(eventSpoolPath)
+		if spoolErr := spool.Add(event); spoolErr != nil {
+			slog.Error("Failed to spool alert event", "app", appName, "error", spoolErr)
+		}
+	}
+}
+
+// flushSpooledEvents retries sending any previously spooled alert events.
+func flushSpooledEvents() {
+	if cfg.Araalert.URL == "" {
+		return
+	}
+	spool := clients.NewEventSpool(eventSpoolPath)
+	ac := clients.NewAlertClient(cfg.Araalert.URL)
+	spool.Flush(ac)
 }

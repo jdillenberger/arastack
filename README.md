@@ -1,150 +1,150 @@
 # arastack
 
-A self-hosted homelab management suite. arastack provides deployment, backup, monitoring, alerting, notifications, peer discovery, and a web dashboard — all managed through a unified CLI.
+A self-hosted homelab management suite. Deploy Docker Compose apps from templates, get automatic backups, health monitoring, alerts, local DNS — and manage it all from a web dashboard or CLI.
 
-## Tools
+```
+curl -fsSL https://raw.githubusercontent.com/jdillenberger/arastack/main/install.sh | sudo bash
+sudo aramanager setup
+aradeploy deploy nextcloud
+```
 
-| Tool | Description | Port | Docs |
-|------|-------------|------|------|
-| [aramanager](docs/aramanager.md) | Unified manager: install, update, and orchestrate all tools | — | [docs](docs/aramanager.md) |
-| [aradeploy](docs/aradeploy.md) | Deploy Docker Compose apps from templates | — | [docs](docs/aradeploy.md) |
-| [arabackup](docs/arabackup.md) | Scheduled backups via Borg + database dumps | 7160 | [docs](docs/arabackup.md) |
-| [araalert](docs/araalert.md) | Health monitoring and alert rule evaluation | 7150 | [docs](docs/araalert.md) |
-| [aranotify](docs/aranotify.md) | Multi-channel notification delivery | 7140 | [docs](docs/aranotify.md) |
-| [arascanner](docs/arascanner.md) | Peer discovery and fleet management via mDNS | 7120 | [docs](docs/arascanner.md) |
-| [aramdns](docs/aramdns.md) | Publish Traefik domains via mDNS/Avahi | — | [docs](docs/aramdns.md) |
-| [aradashboard](docs/aradashboard.md) | Web dashboard aggregating all services | 8420 | [docs](docs/aradashboard.md) |
+That's it. Nextcloud is running, backed up nightly, monitored, and reachable at `nextcloud.local` on your LAN.
+
+## What You Get
+
+| Feature | Tool | Description |
+|---------|------|-------------|
+| **App deployment** | [aradeploy](docs/aradeploy.md) | Deploy apps from templates with one command |
+| **Reverse proxy** | Traefik (auto-managed) | HTTPS, subdomains, automatic certificate management |
+| **Local DNS** | [aramdns](docs/aramdns.md) | Apps reachable as `appname.local` on your LAN via mDNS |
+| **Backups** | [arabackup](docs/arabackup.md) | Scheduled Borg archives + database dumps with retention |
+| **Monitoring** | [araalert](docs/araalert.md) | Health checks on deployed apps every 5 minutes |
+| **Notifications** | [aranotify](docs/aranotify.md) | Alerts via email, ntfy, webhooks, or Mattermost |
+| **Fleet discovery** | [arascanner](docs/arascanner.md) | Discover other arastack nodes on your network |
+| **Web dashboard** | [aradashboard](docs/aradashboard.md) | See everything in one place at port 8420 |
+| **Management** | [aramanager](docs/aramanager.md) | Install, update, and health-check the whole stack |
+
+## Getting Started
+
+See the **[Getting Started Guide](docs/getting-started.md)** for a complete walkthrough — from install to deploying your first app.
+
+## How It Works
+
+```
+ You run:  aradeploy deploy nextcloud
+                    │
+                    ▼
+        ┌───────────────────────┐
+        │      aradeploy        │  Renders template → docker-compose.yml
+        │  (template engine)    │  Injects Traefik labels for routing
+        └───────────┬───────────┘
+                    │ docker compose up -d
+                    ▼
+        ┌───────────────────────┐
+        │   Docker containers   │  App + database running
+        │   + Traefik proxy     │  HTTPS via Let's Encrypt
+        └───────────┬───────────┘
+                    │
+       ┌────────────┼────────────┬──────────────┐
+       ▼            ▼            ▼              ▼
+   aramdns      arabackup    araalert     aradashboard
+   publishes    backs up     monitors     shows it all
+   .local DNS   data nightly health       in a web UI
+```
+
+All tools discover deployed apps automatically by reading aradeploy's state files and docker-compose labels. No extra configuration needed.
+
+## Documentation
+
+| Guide | Description |
+|-------|-------------|
+| [Getting Started](docs/getting-started.md) | Install arastack and deploy your first app |
+| [Deploying Apps](docs/deploying-apps.md) | How deployments work, templates, data storage, routing |
+| [Without arastack](docs/without-arastack.md) | Achieve the same with plain Docker Compose + Traefik |
+
+### Tool Reference
+
+| Tool | Docs |
+|------|------|
+| aramanager | [docs/aramanager.md](docs/aramanager.md) |
+| aradeploy | [docs/aradeploy.md](docs/aradeploy.md) |
+| arabackup | [docs/arabackup.md](docs/arabackup.md) |
+| araalert | [docs/araalert.md](docs/araalert.md) |
+| aranotify | [docs/aranotify.md](docs/aranotify.md) |
+| arascanner | [docs/arascanner.md](docs/arascanner.md) |
+| aramdns | [docs/aramdns.md](docs/aramdns.md) |
+| aradashboard | [docs/aradashboard.md](docs/aradashboard.md) |
 
 ## Architecture
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                        aramanager                             │
-│         (setup, update, doctor, systemd orchestration)        │
+│                        aramanager                            │
+│         (setup, update, doctor, systemd orchestration)       │
 └─────────────────────────────┬────────────────────────────────┘
                               │ manages
       ┌──────────┬────────────┼──────────┬──────────┐
       ▼          ▼            ▼          ▼          ▼
  arascanner  aranotify    araalert   arabackup  aradashboard
    :7120       :7140        :7150      :7160       :8420
-                 ▲            ▲                      │
-                 │            │ push events           │
-                 │            ├── arabackup           │
-                 │            │   (backup-failed)     │
-                 │            └── aradeploy           │
-                 │                (update-failed)     │
+                 ▲            │                      │
+                 │ sends      │ checks health        │
+                 │ alerts     │ via docker compose    │
+                 │            ▼                       │
+                 │        aradeploy ──► aramdns       │
+                 │        (deploys)    (.local DNS)   │
                  │                                    │
-                 └── araalert                         │
-                     (sends alerts)                   │
-                                                      │
-                 queries ◄────────────────────────────┘
-                 arascanner, arabackup, araalert APIs
-
-  aradeploy (deploys Docker Compose apps)
-      │  arabackup, araalert, aradashboard read its app dirs
-      │
-      └── aramdns (watches containers, publishes Traefik domains via mDNS)
+                 │    queries arascanner, arabackup,   │
+                 └──── araalert APIs ◄────────────────┘
 ```
 
-### How the tools interact
+### Service Ports
 
-- **aramanager** downloads, installs, and manages systemd services for all other tools. It runs each tool's doctor checks and can auto-fix missing dependencies.
-- **aradeploy** deploys Docker Compose applications from templates. Other tools discover deployed apps by reading aradeploy's configuration and scanning its apps directory.
-- **arabackup** discovers apps deployed by aradeploy (via docker-compose labels), creates Borg archives and database dumps, and pushes failure events to araalert.
-- **araalert** periodically checks the health of deployed apps (container status) and evaluates alert rules. When a rule fires, it sends notifications through aranotify.
-- **aranotify** delivers notifications to configured channels: webhooks, ntfy, email (SMTP), and Mattermost.
-- **arascanner** discovers other arastack peers on the local network via mDNS and maintains a fleet registry with heartbeat-based online/offline tracking.
-- **aramdns** watches running Docker containers for Traefik routing labels and publishes their domains via Avahi mDNS, making them resolvable on the local network.
-- **aradashboard** provides a web UI that aggregates data from arascanner (peers), arabackup (backup status), araalert (alert history), and aradeploy (deployed apps).
+| Tool | Port | Purpose |
+|------|------|---------|
+| arascanner | 7120 | Peer discovery API |
+| aranotify | 7140 | Notification API |
+| araalert | 7150 | Alert API |
+| arabackup | 7160 | Backup status API |
+| aradashboard | 8420 | Web dashboard |
+| aradeploy | — | CLI tool (no daemon) |
+| aramdns | — | Daemon (no API) |
 
-### Shared packages
-
-All tools share common functionality via `pkg/`:
-
-| Package | Purpose |
-|---------|---------|
-| `pkg/config` | Layered configuration loading (YAML file + env overrides) |
-| `pkg/executil` | Command execution wrapper with env, streaming, and piping support |
-| `pkg/clients` | HTTP API clients for inter-tool communication (alert, notify, backup, scanner) |
-| `pkg/systemd` | systemd unit file generation and service lifecycle management |
-| `pkg/version` | Build-time version info (set via ldflags) |
-| `pkg/health` | Standardized `/api/health` endpoint |
-| `pkg/doctor` | System dependency checking and auto-fix (apt install) |
-| `pkg/selfupdate` | Binary extraction from tar.gz and atomic replacement |
-| `pkg/netutil` | Local IP detection |
-| `pkg/aradeployconfig` | Shared aradeploy config types so other tools can read deployment state |
-
-## Quick Start
-
-### Install
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/jdillenberger/arastack/main/install.sh | sudo bash
-```
-
-This installs `aramanager`. Then set up all tools:
-
-```bash
-sudo aramanager setup
-```
-
-The setup command downloads all tool binaries, runs doctor checks with auto-fix, and installs systemd services in the correct dependency order.
-
-### Build from source
-
-```bash
-git clone https://github.com/jdillenberger/arastack.git
-cd arastack
-make build        # builds all tools to bin/
-sudo make install # installs to /usr/local/bin
-```
-
-### Update
-
-```bash
-sudo aramanager update          # update all tools
-sudo aramanager update --check  # check for updates without installing
-```
-
-## Configuration
-
-All configuration files live under `/etc/arastack/config/`:
-
-| File | Tool |
-|------|------|
-| `aradeploy.yaml` | aradeploy |
-| `arabackup.yaml` | arabackup |
-| `araalert.yaml` | araalert |
-| `aranotify.yaml` | aranotify |
-| `aradashboard.yaml` | aradashboard |
-
-All tools support environment variable overrides with the pattern `TOOLNAME_SECTION_KEY` (e.g., `ARABACKUP_BORG_BASE_DIR=/custom/path`).
-
-## File Locations
+### File Locations
 
 | Path | Purpose |
 |------|---------|
 | `/etc/arastack/config/` | Configuration files |
-| `/opt/aradeploy/apps/` | Deployed application directories |
+| `/opt/aradeploy/apps/` | Deployed app directories (compose files, state) |
 | `/opt/aradeploy/data/` | Application data volumes |
 | `/mnt/backup/borg/` | Borg backup repositories |
-| `/var/lib/arascanner/` | arascanner peer state |
-| `/var/lib/araalert/` | araalert event history |
+| `/opt/arabackup/dumps/` | Database dump files |
+| `/var/lib/ara*/` | Service state (peers, alerts, sessions) |
 | `~/.aradeploy/templates/` | Local template overrides |
 | `~/.aradeploy/repos/` | Cloned template repositories |
+
+## Configuration
+
+All config files live in `/etc/arastack/config/`. Each tool has its own YAML file. All support environment variable overrides with the prefix `TOOLNAME_SECTION_KEY`:
+
+```bash
+# Example: override arabackup's borg base directory
+export ARABACKUP_BORG_BASE_DIR=/custom/backup/path
+```
+
+See each tool's docs for the full config reference.
 
 ## Development
 
 ```bash
-make build           # build all tools
+git clone https://github.com/jdillenberger/arastack.git
+cd arastack
+make build           # build all tools to bin/
+sudo make install    # install to /usr/local/bin
 make test            # run tests
 make lint            # run golangci-lint
-make fmt             # format code
-make vet             # run go vet
-make release         # goreleaser snapshot build
-make run-aradeploy ARGS="list"  # build and run a specific tool
 ```
 
 ## Supported Platforms
 
-- Linux (amd64, arm64, armv7)
+Linux (amd64, arm64, armv7)

@@ -14,6 +14,7 @@ import (
 	"github.com/jdillenberger/arastack/internal/aradashboard/docker"
 	"github.com/jdillenberger/arastack/internal/aradashboard/health"
 	"github.com/jdillenberger/arastack/internal/aradashboard/static"
+	traefikroute "github.com/jdillenberger/arastack/internal/aradashboard/traefik"
 	"github.com/jdillenberger/arastack/internal/aradashboard/web/handlers"
 	"github.com/jdillenberger/arastack/internal/aradashboard/web/templates"
 	"github.com/jdillenberger/arastack/pkg/clients"
@@ -22,9 +23,10 @@ import (
 
 // Server holds the Echo instance and dependencies.
 type Server struct {
-	Echo        *echo.Echo
-	cfg         *config.Config
-	healthCache *health.HealthCache
+	Echo         *echo.Echo
+	cfg          *config.Config
+	healthCache  *health.HealthCache
+	routeManager *traefikroute.RouteManager
 }
 
 // NewServer creates and configures a new web server.
@@ -86,6 +88,16 @@ func NewServer(cfg *config.Config, ldc *config.AradeployYAML, version string) (*
 	)
 	healthCache.Start()
 
+	// Traefik route manager
+	routeManager := traefikroute.NewRouteManager(
+		ldc.DataDir,
+		ldc.Hostname,
+		ldc.Network.Domain,
+		cfg.Server.Port,
+		ldc.IsHTTPSEnabled(),
+	)
+	routeManager.Start()
+
 	// Clients
 	peerClient := clients.NewAraScannerClient(cfg.Services.AraScanner.URL, cfg.Services.AraScanner.Secret)
 
@@ -94,9 +106,10 @@ func NewServer(cfg *config.Config, ldc *config.AradeployYAML, version string) (*
 	h.Register(e)
 
 	return &Server{
-		Echo:        e,
-		cfg:         cfg,
-		healthCache: healthCache,
+		Echo:         e,
+		cfg:          cfg,
+		healthCache:  healthCache,
+		routeManager: routeManager,
 	}, nil
 }
 
@@ -107,6 +120,7 @@ func (s *Server) Start(addr string) error {
 
 // Shutdown gracefully stops background tasks and the HTTP server.
 func (s *Server) Shutdown(ctx context.Context) error {
+	s.routeManager.Stop()
 	s.healthCache.Stop()
 	return s.Echo.Shutdown(ctx)
 }

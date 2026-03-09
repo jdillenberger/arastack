@@ -35,9 +35,14 @@ type Config struct {
 	Routing struct {
 		Enabled bool `yaml:"enabled"`
 		HTTPS   struct {
-			Enabled bool `yaml:"enabled"`
+			Enabled *bool `yaml:"enabled"`
 		} `yaml:"https"`
 	} `yaml:"routing"`
+}
+
+// IsHTTPSEnabled returns whether HTTPS routing is enabled (defaults to true).
+func (c *Config) IsHTTPSEnabled() bool {
+	return c.Routing.HTTPS.Enabled == nil || *c.Routing.HTTPS.Enabled
 }
 
 // Load reads aradeploy's config file and returns the parsed settings.
@@ -118,5 +123,9 @@ func applyDefaults(cfg *Config) {
 	}
 	if cfg.Docker.ComposeCommand == "" {
 		cfg.Docker.ComposeCommand = "docker compose"
+	}
+	if cfg.Routing.HTTPS.Enabled == nil {
+		t := true
+		cfg.Routing.HTTPS.Enabled = &t
 	}
 }

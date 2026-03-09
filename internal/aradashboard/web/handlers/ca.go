@@ -35,7 +35,7 @@ type CAPageData struct {
 func (h *Handler) HandleCAPage(c echo.Context) error {
 	data := CAPageData{
 		BasePage:     h.basePage(),
-		HTTPSEnabled: h.ldc.Routing.HTTPS.Enabled,
+		HTTPSEnabled: h.ldc.IsHTTPSEnabled(),
 	}
 
 	caCertPath := h.resolveCACertPath()

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/jdillenberger/arastack/internal/aradashboard/discovery"
+	"github.com/jdillenberger/arastack/internal/aradashboard/docker"
 )
 
 // validateAppName checks that the app name does not contain path traversal characters.
@@ -23,6 +25,15 @@ func validateAppName(name string) error {
 		return fmt.Errorf("invalid app name")
 	}
 	return nil
+}
+
+// AppAddress represents a single reachable address for an app.
+type AppAddress struct {
+	URL           string
+	Display       string
+	Type          string // "Port", "Local Domain", "Domain"
+	TraefikActive bool
+	MDNSStatus    string // "", "resolved", "not resolved"
 }
 
 // ContainerStatus represents a parsed docker compose ps row.
@@ -45,6 +56,7 @@ type AppDetailData struct {
 	BasePage
 	App        *discovery.DeployedApp
 	Containers []ContainerStatus
+	Addresses  []AppAddress
 	StatusRaw  string
 }
 
@@ -73,8 +85,9 @@ func (h *Handler) AppDetail(c echo.Context) error {
 	}
 
 	data := AppDetailData{
-		BasePage: h.basePage(),
-		App:      info,
+		BasePage:  h.basePage(),
+		App:       info,
+		Addresses: h.buildAppAddresses(info),
 	}
 
 	appDir := h.ldc.AppsDir + "/" + name
@@ -84,6 +97,63 @@ func (h *Handler) AppDetail(c echo.Context) error {
 	}
 
 	return c.Render(http.StatusOK, "app_detail.html", data)
+}
+
+func (h *Handler) buildAppAddresses(info *discovery.DeployedApp) []AppAddress {
+	var addrs []AppAddress
+
+	// Collect port-based addresses from values.
+	for key, val := range info.Values {
+		if strings.HasSuffix(key, "_port") || strings.HasSuffix(key, "_PORT") || key == "port" || key == "http_port" {
+			addrs = append(addrs, AppAddress{
+				URL:     fmt.Sprintf("http://localhost:%s", val),
+				Display: fmt.Sprintf("localhost:%s", val),
+				Type:    "Port",
+			})
+		}
+	}
+
+	// Collect routing domain addresses.
+	if info.Routing != nil && info.Routing.Enabled && len(info.Routing.Domains) > 0 {
+		scheme := "http"
+		if h.ldc.IsHTTPSEnabled() {
+			scheme = "https"
+		}
+
+		// Query Traefik for active domains once.
+		traefikDomains, _ := docker.DiscoverTraefikDomains(h.runner, h.ldc.Docker.Runtime)
+		if traefikDomains == nil {
+			traefikDomains = map[string]bool{}
+		}
+
+		for _, domain := range info.Routing.Domains {
+			addr := AppAddress{
+				URL:           fmt.Sprintf("%s://%s", scheme, domain),
+				Display:       domain,
+				TraefikActive: traefikDomains[domain],
+			}
+			if strings.HasSuffix(domain, ".local") {
+				addr.Type = "Local Domain"
+				if checkMDNS(domain) {
+					addr.MDNSStatus = "resolved"
+				} else {
+					addr.MDNSStatus = "not resolved"
+				}
+			} else {
+				addr.Type = "Domain"
+			}
+			addrs = append(addrs, addr)
+		}
+	}
+
+	return addrs
+}
+
+// checkMDNS attempts to resolve a .local domain via avahi-resolve.
+// Go's net.LookupHost does not reliably resolve mDNS .local domains.
+func checkMDNS(domain string) bool {
+	out, err := exec.Command("avahi-resolve", "-n", domain).Output()
+	return err == nil && len(strings.TrimSpace(string(out))) > 0
 }
 
 func parseComposeJSON(raw string) []ContainerStatus {

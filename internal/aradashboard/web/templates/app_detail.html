@@ -59,6 +59,37 @@
     </article>
 </div>
 
+{{if .Addresses}}
+<article>
+    <header><strong>Addresses</strong></header>
+    <table>
+        <thead>
+            <tr>
+                <th>Address</th>
+                <th>Type</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Addresses}}
+            <tr>
+                <td><a href="{{.URL}}" target="_blank" rel="noopener">{{.Display}}</a></td>
+                <td>{{.Type}}</td>
+                <td>
+                    {{if eq .Type "Port"}}<span class="badge badge-running">direct</span>
+                    {{else}}{{if .TraefikActive}}<span class="badge badge-running">traefik</span>
+                        {{else}}<span class="badge badge-stopped">traefik inactive</span>{{end}}
+                        {{if eq .MDNSStatus "resolved"}}<span class="badge badge-running">mDNS</span>
+                        {{else if eq .MDNSStatus "not resolved"}}<span class="badge badge-stopped">mDNS not resolved</span>{{end}}
+                    {{end}}
+                </td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+</article>
+{{end}}
+
 <article>
     <header><strong>Actions</strong></header>
     <div class="actions" style="margin-top:0;">

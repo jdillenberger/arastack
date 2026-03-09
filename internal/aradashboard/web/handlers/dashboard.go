@@ -73,13 +73,15 @@ func (h *Handler) Dashboard(c echo.Context) error {
 		// Set routing URL
 		if info.Routing != nil && info.Routing.Enabled && len(info.Routing.Domains) > 0 {
 			scheme := "http"
-			if h.ldc.Routing.HTTPS.Enabled {
+			if h.ldc.IsHTTPSEnabled() {
 				scheme = "https"
 			}
 			pa.RoutingURL = fmt.Sprintf("%s://%s", scheme, info.Routing.Domains[0])
 		}
 
-		if pa.AccessURL != "" {
+		if pa.RoutingURL != "" {
+			pa.DisplayURL = strings.TrimPrefix(strings.TrimPrefix(pa.RoutingURL, "https://"), "http://")
+		} else if pa.AccessURL != "" {
 			pa.DisplayURL = strings.TrimPrefix(strings.TrimPrefix(pa.AccessURL, "https://"), "http://")
 		}
 

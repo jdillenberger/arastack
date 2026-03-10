@@ -36,13 +36,13 @@ func SourcePriority(source string) int {
 	}
 }
 
-type Fleet struct {
+type PeerGroup struct {
 	Name   string `yaml:"name"   json:"name"`
 	Secret string `yaml:"secret" json:"-"`
 }
 
 type InviteToken struct {
-	Fleet   string    `json:"fleet"`
+	PeerGroup string    `json:"peer_group"`
 	Address string    `json:"address"`
 	Port    int       `json:"port"`
 	Token   string    `json:"token"` // one-time join token (NOT the PSK)

@@ -1,6 +1,6 @@
 # arascanner
 
-Peer discovery and fleet management daemon. arascanner uses mDNS to automatically discover other arastack instances on the local network and maintains a fleet registry with heartbeat-based health tracking.
+Peer discovery and peer group management daemon. arascanner uses mDNS to automatically discover other arastack instances on the local network and maintains a peer registry with heartbeat-based health tracking.
 
 ## How It Works
 
@@ -11,7 +11,7 @@ arascanner operates as a daemon with four main subsystems:
 3. **Heartbeat Loop**: Periodically pings known peers via their HTTP API to track online/offline status based on response time.
 4. **API Server**: Exposes a REST API for querying peers, handling join requests, and responding to heartbeats.
 
-Peers are organized into **fleets**. A fleet has a name and shared secret. New nodes can join an existing fleet using an invite token (displayed as a QR code).
+Peers are organized into **peer groups**. A peer group has a name and shared secret. New nodes can join an existing peer group using an invite token (displayed as a QR code).
 
 ## Commands
 
@@ -19,7 +19,7 @@ Peers are organized into **fleets**. A fleet has a name and shared secret. New n
 arascanner run                  # Start daemon
 arascanner peers                # List known peers
 arascanner invite               # Generate join token (+ QR code)
-arascanner join <token>         # Join an existing fleet
+arascanner join <token>         # Join an existing peer group
 arascanner tags                 # Manage peer tags
 ```
 
@@ -38,10 +38,10 @@ arascanner uses CLI flags and environment variables (no config file):
 
 ## State
 
-Fleet and peer data is persisted as YAML in the data directory:
+Peer group and peer data is persisted as YAML in the data directory:
 
 ```yaml
-fleet:
+peer_group:
   name: homelab
   secret: <shared-secret>
 peers:
@@ -60,7 +60,7 @@ peers:
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/health` | GET | Health check with version info |
-| `/api/peers` | GET | Fleet info and peer list |
+| `/api/peers` | GET | Peer group info and peer list |
 | `/api/join` | POST | Remote peer join request |
 | `/api/heartbeat` | POST | Peer ping/pong |
 
@@ -72,6 +72,6 @@ peers:
 
 ## Interactions with Other Tools
 
-- **aradashboard**: Queries `/api/peers` to display the fleet overview (peer list, online/offline status, versions).
+- **aradashboard**: Queries `/api/peers` to display the peer group overview (peer list, online/offline status, versions).
 - **aramanager**: Manages arascanner's systemd service and runs its doctor checks.
 - **Network**: Uses mDNS (multicast DNS) on local network interfaces for zero-configuration peer discovery. Detects the local IP via `pkg/netutil`.

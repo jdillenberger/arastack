@@ -20,7 +20,7 @@ func init() {
 	rootCmd.AddCommand(inviteCmd)
 }
 
-// inviteCmd generates an invite token for remote peers to join the fleet.
+// inviteCmd generates an invite token for remote peers to join the peer group.
 var inviteCmd = &cobra.Command{
 	Use:   "invite",
 	Short: "Generate an invite token for a remote peer",
@@ -33,7 +33,7 @@ var inviteCmd = &cobra.Command{
 			return fmt.Errorf("loading store: %w", err)
 		}
 
-		fleet := st.Fleet()
+		pg := st.PeerGroup()
 
 		// Generate a random 32-byte one-time token.
 		tokenBytes := make([]byte, 32)
@@ -62,7 +62,7 @@ var inviteCmd = &cobra.Command{
 
 		// Build invite token — does NOT contain the PSK.
 		token := peer.InviteToken{
-			Fleet:   fleet.Name,
+			PeerGroup: pg.Name,
 			Address: localIP,
 			Port:    port,
 			Token:   oneTimeToken,

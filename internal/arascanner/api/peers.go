@@ -11,16 +11,16 @@ import (
 )
 
 type peersResponse struct {
-	Fleet peer.Fleet  `json:"fleet"`
-	Self  peer.Peer   `json:"self"`
-	Peers []peer.Peer `json:"peers"`
+	PeerGroup peer.PeerGroup `json:"peer_group"`
+	Self      peer.Peer      `json:"self"`
+	Peers     []peer.Peer    `json:"peers"`
 }
 
 func (srv *Server) handleGetPeers(w http.ResponseWriter, r *http.Request) {
 	srv.store.UpdateOnlineStatus(srv.offlineThreshold)
 
 	resp := peersResponse{
-		Fleet: srv.store.Fleet(),
+		PeerGroup: srv.store.PeerGroup(),
 		Self:  srv.store.Self(),
 		Peers: srv.store.List(),
 	}

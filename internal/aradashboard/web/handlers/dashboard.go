@@ -28,8 +28,8 @@ type PortalApp struct {
 	DisplayURL  string
 }
 
-// FleetPeer represents a discovered peer server.
-type FleetPeer struct {
+// DashboardPeer represents a discovered peer server.
+type DashboardPeer struct {
 	Hostname string
 	Address  string
 	Port     int
@@ -155,14 +155,14 @@ func (h *Handler) DashboardHealth(c echo.Context) error {
 	return c.HTML(http.StatusOK, buf.String())
 }
 
-// DashboardPeers returns the fleet peers section HTML.
+// DashboardPeers returns the peers section HTML.
 func (h *Handler) DashboardPeers(c echo.Context) error {
 	resp, err := h.peerClient.Peers()
 	if err != nil || len(resp.Peers) == 0 {
 		return c.HTML(http.StatusOK, "")
 	}
 
-	var peers []FleetPeer
+	var peers []DashboardPeer
 	for _, p := range resp.Peers {
 		if p.Hostname == h.ldc.Hostname || p.Address == "" {
 			continue
@@ -171,7 +171,7 @@ func (h *Handler) DashboardPeers(c echo.Context) error {
 		if port == 0 {
 			port = 8420
 		}
-		peers = append(peers, FleetPeer{
+		peers = append(peers, DashboardPeer{
 			Hostname: p.Hostname,
 			Address:  p.Address,
 			Port:     port,
@@ -184,14 +184,14 @@ func (h *Handler) DashboardPeers(c echo.Context) error {
 	}
 
 	var buf strings.Builder
-	buf.WriteString(`<article><header><strong>Fleet</strong></header><div class="peers-compact">`)
+	buf.WriteString(`<article><header><strong>Peers</strong></header><div class="peers-compact">`)
 	for _, p := range peers {
 		fmt.Fprintf(&buf, `<a href="%s" target="_blank" rel="noopener" class="peer-chip"><span class="peer-dot"></span>%s`,
 			html.EscapeString(p.DashURL), html.EscapeString(p.Hostname))
 		buf.WriteString(`</a>`)
 	}
 	buf.WriteString(`</div>`)
-	buf.WriteString(`<footer><a href="/fleet">Fleet details &rarr;</a></footer></article>`)
+	buf.WriteString(`<footer><a href="/peers">Peer details &rarr;</a></footer></article>`)
 
 	return c.HTML(http.StatusOK, buf.String())
 }

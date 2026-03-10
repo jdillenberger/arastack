@@ -39,8 +39,8 @@
 </article>
 {{end}}
 
-<!-- Fleet + Alerts: loaded async, hidden when empty -->
-<div id="dashboard-fleet" class="dashboard-extra" hx-get="/dashboard/peers" hx-trigger="load" hx-swap="innerHTML">
+<!-- Peers + Alerts: loaded async, hidden when empty -->
+<div id="dashboard-peers" class="dashboard-extra" hx-get="/dashboard/peers" hx-trigger="load" hx-swap="innerHTML">
 </div>
 
 {{if gt .ActiveAlertCount 0}}

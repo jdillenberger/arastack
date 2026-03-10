@@ -36,7 +36,7 @@ type backupMsg struct {
 
 // peersMsg carries peer list from arascanner.
 type peersMsg struct {
-	fleet string
+	peerGroup string
 	self  clients.Peer
 	peers []clients.Peer
 	err   error

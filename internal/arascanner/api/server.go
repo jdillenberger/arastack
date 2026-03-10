@@ -68,11 +68,11 @@ func (srv *Server) Shutdown(ctx context.Context) error {
 }
 
 // withAuth wraps a handler with PSK authentication.
-// If no fleet secret is configured, all requests are allowed.
+// If no peer group secret is configured, all requests are allowed.
 func (srv *Server) withAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		fleet := srv.store.Fleet()
-		if fleet.Secret == "" {
+		pg := srv.store.PeerGroup()
+		if pg.Secret == "" {
 			next(w, r)
 			return
 		}
@@ -84,7 +84,7 @@ func (srv *Server) withAuth(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		token := strings.TrimPrefix(auth, "Bearer ")
-		if token == auth || subtle.ConstantTimeCompare([]byte(token), []byte(fleet.Secret)) != 1 {
+		if token == auth || subtle.ConstantTimeCompare([]byte(token), []byte(pg.Secret)) != 1 {
 			http.Error(w, "invalid authorization", http.StatusForbidden)
 			return
 		}

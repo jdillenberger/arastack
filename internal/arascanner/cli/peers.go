@@ -17,9 +17,9 @@ import (
 )
 
 type peersAPIResponse struct {
-	Fleet peer.Fleet  `json:"fleet"`
-	Self  peer.Peer   `json:"self"`
-	Peers []peer.Peer `json:"peers"`
+	PeerGroup peer.PeerGroup `json:"peer_group"`
+	Self      peer.Peer      `json:"self"`
+	Peers     []peer.Peer    `json:"peers"`
 }
 
 func init() {
@@ -45,9 +45,9 @@ var peersCmd = &cobra.Command{
 			return fmt.Errorf("creating request: %w", err)
 		}
 
-		fleet := st.Fleet()
-		if fleet.Secret != "" {
-			req.Header.Set("Authorization", "Bearer "+fleet.Secret)
+		pg := st.PeerGroup()
+		if pg.Secret != "" {
+			req.Header.Set("Authorization", "Bearer "+pg.Secret)
 		}
 
 		client := &http.Client{Timeout: 5 * time.Second}

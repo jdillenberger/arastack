@@ -40,19 +40,19 @@ func runDaemon() error {
 		return err
 	}
 
-	// Ensure fleet has a name and secret.
-	fleet := s.Fleet()
-	if fleet.Name == "" {
-		fleet.Name = "homelab"
+	// Ensure peer group has a name and secret.
+	pg := s.PeerGroup()
+	if pg.Name == "" {
+		pg.Name = "homelab"
 	}
-	if fleet.Secret == "" {
+	if pg.Secret == "" {
 		secret := make([]byte, 32)
 		if _, err := rand.Read(secret); err != nil {
 			return err
 		}
-		fleet.Secret = hex.EncodeToString(secret)
+		pg.Secret = hex.EncodeToString(secret)
 	}
-	s.SetFleet(fleet)
+	s.SetPeerGroup(pg)
 
 	// Set self info.
 	self := s.Self()
@@ -66,7 +66,7 @@ func runDaemon() error {
 		"hostname", hostname,
 		"address", self.Address,
 		"port", port,
-		"fleet", fleet.Name,
+		"peer_group", pg.Name,
 		"data-dir", dataDir,
 	)
 

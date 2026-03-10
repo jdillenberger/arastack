@@ -14,6 +14,7 @@ bin/
 /aranotify
 /arascanner
 /aramdns
+/aratop
 
 # Test
 *.test

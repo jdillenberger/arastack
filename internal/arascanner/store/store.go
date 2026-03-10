@@ -20,10 +20,13 @@ const yamlFile = "peers.yaml"
 
 // persistedState mirrors the on-disk YAML layout.
 type persistedState struct {
-	Fleet   peer.Fleet           `yaml:"fleet"`
-	Self    peer.Peer            `yaml:"self"`
-	Peers   []peer.Peer          `yaml:"peers"`
-	Invites []peer.PendingInvite `yaml:"invites,omitempty"`
+	// Fleet is the legacy YAML key; existing files use "fleet:".
+	// On load both keys are accepted; on save only "peer_group:" is written.
+	Fleet     *peer.PeerGroup     `yaml:"fleet,omitempty"`
+	PeerGroup peer.PeerGroup      `yaml:"peer_group"`
+	Self      peer.Peer           `yaml:"self"`
+	Peers     []peer.Peer         `yaml:"peers"`
+	Invites   []peer.PendingInvite `yaml:"invites,omitempty"`
 }
 
 // Store is a thread-safe, YAML-backed peer store.
@@ -67,6 +70,19 @@ func (s *Store) Load() error {
 	if err := yaml.Unmarshal(data, &st); err != nil {
 		return fmt.Errorf("parsing %s: %w", s.path, err)
 	}
+
+	// Migrate legacy "fleet:" key to "peer_group:".
+	if st.Fleet != nil {
+		if st.PeerGroup.Name == "" && st.PeerGroup.Secret == "" {
+			st.PeerGroup = *st.Fleet
+		}
+		st.Fleet = nil
+		s.state = st
+		s.dirty = true
+		slog.Info("migrated legacy fleet config to peer_group", "path", s.path)
+		return nil
+	}
+
 	s.state = st
 	s.dirty = false
 	return nil
@@ -99,18 +115,18 @@ func (s *Store) Save() error {
 	return nil
 }
 
-// Fleet returns the current fleet configuration.
-func (s *Store) Fleet() peer.Fleet {
+// PeerGroup returns the current peer group configuration.
+func (s *Store) PeerGroup() peer.PeerGroup {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.state.Fleet
+	return s.state.PeerGroup
 }
 
-// SetFleet updates the fleet configuration.
-func (s *Store) SetFleet(f peer.Fleet) {
+// SetPeerGroup updates the peer group configuration.
+func (s *Store) SetPeerGroup(pg peer.PeerGroup) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.state.Fleet = f
+	s.state.PeerGroup = pg
 	s.dirty = true
 }
 
@@ -399,7 +415,7 @@ func (s *Store) CleanExpiredInvites() {
 func defaultState() persistedState {
 	hn, _ := os.Hostname()
 	return persistedState{
-		Fleet: peer.Fleet{
+		PeerGroup: peer.PeerGroup{
 			Name:   "homelab",
 			Secret: generateSecret(),
 		},

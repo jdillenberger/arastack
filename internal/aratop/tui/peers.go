@@ -8,7 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-func (m *Model) updateFleetTable() {
+func (m *Model) updatePeersTable() {
 	cols := []table.Column{
 		{Title: "Hostname", Width: 20},
 		{Title: "Address", Width: 22},
@@ -20,17 +20,17 @@ func (m *Model) updateFleetTable() {
 
 	var rows []table.Row
 	// Add self first.
-	if m.fleetSelf.Hostname != "" {
+	if m.peersSelf.Hostname != "" {
 		rows = append(rows, table.Row{
-			m.fleetSelf.Hostname + " (self)",
-			m.fleetSelf.Address,
-			fmt.Sprintf("%d", m.fleetSelf.Port),
-			m.fleetSelf.Version,
-			m.fleetSelf.Role,
+			m.peersSelf.Hostname + " (self)",
+			m.peersSelf.Address,
+			fmt.Sprintf("%d", m.peersSelf.Port),
+			m.peersSelf.Version,
+			m.peersSelf.Role,
 			"online",
 		})
 	}
-	for _, p := range m.fleetPeers {
+	for _, p := range m.peersRemote {
 		status := "offline"
 		if p.Online {
 			status = "online"
@@ -45,30 +45,30 @@ func (m *Model) updateFleetTable() {
 		})
 	}
 
-	m.fleetTable.SetColumns(cols)
-	m.fleetTable.SetRows(rows)
+	m.peersTable.SetColumns(cols)
+	m.peersTable.SetRows(rows)
 }
 
-func renderFleetView(m *Model) string {
+func renderPeersView(m *Model) string {
 	if m.cfg.ScannerClient == nil {
 		return dimStyle.Render("  arascanner not configured (set --scanner-url and --scanner-secret)")
 	}
-	if m.fleetErr != nil {
+	if m.peersErr != nil {
 		return dimStyle.Render("  arascanner unavailable")
 	}
 
 	var sections []string
 
-	// Fleet name.
-	if m.fleetName != "" {
-		sections = append(sections, sectionStyle.Render(fmt.Sprintf("  Fleet: %s", m.fleetName)))
+	// Peer group name.
+	if m.peerGroupName != "" {
+		sections = append(sections, sectionStyle.Render(fmt.Sprintf("  Peers: %s", m.peerGroupName)))
 	}
 
 	// Peer table.
-	if len(m.fleetPeers) == 0 && m.fleetSelf.Hostname == "" {
+	if len(m.peersRemote) == 0 && m.peersSelf.Hostname == "" {
 		sections = append(sections, dimStyle.Render("  No peers discovered"))
 	} else {
-		sections = append(sections, m.fleetTable.View())
+		sections = append(sections, m.peersTable.View())
 	}
 
 	// Service health detail.

@@ -1,18 +1,18 @@
 {{template "base.html" .}}
 
-{{define "title"}}Fleet - aradashboard{{end}}
+{{define "title"}}Peers - aradashboard{{end}}
 
 {{define "content"}}
 {{if .Unavailable}}
-<h2>Fleet</h2>
+<h2>Peers</h2>
 <article>
     <div class="service-unavailable">
         <strong>arascanner service unavailable</strong>
-        <p>Fleet discovery requires arascanner to be running.</p>
+        <p>Peer discovery requires arascanner to be running.</p>
     </div>
 </article>
 {{else}}
-<h2>Fleet: {{.FleetName}}</h2>
+<h2>Peers: {{.PeerGroupName}}</h2>
 
 <article>
     <header><strong>Hosts</strong></header>
@@ -68,9 +68,9 @@
 </article>
 
 <article>
-    <header><strong>Fleet Config</strong></header>
+    <header><strong>Peer Group Config</strong></header>
     <table>
-        <tr><td><strong>Fleet Name</strong></td><td>{{.FleetName}}</td></tr>
+        <tr><td><strong>Peer Group Name</strong></td><td>{{.PeerGroupName}}</td></tr>
         <tr><td><strong>Peer Count</strong></td><td>{{len .Peers}}</td></tr>
     </table>
 </article>
@@ -78,7 +78,7 @@
 <article>
     <header><strong>Actions</strong></header>
     <div class="quick-actions">
-        <a href="/api/fleet" role="button" class="outline">Fleet API (JSON)</a>
+        <a href="/api/peers" role="button" class="outline">Peers API (JSON)</a>
     </div>
 </article>
 {{end}}

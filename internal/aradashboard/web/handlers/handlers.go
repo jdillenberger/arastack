@@ -70,9 +70,9 @@ func (h *Handler) Register(e *echo.Echo) {
 	e.GET("/apps/:name/logs", h.AppLogs)
 	e.GET("/apps/:name/logs/stream", h.AppLogsStream)
 
-	// Fleet
-	e.GET("/fleet", h.HandleFleetPage)
-	e.GET("/api/fleet", h.HandleFleetAPI)
+	// Peers
+	e.GET("/peers", h.HandlePeersPage)
+	e.GET("/api/peers", h.HandlePeersAPI)
 
 	// Backups
 	e.GET("/backups", h.HandleBackupPage)

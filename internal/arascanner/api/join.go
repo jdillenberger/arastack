@@ -20,14 +20,14 @@ type joinRequest struct {
 }
 
 type joinResponse struct {
-	Fleet    peer.Fleet        `json:"fleet"`
-	PSK      string            `json:"psk"` // fleet secret, only sent during join
-	Hostname string            `json:"hostname"`
-	Address  string            `json:"address"`
-	Port     int               `json:"port"`
-	Version  string            `json:"version"`
-	Role     string            `json:"role"`
-	Tags     map[string]string `json:"tags,omitempty"`
+	PeerGroup peer.PeerGroup    `json:"peer_group"`
+	PSK       string            `json:"psk"` // peer group secret, only sent during join
+	Hostname  string            `json:"hostname"`
+	Address   string            `json:"address"`
+	Port      int               `json:"port"`
+	Version   string            `json:"version"`
+	Role      string            `json:"role"`
+	Tags      map[string]string `json:"tags,omitempty"`
 }
 
 func (srv *Server) handleJoin(w http.ResponseWriter, r *http.Request) {
@@ -80,13 +80,13 @@ func (srv *Server) handleJoin(w http.ResponseWriter, r *http.Request) {
 		slog.Info("existing peer re-joined via invite", "hostname", req.Hostname, "address", req.Address)
 	}
 
-	// Respond with our own info, including the fleet PSK.
+	// Respond with our own info, including the peer group PSK.
 	self := srv.store.Self()
-	fleet := srv.store.Fleet()
+	pg := srv.store.PeerGroup()
 
 	resp := joinResponse{
-		Fleet:    fleet,
-		PSK:      fleet.Secret,
+		PeerGroup: pg,
+		PSK:       pg.Secret,
 		Hostname: srv.hostname,
 		Address:  self.Address,
 		Port:     self.Port,

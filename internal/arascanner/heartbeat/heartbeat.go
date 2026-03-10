@@ -76,10 +76,10 @@ func (h *Heartbeater) heartbeatPeer(ctx context.Context, p peer.Peer) error {
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	// Authenticate to all peers when a fleet secret is configured.
-	fleet := h.store.Fleet()
-	if fleet.Secret != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+fleet.Secret)
+	// Authenticate to all peers when a peer group secret is configured.
+	pg := h.store.PeerGroup()
+	if pg.Secret != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+pg.Secret)
 	}
 
 	resp, err := h.client.Do(httpReq)

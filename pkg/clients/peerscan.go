@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// Peer represents a single peer in the fleet.
+// Peer represents a single peer in the peer group.
 type Peer struct {
 	Hostname string            `json:"hostname"`
 	Address  string            `json:"address"`
@@ -18,9 +18,9 @@ type Peer struct {
 
 // PeersResponse is the response from GET /api/peers.
 type PeersResponse struct {
-	Fleet struct {
+	PeerGroup struct {
 		Name string `json:"name"`
-	} `json:"fleet"`
+	} `json:"peer_group"`
 	Self  Peer   `json:"self"`
 	Peers []Peer `json:"peers"`
 }

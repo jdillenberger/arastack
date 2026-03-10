@@ -19,10 +19,10 @@ func init() {
 	rootCmd.AddCommand(joinCmd)
 }
 
-// joinCmd joins a fleet using an invite token from another peer.
+// joinCmd joins a peer group using an invite token from another peer.
 var joinCmd = &cobra.Command{
 	Use:   "join <token>",
-	Short: "Join a fleet using an invite token",
+	Short: "Join a peer group using an invite token",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Decode the base64 token.
@@ -96,24 +96,24 @@ var joinCmd = &cobra.Command{
 			return fmt.Errorf("join rejected by originator (status %d)", resp.StatusCode)
 		}
 
-		// Parse response to get fleet info and originator peer info.
+		// Parse response to get peer group info and originator peer info.
 		var joinResp struct {
-			Fleet    peer.Fleet        `json:"fleet"`
-			PSK      string            `json:"psk"`
-			Hostname string            `json:"hostname"`
-			Address  string            `json:"address"`
-			Port     int               `json:"port"`
-			Version  string            `json:"version"`
-			Role     string            `json:"role"`
-			Tags     map[string]string `json:"tags,omitempty"`
+			PeerGroup peer.PeerGroup    `json:"peer_group"`
+			PSK       string            `json:"psk"`
+			Hostname  string            `json:"hostname"`
+			Address   string            `json:"address"`
+			Port      int               `json:"port"`
+			Version   string            `json:"version"`
+			Role      string            `json:"role"`
+			Tags      map[string]string `json:"tags,omitempty"`
 		}
 		if err := json.NewDecoder(resp.Body).Decode(&joinResp); err != nil {
 			return fmt.Errorf("decoding join response: %w", err)
 		}
 
-		// Save fleet info (name + PSK received from server) to local store.
-		st.SetFleet(peer.Fleet{
-			Name:   joinResp.Fleet.Name,
+		// Save peer group info (name + PSK received from server) to local store.
+		st.SetPeerGroup(peer.PeerGroup{
+			Name:   joinResp.PeerGroup.Name,
 			Secret: joinResp.PSK,
 		})
 
@@ -135,8 +135,8 @@ var joinCmd = &cobra.Command{
 			return fmt.Errorf("saving store: %w", err)
 		}
 
-		fmt.Printf("Joined fleet %q via %s.\n", joinResp.Fleet.Name, joinResp.Hostname)
-		fmt.Printf("Fleet secret saved to %s/peers.yaml\n", dataDir)
+		fmt.Printf("Joined peer group %q via %s.\n", joinResp.PeerGroup.Name, joinResp.Hostname)
+		fmt.Printf("Peer group secret saved to %s/peers.yaml\n", dataDir)
 		return nil
 	},
 }

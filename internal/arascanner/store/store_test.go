@@ -24,15 +24,15 @@ func TestLoad_CreatesDefaultConfig(t *testing.T) {
 		t.Fatalf("Load() error: %v", err)
 	}
 
-	f := s.Fleet()
-	if f.Name != "homelab" {
-		t.Errorf("Fleet.Name = %q, want %q", f.Name, "homelab")
+	pg := s.PeerGroup()
+	if pg.Name != "homelab" {
+		t.Errorf("PeerGroup.Name = %q, want %q", pg.Name, "homelab")
 	}
-	if f.Secret == "" {
-		t.Error("Fleet.Secret is empty, expected generated secret")
+	if pg.Secret == "" {
+		t.Error("PeerGroup.Secret is empty, expected generated secret")
 	}
-	if len(f.Secret) != 64 {
-		t.Errorf("Fleet.Secret length = %d, want 64 hex chars", len(f.Secret))
+	if len(pg.Secret) != 64 {
+		t.Errorf("PeerGroup.Secret length = %d, want 64 hex chars", len(pg.Secret))
 	}
 
 	self := s.Self()
@@ -420,17 +420,17 @@ func TestSetSelfRole(t *testing.T) {
 	}
 }
 
-func TestSetFleet(t *testing.T) {
+func TestSetPeerGroup(t *testing.T) {
 	s := tempStore(t)
 	_ = s.Load()
 
-	s.SetFleet(peer.Fleet{Name: "mylab", Secret: "abc123"})
-	f := s.Fleet()
-	if f.Name != "mylab" {
-		t.Errorf("Fleet().Name = %q, want %q", f.Name, "mylab")
+	s.SetPeerGroup(peer.PeerGroup{Name: "mylab", Secret: "abc123"})
+	pg := s.PeerGroup()
+	if pg.Name != "mylab" {
+		t.Errorf("PeerGroup().Name = %q, want %q", pg.Name, "mylab")
 	}
-	if f.Secret != "abc123" {
-		t.Errorf("Fleet().Secret = %q, want %q", f.Secret, "abc123")
+	if pg.Secret != "abc123" {
+		t.Errorf("PeerGroup().Secret = %q, want %q", pg.Secret, "abc123")
 	}
 }
 

@@ -11,7 +11,7 @@ const (
 	wideThreshold = 120 // columns threshold for 2-column layout
 )
 
-var tabNames = []string{"Overview", "Apps", "Containers", "Alerts", "Fleet"}
+var tabNames = []string{"Overview", "Apps", "Containers", "Alerts", "Peers"}
 
 // renderTabBar renders the tab bar with numbered tabs.
 func renderTabBar(activeTab, width int, lastUpdate string) string {

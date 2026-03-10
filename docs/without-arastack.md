@@ -1,6 +1,6 @@
 # Without arastack
 
-This guide shows how to achieve the same deployment results as `aradeploy` using plain Docker Compose and Traefik. This covers only the deployment features — backups, monitoring, alerts, and fleet discovery are separate concerns.
+This guide shows how to achieve the same deployment results as `aradeploy` using plain Docker Compose and Traefik. This covers only the deployment features — backups, monitoring, alerts, and peer discovery are separate concerns.
 
 ## What aradeploy Does for You
 

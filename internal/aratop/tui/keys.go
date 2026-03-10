@@ -46,7 +46,7 @@ var keys = keyMap{
 	),
 	Tab5: key.NewBinding(
 		key.WithKeys("5"),
-		key.WithHelp("5", "fleet"),
+		key.WithHelp("5", "peers"),
 	),
 	NextTab: key.NewBinding(
 		key.WithKeys("tab", "right"),

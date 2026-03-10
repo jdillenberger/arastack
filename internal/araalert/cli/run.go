@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -16,7 +15,6 @@ import (
 	"github.com/jdillenberger/arastack/internal/araalert/api"
 	"github.com/jdillenberger/arastack/internal/araalert/config"
 	"github.com/jdillenberger/arastack/internal/araalert/health"
-	"github.com/jdillenberger/arastack/pkg/aradeployconfig"
 	"github.com/jdillenberger/arastack/pkg/clients"
 	"github.com/jdillenberger/arastack/pkg/version"
 )
@@ -28,7 +26,7 @@ func init() {
 var runCmd = &cobra.Command{
 	Use:   "run",
 	Short: "Run the alert evaluation daemon (foreground)",
-	Long:  "Starts the health check scheduler, API server, and signal handling.",
+	Long:  "Starts the health polling scheduler, API server, and signal handling.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runDaemon()
 	},
@@ -45,42 +43,38 @@ func runDaemon() error {
 		"bind", cfg.Server.Bind,
 		"data-dir", cfg.DataDir,
 		"aranotify", cfg.Aranotify.URL,
-		"schedule", cfg.Health.Schedule,
+		"aramonitor", cfg.Aramonitor.URL,
+		"schedule", cfg.Aramonitor.Schedule,
 	)
-
-	// Resolve apps directory from aradeploy config.
-	appsDir := cfg.Health.AppsDir
-	if appsDir == "" {
-		ldCfg, err := aradeployconfig.Load(cfg.Aradeploy.Config)
-		if err != nil {
-			return fmt.Errorf("loading aradeploy config: %w", err)
-		}
-		appsDir = ldCfg.AppsDir
-	}
 
 	// Create components.
 	store := alert.NewStore(cfg.DataDir)
-	client := clients.NewNotifyClient(cfg.Aranotify.URL)
-	mgr := alert.NewManager(store, client, cfg.CooldownDuration())
-	checker := health.NewChecker(appsDir, cfg.Health.ComposeCmd)
+	notifyClient := clients.NewNotifyClient(cfg.Aranotify.URL)
+	mgr := alert.NewManager(store, notifyClient, cfg.CooldownDuration())
+	monitorClient := clients.NewMonitorClient(cfg.Aramonitor.URL)
 
-	// Start cron scheduler for health checks.
+	// Start cron scheduler for health polling from aramonitor.
 	c := cron.New()
-	_, err = c.AddFunc(cfg.Health.Schedule, func() {
-		slog.Debug("running scheduled health check")
-		results, err := checker.CheckAll()
+	_, err = c.AddFunc(cfg.Aramonitor.Schedule, func() {
+		slog.Debug("polling health from aramonitor")
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		appResults, err := monitorClient.AppHealth(ctx)
 		if err != nil {
-			slog.Error("health check failed", "error", err)
+			slog.Error("failed to fetch health from aramonitor", "error", err)
 			return
 		}
-		slog.Debug("health check completed", "apps", len(results))
+
+		results := convertHealthResults(appResults)
+		slog.Debug("health poll completed", "apps", len(results))
 		mgr.StoreHealth(results)
 		mgr.Evaluate(results)
 
 		// Check aranotify reachability so operators can spot notification outages.
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := client.NotifyHealth(ctx); err != nil {
+		nctx, ncancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer ncancel()
+		if err := notifyClient.NotifyHealth(nctx); err != nil {
 			slog.Warn("aranotify is unreachable, notifications will fail", "url", cfg.Aranotify.URL, "error", err)
 		}
 	})
@@ -90,15 +84,20 @@ func runDaemon() error {
 	c.Start()
 	defer c.Stop()
 
-	// Run an initial health check immediately so data is available right away.
+	// Run an initial health poll immediately so data is available right away.
 	go func() {
-		slog.Info("running initial health check")
-		results, err := checker.CheckAll()
+		slog.Info("running initial health poll from aramonitor")
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		appResults, err := monitorClient.AppHealth(ctx)
 		if err != nil {
-			slog.Error("initial health check failed", "error", err)
+			slog.Error("initial health poll failed", "error", err)
 			return
 		}
-		slog.Info("initial health check completed", "apps", len(results))
+
+		results := convertHealthResults(appResults)
+		slog.Info("initial health poll completed", "apps", len(results))
 		mgr.StoreHealth(results)
 		mgr.Evaluate(results)
 	}()
@@ -134,4 +133,17 @@ func runDaemon() error {
 
 	slog.Info("araalert stopped")
 	return nil
+}
+
+// convertHealthResults converts monitor client results to internal health.Result.
+func convertHealthResults(appResults []clients.AppHealthResult) []health.Result {
+	results := make([]health.Result, len(appResults))
+	for i, r := range appResults {
+		results[i] = health.Result{
+			App:    r.App,
+			Status: health.Status(r.Status),
+			Detail: r.Detail,
+		}
+	}
+	return results
 }

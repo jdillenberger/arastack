@@ -1,13 +1,15 @@
 package registry
 
 import (
-	"github.com/jdillenberger/arastack/internal/araalert/config"
+	araalertcfg "github.com/jdillenberger/arastack/internal/araalert/config"
 	araalertdoc "github.com/jdillenberger/arastack/internal/araalert/doctor"
 	arabackupdoc "github.com/jdillenberger/arastack/internal/arabackup/doctor"
 	dashcfg "github.com/jdillenberger/arastack/internal/aradashboard/config"
 	aradashboarddoc "github.com/jdillenberger/arastack/internal/aradashboard/doctor"
 	aradeploydoc "github.com/jdillenberger/arastack/internal/aradeploy/doctor"
 	aramdnsdoc "github.com/jdillenberger/arastack/internal/aramdns/doctor"
+	aramonitorcfg "github.com/jdillenberger/arastack/internal/aramonitor/config"
+	aramonitordoc "github.com/jdillenberger/arastack/internal/aramonitor/doctor"
 	aranotifydoc "github.com/jdillenberger/arastack/internal/aranotify/doctor"
 	arascannerdoc "github.com/jdillenberger/arastack/internal/arascanner/doctor"
 	"github.com/jdillenberger/arastack/pkg/doctor"
@@ -60,6 +62,38 @@ var tools = []Tool{
 		DoctorFix: aranotifydoc.Fix,
 	},
 	{
+		Name:        "aramonitor",
+		BinaryName:  "aramonitor",
+		ServiceName: "aramonitor",
+		Description: "aramonitor - Health monitoring daemon",
+		ExecArgs:    "run",
+		Port:        7130,
+		ConfigPath:  "/etc/arastack/config/aramonitor.yaml",
+		Order:       3,
+		ServiceConfig: systemd.ServiceConfig{
+			BinaryName:  "aramonitor",
+			ServiceName: "aramonitor",
+			Description: "aramonitor - Health monitoring daemon",
+			ExecArgs:    "run",
+			After:       []string{"docker.service"},
+			Group:       "arastack",
+		},
+		DoctorCheck: func() ([]doctor.CheckResult, error) {
+			cfg, err := aramonitorcfg.Load("")
+			if err != nil {
+				return nil, err
+			}
+			return aramonitordoc.CheckAll(cfg), nil
+		},
+		DoctorFix: func(r doctor.CheckResult) error {
+			cfg, err := aramonitorcfg.Load("")
+			if err != nil {
+				return err
+			}
+			return aramonitordoc.Fix(r, cfg)
+		},
+	},
+	{
 		Name:        "araalert",
 		BinaryName:  "araalert",
 		ServiceName: "araalert",
@@ -67,7 +101,7 @@ var tools = []Tool{
 		ExecArgs:    "run",
 		Port:        7150,
 		ConfigPath:  "/etc/arastack/config/araalert.yaml",
-		Order:       3,
+		Order:       4,
 		ServiceConfig: systemd.ServiceConfig{
 			BinaryName:  "araalert",
 			ServiceName: "araalert",
@@ -76,14 +110,14 @@ var tools = []Tool{
 			Group:       "arastack",
 		},
 		DoctorCheck: func() ([]doctor.CheckResult, error) {
-			cfg, err := config.Load("")
+			cfg, err := araalertcfg.Load("")
 			if err != nil {
 				return nil, err
 			}
 			return araalertdoc.CheckAll(cfg), nil
 		},
 		DoctorFix: func(r doctor.CheckResult) error {
-			cfg, err := config.Load("")
+			cfg, err := araalertcfg.Load("")
 			if err != nil {
 				return err
 			}
@@ -98,7 +132,7 @@ var tools = []Tool{
 		ExecArgs:    "run",
 		Port:        7160,
 		ConfigPath:  "/etc/arastack/config/arabackup.yaml",
-		Order:       4,
+		Order:       5,
 		ServiceConfig: systemd.ServiceConfig{
 			BinaryName:  "arabackup",
 			ServiceName: "arabackup",
@@ -119,7 +153,7 @@ var tools = []Tool{
 		ExecArgs:    "run",
 		Port:        8420,
 		ConfigPath:  "/etc/arastack/config/aradashboard.yaml",
-		Order:       5,
+		Order:       6,
 		ServiceConfig: systemd.ServiceConfig{
 			BinaryName:  "aradashboard",
 			ServiceName: "aradashboard",
@@ -150,7 +184,7 @@ var tools = []Tool{
 		ExecArgs:    "update --all",
 		Port:        0,
 		ConfigPath:  "/etc/arastack/config/aradeploy.yaml",
-		Order:       6,
+		Order:       7,
 		ServiceConfig: systemd.ServiceConfig{
 			BinaryName:  "aradeploy",
 			ServiceName: "aradeploy",
@@ -170,7 +204,7 @@ var tools = []Tool{
 		Description: "aramdns - Traefik Docker mDNS publisher",
 		ExecArgs:    "run",
 		Port:        0,
-		Order:       7,
+		Order:       8,
 		ServiceConfig: systemd.ServiceConfig{
 			BinaryName:  "aramdns",
 			ServiceName: "aramdns",

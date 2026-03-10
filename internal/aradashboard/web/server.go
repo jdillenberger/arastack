@@ -79,10 +79,10 @@ func NewServer(cfg *config.Config, ldc *config.AradeployYAML, version string) (*
 	runner := &executil.Runner{}
 	compose := docker.NewCompose(runner, ldc.Docker.ComposeCommand)
 
-	// Health cache polls araalert for app health status
-	alertClient := clients.NewAlertClient(cfg.Services.Araalert.URL)
+	// Health cache polls aramonitor for app health status
+	monitorClient := clients.NewMonitorClient(cfg.Services.Aramonitor.URL)
 	healthCache := health.NewHealthCache(
-		alertClient,
+		monitorClient,
 		30*time.Second,
 		2*time.Minute,
 	)

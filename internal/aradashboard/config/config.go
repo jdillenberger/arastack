@@ -39,7 +39,12 @@ type WebConfig struct {
 type Services struct {
 	AraScanner AraScannerConfig `yaml:"peer_scanner"`
 	Araalert   AraalertConfig   `yaml:"araalert"`
+	Aramonitor AramonitorConfig `yaml:"aramonitor"`
 	Arabackup  ArabackupConfig  `yaml:"arabackup"`
+}
+
+type AramonitorConfig struct {
+	URL string `yaml:"url"`
 }
 
 type AraScannerConfig struct {
@@ -77,6 +82,9 @@ func Defaults() Config {
 			},
 			Araalert: AraalertConfig{
 				URL: "http://127.0.0.1:7150",
+			},
+			Aramonitor: AramonitorConfig{
+				URL: "http://127.0.0.1:7130",
 			},
 			Arabackup: ArabackupConfig{
 				URL: "http://127.0.0.1:7160",

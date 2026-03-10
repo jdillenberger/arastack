@@ -36,18 +36,18 @@ type CachedHealthResult struct {
 // HealthCache provides an in-memory cache of app health status,
 // updated by polling araalert's /api/app-health endpoint.
 type HealthCache struct {
-	mu          sync.RWMutex
-	results     map[string]CachedHealthResult
-	interval    time.Duration
-	ttl         time.Duration
-	alertClient *clients.AlertClient
+	mu            sync.RWMutex
+	results       map[string]CachedHealthResult
+	interval      time.Duration
+	ttl           time.Duration
+	monitorClient *clients.MonitorClient
 
 	cancel context.CancelFunc
 	done   chan struct{}
 }
 
 // NewHealthCache creates a HealthCache. Call Start() to begin polling.
-func NewHealthCache(alertClient *clients.AlertClient, interval, ttl time.Duration) *HealthCache {
+func NewHealthCache(monitorClient *clients.MonitorClient, interval, ttl time.Duration) *HealthCache {
 	if interval <= 0 {
 		interval = 30 * time.Second
 	}
@@ -55,10 +55,10 @@ func NewHealthCache(alertClient *clients.AlertClient, interval, ttl time.Duratio
 		ttl = 2 * time.Minute
 	}
 	return &HealthCache{
-		results:     make(map[string]CachedHealthResult),
-		interval:    interval,
-		ttl:         ttl,
-		alertClient: alertClient,
+		results:       make(map[string]CachedHealthResult),
+		interval:      interval,
+		ttl:           ttl,
+		monitorClient: monitorClient,
 	}
 }
 
@@ -126,9 +126,9 @@ func (hc *HealthCache) poll() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	results, err := hc.alertClient.AppHealth(ctx)
+	results, err := hc.monitorClient.AppHealth(ctx)
 	if err != nil {
-		slog.Error("Health cache: failed to fetch from araalert", "error", err)
+		slog.Error("Health cache: failed to fetch from aramonitor", "error", err)
 		return
 	}
 

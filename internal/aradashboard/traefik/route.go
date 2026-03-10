@@ -151,7 +151,7 @@ func (rm *RouteManager) sync() {
 		return
 	}
 
-	if err := os.WriteFile(path, buf.Bytes(), 0644); err != nil {
+	if err := os.WriteFile(path, buf.Bytes(), 0o644); err != nil {
 		slog.Error("Traefik route: failed to write route file", "error", err, "path", path)
 		return
 	}

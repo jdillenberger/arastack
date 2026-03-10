@@ -4,23 +4,16 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/jdillenberger/arastack/pkg/aradeployconfig"
 	pkgconfig "github.com/jdillenberger/arastack/pkg/config"
 )
 
 // Config is the top-level configuration for araalert.
 type Config struct {
-	Server    ServerConfig    `yaml:"server"`
-	Aranotify AranotifyConfig `yaml:"aranotify"`
-	Aradeploy AradeployRef    `yaml:"aradeploy"`
-	Health    HealthConfig    `yaml:"health"`
-	Cooldown  string          `yaml:"cooldown"`
-	DataDir   string          `yaml:"data_dir"`
-}
-
-// AradeployRef points to the aradeploy configuration file.
-type AradeployRef struct {
-	Config string `yaml:"config"`
+	Server     ServerConfig     `yaml:"server"`
+	Aranotify  AranotifyConfig  `yaml:"aranotify"`
+	Aramonitor AramonitorConfig `yaml:"aramonitor"`
+	Cooldown   string           `yaml:"cooldown"`
+	DataDir    string           `yaml:"data_dir"`
 }
 
 // ServerConfig holds HTTP API server settings.
@@ -34,11 +27,10 @@ type AranotifyConfig struct {
 	URL string `yaml:"url"`
 }
 
-// HealthConfig holds health check settings.
-type HealthConfig struct {
-	AppsDir    string `yaml:"apps_dir"`
-	ComposeCmd string `yaml:"compose_cmd"`
-	Schedule   string `yaml:"schedule"`
+// AramonitorConfig holds the aramonitor connection settings.
+type AramonitorConfig struct {
+	URL      string `yaml:"url"`
+	Schedule string `yaml:"schedule"`
 }
 
 // CooldownDuration parses the cooldown string as a duration.
@@ -64,12 +56,9 @@ func Defaults() Config {
 		Aranotify: AranotifyConfig{
 			URL: "http://127.0.0.1:7140",
 		},
-		Aradeploy: AradeployRef{
-			Config: aradeployconfig.DefaultConfigPath,
-		},
-		Health: HealthConfig{
-			ComposeCmd: "docker compose",
-			Schedule:   "*/5 * * * *",
+		Aramonitor: AramonitorConfig{
+			URL:      "http://127.0.0.1:7130",
+			Schedule: "*/5 * * * *",
 		},
 		Cooldown: "15m",
 		DataDir:  "/var/lib/araalert",

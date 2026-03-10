@@ -77,7 +77,7 @@ func loadFromSearchPaths(cfg *Config) error {
 	const fileName = "aradeploy.yaml"
 
 	// System-wide config.
-	sysPath := filepath.Join("/etc/arastack/config", fileName)
+	sysPath := "/etc/arastack/config/" + fileName
 	if err := mergeFromFile(cfg, sysPath); err != nil && !os.IsNotExist(err) {
 		slog.Warn("failed to load aradeploy config", "path", sysPath, "error", err)
 	}

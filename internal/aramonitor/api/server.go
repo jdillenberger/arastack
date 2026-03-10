@@ -10,23 +10,21 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/jdillenberger/arastack/internal/araalert/alert"
+	"github.com/jdillenberger/arastack/internal/aramonitor/monitor"
 	"github.com/jdillenberger/arastack/pkg/health"
 )
 
-// Server is the araalert HTTP API server.
+// Server is the aramonitor HTTP API server.
 type Server struct {
-	manager    *alert.Manager
-	store      *alert.Store
+	monitor    *monitor.Monitor
 	httpServer *http.Server
 	health     *health.Handler
 }
 
 // New creates a new API server.
-func New(manager *alert.Manager, store *alert.Store, version string) *Server {
+func New(mon *monitor.Monitor, version string) *Server {
 	return &Server{
-		manager: manager,
-		store:   store,
+		monitor: mon,
 		health:  health.NewHandler(version),
 	}
 }
@@ -36,11 +34,8 @@ func (srv *Server) Start(bind string, port int) error {
 	mux := http.NewServeMux()
 
 	mux.Handle("GET /api/health", srv.health)
-	mux.HandleFunc("GET /api/rules", srv.handleGetRules)
-	mux.HandleFunc("POST /api/rules", srv.handleCreateRule)
-	mux.HandleFunc("DELETE /api/rules/{id}", srv.handleDeleteRule)
-	mux.HandleFunc("GET /api/history", srv.handleHistory)
-	mux.HandleFunc("POST /api/events", srv.handleEvent)
+	mux.HandleFunc("GET /api/app-health", srv.handleAppHealth)
+	mux.HandleFunc("GET /api/containers", srv.handleContainers)
 
 	srv.httpServer = &http.Server{
 		Addr:              net.JoinHostPort(bind, strconv.Itoa(port)),
@@ -68,8 +63,4 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
-}
-
-func writeError(w http.ResponseWriter, status int, msg string) {
-	writeJSON(w, status, map[string]string{"error": msg})
 }

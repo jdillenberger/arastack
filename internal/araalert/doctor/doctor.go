@@ -19,7 +19,7 @@ func CheckAll(cfg config.Config) []doctor.CheckResult {
 	var results []doctor.CheckResult
 	results = append(results, CheckConfigFile())
 	results = append(results, CheckDataDir(cfg.DataDir))
-	results = append(results, CheckDocker(cfg.Health.ComposeCmd))
+	results = append(results, CheckAramonitor(cfg.Aramonitor.URL))
 	results = append(results, CheckAranotify(cfg.Aranotify.URL))
 	results = append(results, CheckServiceRunning())
 	return results
@@ -69,23 +69,21 @@ func CheckDataDir(dataDir string) doctor.CheckResult {
 	return result
 }
 
-// CheckDocker checks that docker compose is accessible.
-func CheckDocker(composeCmd string) doctor.CheckResult {
-	result := doctor.CheckResult{Name: "docker-compose"}
+// CheckAramonitor checks if aramonitor is reachable.
+func CheckAramonitor(url string) doctor.CheckResult {
+	result := doctor.CheckResult{Name: "aramonitor-reachable"}
 
-	parts := strings.Fields(composeCmd)
-	args := make([]string, len(parts)-1, len(parts))
-	copy(args, parts[1:])
-	args = append(args, "version")
-	cmd := exec.Command(parts[0], args...)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		result.Version = fmt.Sprintf("%s not accessible: %v", composeCmd, err)
+	client := clients.NewMonitorClient(url)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := client.Health(ctx); err != nil {
+		result.Version = fmt.Sprintf("%s: %v", url, err)
 		return result
 	}
 
 	result.Installed = true
-	result.Version = strings.TrimSpace(string(out))
+	result.Version = url
 	return result
 }
 
@@ -143,8 +141,8 @@ func Fix(r doctor.CheckResult, cfg config.Config) error {
 	case "aranotify-reachable":
 		fmt.Println("    Ensure aranotify is running at " + cfg.Aranotify.URL)
 		return nil
-	case "docker-compose":
-		fmt.Println("    Install Docker: https://docs.docker.com/engine/install/")
+	case "aramonitor-reachable":
+		fmt.Println("    Ensure aramonitor is running at " + cfg.Aramonitor.URL)
 		return nil
 	}
 

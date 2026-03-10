@@ -83,9 +83,10 @@ type Model struct {
 	fleetTable      table.Model
 
 	// Drill-down state.
-	detailView  bool
-	detailApp   string
-	detailTable table.Model
+	detailView     bool
+	detailApp      string
+	detailAppIndex int
+	detailTable    table.Model
 }
 
 // NewModel creates a new TUI model.
@@ -162,6 +163,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.updateAppsTable()
 		m.updateContainersTable()
 		if m.detailView {
+			m.revalidateDetailApp()
 			m.updateDetailTable()
 		}
 		return m, nil
@@ -227,16 +229,35 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// If in detail view, handle Esc first.
+	// If in detail view, handle navigation keys.
 	if m.detailView {
-		if key.Matches(msg, keys.Back) {
+		switch {
+		case key.Matches(msg, keys.Back):
 			m.detailView = false
 			return m, nil
+		case key.Matches(msg, keys.NextApp):
+			m.navigateApp(1)
+			return m, nil
+		case key.Matches(msg, keys.PrevApp):
+			m.navigateApp(-1)
+			return m, nil
+		case key.Matches(msg, keys.Refresh):
+			return m, tea.Batch(
+				fetchMonitorData(m.cfg.MonitorClient),
+				fetchSysInfo(),
+				fetchAlertData(m.cfg.AlertClient),
+				fetchBackupStatus(m.cfg.BackupClient),
+				fetchPeers(m.cfg.ScannerClient),
+				fetchServiceHealth(m.cfg),
+			)
+		case key.Matches(msg, keys.Quit):
+			return m, tea.Quit
+		default:
+			// Forward to detail table.
+			var cmd tea.Cmd
+			m.detailTable, cmd = m.detailTable.Update(msg)
+			return m, cmd
 		}
-		// Forward to detail table.
-		var cmd tea.Cmd
-		m.detailTable, cmd = m.detailTable.Update(msg)
-		return m, cmd
 	}
 
 	switch {
@@ -273,6 +294,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.activeTab == tabApps && len(m.health) > 0 {
 			sel := m.appsTable.Cursor()
 			if sel >= 0 && sel < len(m.health) {
+				m.detailAppIndex = sel
 				m.detailApp = m.health[sel].App
 				m.detailView = true
 				m.updateDetailTable()
@@ -319,7 +341,42 @@ func (m *Model) resizeTables() {
 	m.fleetTable.SetWidth(w)
 	m.fleetTable.SetHeight(h)
 	m.detailTable.SetWidth(w)
-	m.detailTable.SetHeight(h)
+	detailH := h - 12 // leave room for bottom panels
+	if detailH < 3 {
+		detailH = 3
+	}
+	m.detailTable.SetHeight(detailH)
+}
+
+// navigateApp moves to the next/prev app in the detail view.
+func (m *Model) navigateApp(delta int) {
+	n := len(m.health)
+	if n == 0 {
+		return
+	}
+	m.detailAppIndex = (m.detailAppIndex + delta + n) % n
+	m.detailApp = m.health[m.detailAppIndex].App
+	m.updateDetailTable()
+}
+
+// revalidateDetailApp ensures detailAppIndex stays consistent after data refresh.
+func (m *Model) revalidateDetailApp() {
+	if len(m.health) == 0 {
+		m.detailView = false
+		return
+	}
+	// Try to find the current app by name.
+	for i, h := range m.health {
+		if h.App == m.detailApp {
+			m.detailAppIndex = i
+			return
+		}
+	}
+	// App disappeared — clamp index and switch to whatever is there.
+	if m.detailAppIndex >= len(m.health) {
+		m.detailAppIndex = len(m.health) - 1
+	}
+	m.detailApp = m.health[m.detailAppIndex].App
 }
 
 // View renders the TUI.
@@ -365,15 +422,15 @@ func (m *Model) View() string {
 	// Help bar.
 	var hints string
 	if m.detailView {
-		hints = "  esc back | j/k navigate | r refresh | q quit"
+		hints = "  esc back | h/l prev/next app | j/k navigate | r refresh | q quit"
 	} else {
 		switch m.activeTab {
 		case tabOverview:
-			hints = "  1-5 tab | tab cycle | r refresh | q quit"
+			hints = "  ←/→ switch tab | 1-5 tab | r refresh | q quit"
 		case tabApps:
-			hints = "  1-5 tab | j/k navigate | enter detail | r refresh | q quit"
+			hints = "  ←/→ switch tab | j/k navigate | enter detail | r refresh | q quit"
 		default:
-			hints = "  1-5 tab | j/k navigate | r refresh | q quit"
+			hints = "  ←/→ switch tab | j/k navigate | r refresh | q quit"
 		}
 	}
 	sections = append(sections, renderStatusBar(hints, m.width))

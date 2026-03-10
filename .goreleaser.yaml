@@ -85,6 +85,26 @@ builds:
     ldflags: *ldflags
     flags: [-trimpath]
 
+  - id: aramonitor
+    main: ./cmd/aramonitor
+    binary: aramonitor
+    env: [CGO_ENABLED=0]
+    goos: [linux]
+    goarch: [amd64, arm64, arm]
+    goarm: ["7"]
+    ldflags: *ldflags
+    flags: [-trimpath]
+
+  - id: aratop
+    main: ./cmd/aratop
+    binary: aratop
+    env: [CGO_ENABLED=0]
+    goos: [linux]
+    goarch: [amd64, arm64, arm]
+    goarm: ["7"]
+    ldflags: *ldflags
+    flags: [-trimpath]
+
 archives:
   - id: aramanager
     formats: [tar.gz]
@@ -103,6 +123,8 @@ archives:
       - aranotify
       - arascanner
       - aramdns
+      - aramonitor
+      - aratop
     name_template: "arastack_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
 
 checksum:

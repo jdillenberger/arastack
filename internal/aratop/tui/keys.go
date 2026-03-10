@@ -17,6 +17,8 @@ type keyMap struct {
 	Bottom  key.Binding
 	Enter   key.Binding
 	Back    key.Binding
+	NextApp key.Binding
+	PrevApp key.Binding
 	Refresh key.Binding
 	Help    key.Binding
 }
@@ -47,12 +49,12 @@ var keys = keyMap{
 		key.WithHelp("5", "fleet"),
 	),
 	NextTab: key.NewBinding(
-		key.WithKeys("tab"),
-		key.WithHelp("tab", "next tab"),
+		key.WithKeys("tab", "right"),
+		key.WithHelp("tab/→", "next tab"),
 	),
 	PrevTab: key.NewBinding(
-		key.WithKeys("shift+tab"),
-		key.WithHelp("shift+tab", "prev tab"),
+		key.WithKeys("shift+tab", "left"),
+		key.WithHelp("shift+tab/←", "prev tab"),
 	),
 	Up: key.NewBinding(
 		key.WithKeys("up", "k"),
@@ -78,6 +80,16 @@ var keys = keyMap{
 		key.WithKeys("esc"),
 		key.WithHelp("esc", "back"),
 	),
+	NextApp: key.NewBinding(
+		key.WithKeys("l", "right"),
+		key.WithHelp("l/→", "next app"),
+	),
+	PrevApp: key.NewBinding(
+		key.WithKeys("h", "left"),
+		key.WithHelp("h/←", "prev app"),
+	),
+	// Note: In detail view, left/right are handled as PrevApp/NextApp
+	// instead of PrevTab/NextTab (see handleKey).
 	Refresh: key.NewBinding(
 		key.WithKeys("r"),
 		key.WithHelp("r", "refresh"),

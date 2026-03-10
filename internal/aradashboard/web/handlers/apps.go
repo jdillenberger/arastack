@@ -153,7 +153,7 @@ func (h *Handler) buildAppAddresses(info *discovery.DeployedApp) []AppAddress {
 // Go's net.LookupHost does not reliably resolve mDNS .local domains.
 func checkMDNS(domain string) bool {
 	out, err := exec.Command("avahi-resolve", "-n", domain).Output()
-	return err == nil && len(strings.TrimSpace(string(out))) > 0
+	return err == nil && strings.TrimSpace(string(out)) != ""
 }
 
 func parseComposeJSON(raw string) []ContainerStatus {

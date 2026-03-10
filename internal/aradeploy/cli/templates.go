@@ -73,20 +73,32 @@ var templatesListCmd = &cobra.Command{
 			Category    string `json:"category"`
 			Description string `json:"description"`
 			Source      string `json:"source"`
+			Status      string `json:"status"`
 		}
 
 		runner := &executil.Runner{Verbose: verbose}
 		repoMgr := repo.NewManager(cfg.ReposDir(), cfg.ManifestPath(), runner)
 		repoNames, _ := repoMgr.RepoNames()
 
+		deployed, _ := mgr.ListDeployed()
+		deployedSet := make(map[string]bool)
+		for _, d := range deployed {
+			deployedSet[d] = true
+		}
+
 		var entries []templateEntry
 		for _, meta := range mgr.Registry().All() {
 			source := template.ResolveSource(mgr.Registry().FS(), meta.Name, repoNames)
+			status := "available"
+			if deployedSet[meta.Name] {
+				status = "deployed"
+			}
 			entries = append(entries, templateEntry{
 				Name:        meta.Name,
 				Category:    meta.Category,
 				Description: meta.Description,
 				Source:      source,
+				Status:      status,
 			})
 		}
 
@@ -95,9 +107,9 @@ var templatesListCmd = &cobra.Command{
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-		_, _ = fmt.Fprintln(w, "NAME\tCATEGORY\tSOURCE\tDESCRIPTION")
+		_, _ = fmt.Fprintln(w, "NAME\tCATEGORY\tSOURCE\tDESCRIPTION\tSTATUS")
 		for _, e := range entries {
-			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", e.Name, e.Category, e.Source, e.Description)
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", e.Name, e.Category, e.Source, e.Description, e.Status)
 		}
 		_ = w.Flush()
 		return nil

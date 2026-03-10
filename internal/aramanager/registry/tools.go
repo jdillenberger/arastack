@@ -1,16 +1,22 @@
 package registry
 
 import (
+	"fmt"
+
 	araalertcfg "github.com/jdillenberger/arastack/internal/araalert/config"
 	araalertdoc "github.com/jdillenberger/arastack/internal/araalert/doctor"
+	arabackupcfg "github.com/jdillenberger/arastack/internal/arabackup/config"
 	arabackupdoc "github.com/jdillenberger/arastack/internal/arabackup/doctor"
 	dashcfg "github.com/jdillenberger/arastack/internal/aradashboard/config"
 	aradashboarddoc "github.com/jdillenberger/arastack/internal/aradashboard/doctor"
+	aradeploycfg "github.com/jdillenberger/arastack/internal/aradeploy/config"
 	aradeploydoc "github.com/jdillenberger/arastack/internal/aradeploy/doctor"
 	aramdnsdoc "github.com/jdillenberger/arastack/internal/aramdns/doctor"
 	aramonitorcfg "github.com/jdillenberger/arastack/internal/aramonitor/config"
 	aramonitordoc "github.com/jdillenberger/arastack/internal/aramonitor/doctor"
+	aranotifycfg "github.com/jdillenberger/arastack/internal/aranotify/config"
 	aranotifydoc "github.com/jdillenberger/arastack/internal/aranotify/doctor"
+	arascannercfg "github.com/jdillenberger/arastack/internal/arascanner/config"
 	arascannerdoc "github.com/jdillenberger/arastack/internal/arascanner/doctor"
 	"github.com/jdillenberger/arastack/pkg/doctor"
 	"github.com/jdillenberger/arastack/pkg/systemd"
@@ -40,6 +46,12 @@ var tools = []Tool{
 		DoctorFix: func(r doctor.CheckResult) error {
 			return arascannerdoc.Fix(r, "/var/lib/arascanner")
 		},
+		ConfigValidate: func() []string {
+			if _, err := arascannercfg.Load(""); err != nil {
+				return []string{fmt.Sprintf("config load error: %v", err)}
+			}
+			return nil
+		},
 	},
 	{
 		Name:        "aranotify",
@@ -61,6 +73,12 @@ var tools = []Tool{
 			return aranotifydoc.CheckAll(), nil
 		},
 		DoctorFix: aranotifydoc.Fix,
+		ConfigValidate: func() []string {
+			if _, err := aranotifycfg.Load(""); err != nil {
+				return []string{fmt.Sprintf("config load error: %v", err)}
+			}
+			return nil
+		},
 	},
 	{
 		Name:        "aramonitor",
@@ -93,6 +111,12 @@ var tools = []Tool{
 			}
 			return aramonitordoc.Fix(r, cfg)
 		},
+		ConfigValidate: func() []string {
+			if _, err := aramonitorcfg.Load(""); err != nil {
+				return []string{fmt.Sprintf("config load error: %v", err)}
+			}
+			return nil
+		},
 	},
 	{
 		Name:        "araalert",
@@ -124,6 +148,12 @@ var tools = []Tool{
 			}
 			return araalertdoc.Fix(r, cfg)
 		},
+		ConfigValidate: func() []string {
+			if _, err := araalertcfg.Load(""); err != nil {
+				return []string{fmt.Sprintf("config load error: %v", err)}
+			}
+			return nil
+		},
 	},
 	{
 		Name:        "arabackup",
@@ -145,6 +175,12 @@ var tools = []Tool{
 			return arabackupdoc.CheckAll(), nil
 		},
 		DoctorFix: arabackupdoc.Fix,
+		ConfigValidate: func() []string {
+			if _, err := arabackupcfg.Load(); err != nil {
+				return []string{fmt.Sprintf("config load error: %v", err)}
+			}
+			return nil
+		},
 	},
 	{
 		Name:        "aradashboard",
@@ -176,6 +212,12 @@ var tools = []Tool{
 			}
 			return aradashboarddoc.Fix(r, cfg)
 		},
+		ConfigValidate: func() []string {
+			if _, err := dashcfg.Load(""); err != nil {
+				return []string{fmt.Sprintf("config load error: %v", err)}
+			}
+			return nil
+		},
 	},
 	{
 		Name:        "aradeploy",
@@ -197,6 +239,13 @@ var tools = []Tool{
 			return aradeploydoc.CheckAll(), nil
 		},
 		DoctorFix: aradeploydoc.Fix,
+		ConfigValidate: func() []string {
+			cfg, err := aradeploycfg.Load()
+			if err != nil {
+				return []string{fmt.Sprintf("config load error: %v", err)}
+			}
+			return aradeploycfg.Validate(cfg)
+		},
 	},
 	{
 		Name:        "aramdns",

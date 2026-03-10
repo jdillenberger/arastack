@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -106,6 +107,23 @@ var doctorCmd = &cobra.Command{
 			} else if !fix {
 				printFixHints(failed)
 			}
+
+			// Config validation
+			if tool.ConfigValidate != nil && tool.ConfigPath != "" {
+				if _, err := os.Stat(tool.ConfigPath); err == nil {
+					errs := tool.ConfigValidate()
+					if len(errs) > 0 {
+						allOK = false
+						fmt.Printf("  %s %-30s config validation failed\n", cliutil.StatusFail("✗"), "config-validate")
+						for _, e := range errs {
+							fmt.Printf("      %s\n", e)
+						}
+					} else {
+						fmt.Printf("  %s %-30s %s\n", cliutil.StatusOK("✓"), "config-validate", "ok")
+					}
+				}
+			}
+
 			fmt.Println()
 		}
 

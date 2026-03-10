@@ -53,7 +53,23 @@ var peersCmd = &cobra.Command{
 		client := &http.Client{Timeout: 5 * time.Second}
 		resp, err := client.Do(req)
 		if err != nil {
-			return fmt.Errorf("could not reach daemon at localhost:%d — is arascanner running? (%w)", cfg.Server.Port, err)
+			fmt.Fprintln(os.Stderr, "Warning: daemon not reachable, falling back to mDNS discovery...")
+			peers, mdnsErr := mdns.Discover(5 * time.Second)
+			if mdnsErr != nil {
+				return fmt.Errorf("daemon unreachable and mDNS discovery failed: %w", mdnsErr)
+			}
+			if len(peers) == 0 {
+				if jsonOutput {
+					return outputJSON([]struct{}{})
+				}
+				fmt.Println("No peers discovered.")
+				return nil
+			}
+			if jsonOutput {
+				return outputJSON(peers)
+			}
+			printPeerTable(peers)
+			return nil
 		}
 		defer resp.Body.Close() //nolint:errcheck // read-only body
 

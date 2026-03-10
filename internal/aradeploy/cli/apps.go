@@ -322,6 +322,7 @@ var listCmd = &cobra.Command{
 		filterLower := strings.ToLower(filter)
 
 		if showAll {
+			fmt.Fprintln(os.Stderr, "Warning: 'list --all' is deprecated. Use 'aradeploy templates list' instead.")
 			type appListEntry struct {
 				Name        string `json:"name"`
 				Category    string `json:"category"`
@@ -498,10 +499,14 @@ var infoCmd = &cobra.Command{
 }
 
 var showCmd = &cobra.Command{
-	Use:   "show <app>",
-	Short: "Show details of a deployed app",
-	Args:  cobra.ExactArgs(1),
+	Use:     "inspect <app>",
+	Aliases: []string{"show"},
+	Short:   "Show details of a deployed app",
+	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if cmd.CalledAs() == "show" {
+			fmt.Fprintln(os.Stderr, "Warning: 'show' is deprecated. Use 'aradeploy inspect' instead.")
+		}
 		mgr, err := newManager()
 		if err != nil {
 			return err

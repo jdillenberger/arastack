@@ -18,9 +18,10 @@ type Tool struct {
 
 	ServiceConfig systemd.ServiceConfig
 
-	DoctorCheck func() ([]doctor.CheckResult, error) // wraps each tool's doctor.CheckAll()
-	DoctorFix   func(doctor.CheckResult) error       // wraps each tool's doctor.Fix()
-	SetupFunc   func() error                         // custom setup (nil = doctor fix + service install)
+	DoctorCheck    func() ([]doctor.CheckResult, error) // wraps each tool's doctor.CheckAll()
+	DoctorFix      func(doctor.CheckResult) error       // wraps each tool's doctor.Fix()
+	SetupFunc      func() error                         // custom setup (nil = doctor fix + service install)
+	ConfigValidate func() []string                      // returns validation errors for the tool's config
 }
 
 // All returns all registered tools in dependency order.

@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -55,6 +56,35 @@ var restoreCmd = &cobra.Command{
 		var archive string
 		if len(args) > 1 {
 			archive = args[1]
+		}
+
+		// Interactive archive selection when no archive arg and stdin is a terminal.
+		if archive == "" {
+			if fi, err := os.Stdin.Stat(); err == nil && fi.Mode()&os.ModeCharDevice != 0 {
+				runner := &executil.Runner{Verbose: verbose}
+				b := borg.New(runner, cfg)
+				repo := cfg.BorgRepoDir(app.Name)
+				if b.RepoExists(repo) {
+					archives, err := b.ListDetailed(repo)
+					if err == nil && len(archives) > 0 {
+						options := make([]huh.Option[string], 0, len(archives)+1)
+						options = append(options, huh.NewOption("(latest)", ""))
+						for i := len(archives) - 1; i >= 0; i-- {
+							a := archives[i]
+							label := fmt.Sprintf("%s  %s", a.Name, a.Date)
+							options = append(options, huh.NewOption(label, a.Name))
+						}
+						err = huh.NewSelect[string]().
+							Title("Select archive to restore").
+							Options(options...).
+							Value(&archive).
+							Run()
+						if err != nil {
+							return fmt.Errorf("archive selection: %w", err)
+						}
+					}
+				}
+			}
 		}
 
 		if dryRun {

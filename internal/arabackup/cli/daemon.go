@@ -22,10 +22,9 @@ func init() {
 }
 
 var daemonCmd = &cobra.Command{
-	Use:     "run",
-	Aliases: []string{"daemon"},
-	Short:   "Run arabackup as a daemon (used by systemd)",
-	Long:    "Start the backup daemon that runs scheduled backups, prunes, and an API server.",
+	Use:   "run",
+	Short: "Run arabackup as a daemon (used by systemd)",
+	Long:  "Start the backup daemon that runs scheduled backups, prunes, and an API server.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		runner := &executil.Runner{Verbose: verbose}
 		sched := scheduler.New()

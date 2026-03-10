@@ -10,9 +10,10 @@ import (
 )
 
 var (
-	verbose bool
-	quiet   bool
-	runtime string
+	verbose    bool
+	quiet      bool
+	jsonOutput bool
+	runtime    string
 )
 
 var rootCmd = &cobra.Command{
@@ -43,6 +44,7 @@ var rootCmd = &cobra.Command{
 func init() {
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
 	rootCmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "suppress non-essential output")
+	rootCmd.PersistentFlags().BoolVar(&jsonOutput, "json", false, "output as JSON")
 	rootCmd.PersistentFlags().StringVar(&runtime, "runtime", "", "container runtime (default: auto-detect docker/podman, env: ARAMDNS_RUNTIME)")
 }
 

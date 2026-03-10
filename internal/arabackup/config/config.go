@@ -6,6 +6,7 @@ import (
 
 	"github.com/jdillenberger/arastack/pkg/aradeployconfig"
 	pkgconfig "github.com/jdillenberger/arastack/pkg/config"
+	"github.com/jdillenberger/arastack/pkg/ports"
 )
 
 // Config holds the arabackup configuration.
@@ -65,7 +66,7 @@ func Defaults() *Config {
 	return &Config{
 		Server: ServerConfig{
 			Bind: "127.0.0.1",
-			Port: 7160,
+			Port: ports.AraBackup,
 		},
 		Borg: BorgConfig{
 			BaseDir:        "/mnt/backup/borg",
@@ -88,7 +89,7 @@ func Defaults() *Config {
 			Config: aradeployconfig.DefaultConfigPath,
 		},
 		Araalert: AraalertRef{
-			URL: "http://127.0.0.1:7150",
+			URL: ports.DefaultURL(ports.AraAlert),
 		},
 	}
 }
@@ -168,7 +169,7 @@ func DefaultConfigYAML() string {
 	return fmt.Sprintf(`# arabackup configuration
 server:
   bind: 127.0.0.1
-  port: 7160
+  port: %d
 
 borg:
   base_dir: /mnt/backup/borg
@@ -190,6 +191,6 @@ aradeploy:
   config: %s
 
 araalert:
-  url: http://127.0.0.1:7150
-`, aradeployconfig.DefaultConfigPath)
+  url: %s
+`, ports.AraBackup, aradeployconfig.DefaultConfigPath, ports.DefaultURL(ports.AraAlert))
 }

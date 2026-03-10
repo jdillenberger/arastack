@@ -5,6 +5,7 @@ import (
 	"time"
 
 	pkgconfig "github.com/jdillenberger/arastack/pkg/config"
+	"github.com/jdillenberger/arastack/pkg/ports"
 )
 
 // Config is the top-level configuration for araalert.
@@ -50,14 +51,14 @@ func (c *Config) CooldownDuration() time.Duration {
 func Defaults() Config {
 	return Config{
 		Server: ServerConfig{
-			Port: 7150,
+			Port: ports.AraAlert,
 			Bind: "127.0.0.1",
 		},
 		Aranotify: AranotifyConfig{
-			URL: "http://127.0.0.1:7140",
+			URL: ports.DefaultURL(ports.AraNotify),
 		},
 		Aramonitor: AramonitorConfig{
-			URL:      "http://127.0.0.1:7130",
+			URL:      ports.DefaultURL(ports.AraMonitor),
 			Schedule: "*/5 * * * *",
 		},
 		Cooldown: "15m",

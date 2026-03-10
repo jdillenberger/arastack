@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/jdillenberger/arastack/pkg/doctor"
+	"github.com/jdillenberger/arastack/pkg/ports"
 )
 
 // CheckAll runs all checks for aranotify.
@@ -107,10 +108,10 @@ func fixConfigFile() error {
 		return fmt.Errorf("creating %s: %w", dir, err)
 	}
 
-	content := `# aranotify configuration
+	content := fmt.Sprintf(`# aranotify configuration
 server:
-  port: 7140
-  bind: "127.0.0.1"
+  port: %d
+  bind: "127.0.0.1"`, ports.AraNotify) + `
 
 channels:
   webhook:

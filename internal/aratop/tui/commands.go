@@ -81,7 +81,7 @@ func fetchPeers(client *clients.AraScannerClient) tea.Cmd {
 			return peersMsg{err: err}
 		}
 		return peersMsg{
-			fleet: resp.Fleet.Name,
+			peerGroup: resp.PeerGroup.Name,
 			self:  resp.Self,
 			peers: resp.Peers,
 		}
@@ -97,11 +97,9 @@ func fetchServiceHealth(cfg Config) tea.Cmd {
 			"aramonitor":   cfg.MonitorURL,
 			"araalert":     cfg.AlertURL,
 			"arabackup":    cfg.BackupURL,
-			"aradashboard": "http://127.0.0.1:7140",
-			"aranotify":    "http://127.0.0.1:7170",
-		}
-		if cfg.ScannerURL != "" {
-			services["arascanner"] = cfg.ScannerURL
+			"aradashboard": cfg.DashboardURL,
+			"aranotify":    cfg.NotifyURL,
+			"arascanner":   cfg.ScannerURL,
 		}
 
 		results := make(map[string]bool, len(services))

@@ -3,6 +3,7 @@ package config
 import (
 	"github.com/jdillenberger/arastack/pkg/aradeployconfig"
 	pkgconfig "github.com/jdillenberger/arastack/pkg/config"
+	"github.com/jdillenberger/arastack/pkg/ports"
 )
 
 // Config is the top-level configuration for aramonitor.
@@ -34,7 +35,7 @@ type HealthConfig struct {
 func Defaults() Config {
 	return Config{
 		Server: ServerConfig{
-			Port: 7130,
+			Port: ports.AraMonitor,
 			Bind: "127.0.0.1",
 		},
 		Aradeploy: AradeployRef{

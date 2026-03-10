@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	pkgconfig "github.com/jdillenberger/arastack/pkg/config"
+	"github.com/jdillenberger/arastack/pkg/ports"
 
 	"github.com/jdillenberger/arastack/internal/aradeploy/deploy"
 )
@@ -90,7 +91,7 @@ func DefaultConfig() *Config {
 			},
 		},
 		Araalert: AraalertRef{
-			URL: "http://127.0.0.1:7150",
+			URL: ports.DefaultURL(ports.AraAlert),
 		},
 	}
 }

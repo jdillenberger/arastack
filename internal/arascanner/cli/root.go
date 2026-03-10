@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/jdillenberger/arastack/pkg/ports"
 )
 
 var (
@@ -21,7 +23,7 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use:   "arascanner",
-	Short: "Discover and track peers in a homelab fleet",
+	Short: "Discover and track peers in a homelab",
 	Long:  "Continuously discovers peers via mDNS on the local network and supports remote peer joining via invite tokens.",
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		level := slog.LevelInfo
@@ -37,7 +39,7 @@ var rootCmd = &cobra.Command{
 
 func init() {
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
-	rootCmd.PersistentFlags().IntVar(&port, "port", 7120, "API server port (env: ARASCANNER_PORT)")
+	rootCmd.PersistentFlags().IntVar(&port, "port", ports.AraScanner, "API server port (env: ARASCANNER_PORT)")
 	rootCmd.PersistentFlags().StringVar(&dataDir, "data-dir", "/var/lib/arascanner", "data directory (env: ARASCANNER_DATA_DIR)")
 	rootCmd.PersistentFlags().StringVar(&hostname, "hostname", "", "hostname override (env: ARASCANNER_HOSTNAME)")
 	rootCmd.PersistentFlags().DurationVar(&discoveryInterval, "discovery-interval", 30*time.Second, "mDNS discovery interval (env: ARASCANNER_DISCOVERY_INTERVAL)")

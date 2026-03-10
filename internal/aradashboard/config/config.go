@@ -3,6 +3,7 @@ package config
 import (
 	"github.com/jdillenberger/arastack/pkg/aradeployconfig"
 	pkgconfig "github.com/jdillenberger/arastack/pkg/config"
+	"github.com/jdillenberger/arastack/pkg/ports"
 )
 
 // Config holds the aradashboard configuration.
@@ -74,20 +75,20 @@ func Defaults() Config {
 		},
 		Server: ServerConfig{
 			Bind: "0.0.0.0",
-			Port: 8420,
+			Port: ports.AraDashboard,
 		},
 		Services: Services{
 			AraScanner: AraScannerConfig{
-				URL: "http://localhost:7120",
+				URL: ports.DefaultURL(ports.AraScanner),
 			},
 			Araalert: AraalertConfig{
-				URL: "http://127.0.0.1:7150",
+				URL: ports.DefaultURL(ports.AraAlert),
 			},
 			Aramonitor: AramonitorConfig{
-				URL: "http://127.0.0.1:7130",
+				URL: ports.DefaultURL(ports.AraMonitor),
 			},
 			Arabackup: ArabackupConfig{
-				URL: "http://127.0.0.1:7160",
+				URL: ports.DefaultURL(ports.AraBackup),
 			},
 		},
 	}

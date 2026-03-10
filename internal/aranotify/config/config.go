@@ -2,6 +2,7 @@ package config
 
 import (
 	pkgconfig "github.com/jdillenberger/arastack/pkg/config"
+	"github.com/jdillenberger/arastack/pkg/ports"
 )
 
 // Config is the top-level configuration for aranotify.
@@ -54,7 +55,7 @@ type MattermostConfig struct {
 func Defaults() Config {
 	return Config{
 		Server: ServerConfig{
-			Port: 7140,
+			Port: ports.AraNotify,
 			Bind: "127.0.0.1",
 		},
 		Channels: ChannelsConfig{

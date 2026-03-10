@@ -9,12 +9,15 @@ import (
 
 	"github.com/jdillenberger/arastack/internal/aratop/tui"
 	"github.com/jdillenberger/arastack/pkg/clients"
+	"github.com/jdillenberger/arastack/pkg/ports"
 )
 
 var (
 	monitorURL    string
 	alertURL      string
 	backupURL     string
+	dashboardURL  string
+	notifyURL     string
 	scannerURL    string
 	scannerSecret string
 	interval      time.Duration
@@ -23,7 +26,7 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "aratop",
 	Short: "Terminal dashboard for arastack",
-	Long:  "Comprehensive terminal dashboard showing container health, system stats, alerts, backups, and fleet status.",
+	Long:  "Comprehensive terminal dashboard showing container health, system stats, alerts, backups, and peer status.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Handle --url alias for --monitor-url.
 		if cmd.Flags().Changed("url") && !cmd.Flags().Changed("monitor-url") {
@@ -49,6 +52,8 @@ var rootCmd = &cobra.Command{
 			MonitorURL:    monitorURL,
 			AlertURL:      alertURL,
 			BackupURL:     backupURL,
+			DashboardURL:  dashboardURL,
+			NotifyURL:     notifyURL,
 			ScannerURL:    scannerURL,
 			Interval:      interval,
 		}
@@ -65,15 +70,17 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.Flags().StringVar(&monitorURL, "monitor-url", "http://127.0.0.1:7130", "aramonitor URL")
-	rootCmd.Flags().StringVar(&alertURL, "alert-url", "http://127.0.0.1:7150", "araalert URL")
-	rootCmd.Flags().StringVar(&backupURL, "backup-url", "http://127.0.0.1:7160", "arabackup URL")
-	rootCmd.Flags().StringVar(&scannerURL, "scanner-url", "", "arascanner URL (empty = disabled)")
-	rootCmd.Flags().StringVar(&scannerSecret, "scanner-secret", "", "arascanner PSK (empty = disabled)")
+	rootCmd.Flags().StringVar(&monitorURL, "monitor-url", ports.DefaultURL(ports.AraMonitor), "aramonitor URL")
+	rootCmd.Flags().StringVar(&alertURL, "alert-url", ports.DefaultURL(ports.AraAlert), "araalert URL")
+	rootCmd.Flags().StringVar(&backupURL, "backup-url", ports.DefaultURL(ports.AraBackup), "arabackup URL")
+	rootCmd.Flags().StringVar(&dashboardURL, "dashboard-url", ports.DefaultURL(ports.AraDashboard), "aradashboard URL")
+	rootCmd.Flags().StringVar(&notifyURL, "notify-url", ports.DefaultURL(ports.AraNotify), "aranotify URL")
+	rootCmd.Flags().StringVar(&scannerURL, "scanner-url", ports.DefaultURL(ports.AraScanner), "arascanner URL")
+	rootCmd.Flags().StringVar(&scannerSecret, "scanner-secret", "", "arascanner PSK (required for peers tab)")
 	rootCmd.Flags().DurationVar(&interval, "interval", 5*time.Second, "refresh interval")
 
 	// Keep --url as backward-compatible alias for --monitor-url.
-	rootCmd.Flags().String("url", "http://127.0.0.1:7130", "aramonitor URL (alias for --monitor-url)")
+	rootCmd.Flags().String("url", ports.DefaultURL(ports.AraMonitor), "aramonitor URL (alias for --monitor-url)")
 }
 
 // Execute runs the root command.

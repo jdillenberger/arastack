@@ -16,7 +16,7 @@ const (
 	tabApps       = 1
 	tabContainers = 2
 	tabAlerts     = 3
-	tabFleet      = 4
+	tabPeers      = 4
 
 	numTabs = 5
 )
@@ -28,10 +28,12 @@ type Config struct {
 	BackupClient  *clients.BackupClient
 	ScannerClient *clients.AraScannerClient
 
-	MonitorURL string
-	AlertURL   string
-	BackupURL  string
-	ScannerURL string
+	MonitorURL   string
+	AlertURL     string
+	BackupURL    string
+	DashboardURL string
+	NotifyURL    string
+	ScannerURL   string
 
 	Interval time.Duration
 }
@@ -60,11 +62,11 @@ type Model struct {
 	backupStatus *clients.BackupStatus
 	backupErr    error
 
-	// Data: fleet.
-	fleetName  string
-	fleetSelf  clients.Peer
-	fleetPeers []clients.Peer
-	fleetErr   error
+	// Data: peers.
+	peerGroupName  string
+	peersSelf  clients.Peer
+	peersRemote []clients.Peer
+	peersErr   error
 
 	// Data: service health.
 	serviceHealth map[string]bool
@@ -80,7 +82,7 @@ type Model struct {
 	appsTable       table.Model
 	containersTable table.Model
 	alertsTable     table.Model
-	fleetTable      table.Model
+	peersTable      table.Model
 
 	// Drill-down state.
 	detailView     bool
@@ -98,7 +100,7 @@ func NewModel(cfg Config) *Model {
 	m.appsTable = newTable()
 	m.containersTable = newTable()
 	m.alertsTable = newTable()
-	m.fleetTable = newTable()
+	m.peersTable = newTable()
 	m.detailTable = newTable()
 	return m
 }
@@ -194,14 +196,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case peersMsg:
 		if msg.err != nil {
-			m.fleetErr = msg.err
+			m.peersErr = msg.err
 		} else {
-			m.fleetErr = nil
-			m.fleetName = msg.fleet
-			m.fleetSelf = msg.self
-			m.fleetPeers = msg.peers
+			m.peersErr = nil
+			m.peerGroupName = msg.peerGroup
+			m.peersSelf = msg.self
+			m.peersRemote = msg.peers
 		}
-		m.updateFleetTable()
+		m.updatePeersTable()
 		return m, nil
 
 	case serviceHealthMsg:
@@ -273,7 +275,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, keys.Tab4):
 		m.activeTab = tabAlerts
 	case key.Matches(msg, keys.Tab5):
-		m.activeTab = tabFleet
+		m.activeTab = tabPeers
 
 	case key.Matches(msg, keys.NextTab):
 		m.activeTab = (m.activeTab + 1) % numTabs
@@ -319,8 +321,8 @@ func (m *Model) forwardToTable(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.containersTable, cmd = m.containersTable.Update(msg)
 	case tabAlerts:
 		m.alertsTable, cmd = m.alertsTable.Update(msg)
-	case tabFleet:
-		m.fleetTable, cmd = m.fleetTable.Update(msg)
+	case tabPeers:
+		m.peersTable, cmd = m.peersTable.Update(msg)
 	}
 	return m, cmd
 }
@@ -338,8 +340,8 @@ func (m *Model) resizeTables() {
 	m.containersTable.SetHeight(h)
 	m.alertsTable.SetWidth(w)
 	m.alertsTable.SetHeight(h)
-	m.fleetTable.SetWidth(w)
-	m.fleetTable.SetHeight(h)
+	m.peersTable.SetWidth(w)
+	m.peersTable.SetHeight(h)
 	m.detailTable.SetWidth(w)
 	detailH := h - 12 // leave room for bottom panels
 	if detailH < 3 {
@@ -399,8 +401,8 @@ func (m *Model) View() string {
 			content = renderContainersView(m)
 		case tabAlerts:
 			content = renderAlertsView(m)
-		case tabFleet:
-			content = renderFleetView(m)
+		case tabPeers:
+			content = renderPeersView(m)
 		}
 	}
 

@@ -45,111 +45,28 @@ type BackupLabels struct {
 	RetentionKeepMonthly string
 }
 
-// Discover scans the apps directory and returns all deployed apps with backup labels.
-func Discover(cfg *config.Config) ([]App, error) {
+// loadSettings resolves the apps and data directories from aradeploy config.
+func loadSettings(cfg *config.Config) (appsDir, dataDir string, err error) {
 	ldSettings, err := cfg.LoadAradeploySettings()
 	if err != nil {
-		return nil, fmt.Errorf("loading aradeploy settings: %w", err)
+		return "", "", fmt.Errorf("loading aradeploy settings: %w", err)
 	}
-
-	appNames, err := listDeployed(ldSettings.AppsDir)
-	if err != nil {
-		return nil, fmt.Errorf("listing deployed apps: %w", err)
-	}
-
-	var apps []App
-	for _, name := range appNames {
-		appDir := filepath.Join(ldSettings.AppsDir, name)
-		dataDir := filepath.Join(ldSettings.DataDir, name)
-
-		composePath := filepath.Join(appDir, aradeployconfig.ComposeFileName)
-		services, err := parseComposeLabels(composePath)
-		if err != nil {
-			// Skip apps without docker-compose.yml or with parse errors
-			continue
-		}
-
-		// Only include apps that have at least one service with arabackup.enable=true
-		var backupServices []ServiceBackupConfig
-		for _, svc := range services {
-			if svc.Labels.Enable {
-				backupServices = append(backupServices, svc)
-			}
-		}
-
-		if len(backupServices) == 0 {
-			continue
-		}
-
-		apps = append(apps, App{
-			Name:     name,
-			AppDir:   appDir,
-			DataDir:  dataDir,
-			Services: backupServices,
-		})
-	}
-
-	return apps, nil
+	return ldSettings.AppsDir, ldSettings.DataDir, nil
 }
 
-// DiscoverAll returns all deployed apps regardless of backup labels.
-func DiscoverAll(cfg *config.Config) ([]App, error) {
-	ldSettings, err := cfg.LoadAradeploySettings()
-	if err != nil {
-		return nil, fmt.Errorf("loading aradeploy settings: %w", err)
-	}
+// buildApp parses compose labels for a single app and returns it.
+// If requireBackupLabels is true, returns nil when no service has arabackup.enable=true.
+func buildApp(name, appsDir, dataDir string, requireBackupLabels bool) (*App, error) {
+	appDir := filepath.Join(appsDir, name)
+	appDataDir := filepath.Join(dataDir, name)
 
-	appNames, err := listDeployed(ldSettings.AppsDir)
-	if err != nil {
-		return nil, fmt.Errorf("listing deployed apps: %w", err)
-	}
-
-	var apps []App
-	for _, name := range appNames {
-		appDir := filepath.Join(ldSettings.AppsDir, name)
-		dataDir := filepath.Join(ldSettings.DataDir, name)
-
-		composePath := filepath.Join(appDir, aradeployconfig.ComposeFileName)
-		services, err := parseComposeLabels(composePath)
-		if err != nil {
-			services = nil
-		}
-
-		var backupServices []ServiceBackupConfig
-		for _, svc := range services {
-			if svc.Labels.Enable {
-				backupServices = append(backupServices, svc)
-			}
-		}
-
-		apps = append(apps, App{
-			Name:     name,
-			AppDir:   appDir,
-			DataDir:  dataDir,
-			Services: backupServices,
-		})
-	}
-
-	return apps, nil
-}
-
-// DiscoverApp discovers a single app by name.
-func DiscoverApp(cfg *config.Config, appName string) (*App, error) {
-	ldSettings, err := cfg.LoadAradeploySettings()
-	if err != nil {
-		return nil, fmt.Errorf("loading aradeploy settings: %w", err)
-	}
-
-	appDir := filepath.Join(ldSettings.AppsDir, appName)
-	if !isDeployed(appDir) {
-		return nil, fmt.Errorf("app %q is not deployed", appName)
-	}
-
-	dataDir := filepath.Join(ldSettings.DataDir, appName)
 	composePath := filepath.Join(appDir, aradeployconfig.ComposeFileName)
 	services, err := parseComposeLabels(composePath)
 	if err != nil {
-		return nil, fmt.Errorf("parsing compose file for %q: %w", appName, err)
+		if requireBackupLabels {
+			return nil, nil // skip silently
+		}
+		services = nil
 	}
 
 	var backupServices []ServiceBackupConfig
@@ -159,12 +76,81 @@ func DiscoverApp(cfg *config.Config, appName string) (*App, error) {
 		}
 	}
 
+	if requireBackupLabels && len(backupServices) == 0 {
+		return nil, nil
+	}
+
 	return &App{
-		Name:     appName,
+		Name:     name,
 		AppDir:   appDir,
-		DataDir:  dataDir,
+		DataDir:  appDataDir,
 		Services: backupServices,
 	}, nil
+}
+
+// Discover scans the apps directory and returns all deployed apps with backup labels.
+func Discover(cfg *config.Config) ([]App, error) {
+	appsDir, dataDir, err := loadSettings(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	appNames, err := listDeployed(appsDir)
+	if err != nil {
+		return nil, fmt.Errorf("listing deployed apps: %w", err)
+	}
+
+	var apps []App
+	for _, name := range appNames {
+		app, _ := buildApp(name, appsDir, dataDir, true)
+		if app != nil {
+			apps = append(apps, *app)
+		}
+	}
+	return apps, nil
+}
+
+// DiscoverAll returns all deployed apps regardless of backup labels.
+func DiscoverAll(cfg *config.Config) ([]App, error) {
+	appsDir, dataDir, err := loadSettings(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	appNames, err := listDeployed(appsDir)
+	if err != nil {
+		return nil, fmt.Errorf("listing deployed apps: %w", err)
+	}
+
+	var apps []App
+	for _, name := range appNames {
+		app, _ := buildApp(name, appsDir, dataDir, false)
+		if app != nil {
+			apps = append(apps, *app)
+		}
+	}
+	return apps, nil
+}
+
+// DiscoverApp discovers a single app by name.
+func DiscoverApp(cfg *config.Config, appName string) (*App, error) {
+	appsDir, dataDir, err := loadSettings(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	appDir := filepath.Join(appsDir, appName)
+	if !isDeployed(appDir) {
+		return nil, fmt.Errorf("app %q is not deployed", appName)
+	}
+
+	composePath := filepath.Join(appDir, aradeployconfig.ComposeFileName)
+	if _, err := parseComposeLabels(composePath); err != nil {
+		return nil, fmt.Errorf("parsing compose file for %q: %w", appName, err)
+	}
+
+	app, _ := buildApp(appName, appsDir, dataDir, false)
+	return app, nil
 }
 
 // HasDumpServices returns true if any service has dump configuration.

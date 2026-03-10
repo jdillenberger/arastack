@@ -2,7 +2,10 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
+
+	"github.com/robfig/cron/v3"
 
 	"github.com/jdillenberger/arastack/pkg/aradeployconfig"
 	pkgconfig "github.com/jdillenberger/arastack/pkg/config"
@@ -47,7 +50,8 @@ type RetentionConfig struct {
 
 // DumpsConfig holds dump storage configuration.
 type DumpsConfig struct {
-	Dir string `yaml:"dir"`
+	Dir  string `yaml:"dir"`
+	Keep int    `yaml:"keep"`
 }
 
 // ScheduleConfig holds cron schedules.
@@ -80,7 +84,8 @@ func Defaults() *Config {
 			},
 		},
 		Dumps: DumpsConfig{
-			Dir: "/opt/arabackup/dumps",
+			Dir:  "/opt/arabackup/dumps",
+			Keep: 5,
 		},
 		Schedule: ScheduleConfig{
 			Backup: "0 3 * * *",
@@ -133,15 +138,38 @@ func Validate(c *Config) []string {
 	}
 	if c.Borg.PassphraseFile == "" {
 		errs = append(errs, "borg.passphrase_file is empty")
+	} else if f, err := os.Open(c.Borg.PassphraseFile); err != nil {
+		errs = append(errs, fmt.Sprintf("borg.passphrase_file %q is not readable: %v", c.Borg.PassphraseFile, err))
+	} else {
+		_ = f.Close()
 	}
 	if c.Borg.Encryption == "" {
 		errs = append(errs, "borg.encryption is empty")
 	}
+	if c.Borg.Retention.KeepDaily <= 0 {
+		errs = append(errs, "borg.retention.keep_daily must be > 0")
+	}
+	if c.Borg.Retention.KeepWeekly <= 0 {
+		errs = append(errs, "borg.retention.keep_weekly must be > 0")
+	}
+	if c.Borg.Retention.KeepMonthly <= 0 {
+		errs = append(errs, "borg.retention.keep_monthly must be > 0")
+	}
 	if c.Dumps.Dir == "" {
 		errs = append(errs, "dumps.dir is empty")
 	}
+	if c.Dumps.Keep <= 0 {
+		errs = append(errs, "dumps.keep must be > 0")
+	}
 	if c.Schedule.Backup == "" {
 		errs = append(errs, "schedule.backup is empty")
+	} else if _, err := cron.ParseStandard(c.Schedule.Backup); err != nil {
+		errs = append(errs, fmt.Sprintf("schedule.backup %q is not a valid cron expression: %v", c.Schedule.Backup, err))
+	}
+	if c.Schedule.Prune != "" {
+		if _, err := cron.ParseStandard(c.Schedule.Prune); err != nil {
+			errs = append(errs, fmt.Sprintf("schedule.prune %q is not a valid cron expression: %v", c.Schedule.Prune, err))
+		}
 	}
 	if c.Aradeploy.Config == "" {
 		errs = append(errs, "aradeploy.config is empty")
@@ -183,6 +211,7 @@ borg:
 
 dumps:
   dir: /opt/arabackup/dumps
+  keep: 5
 
 schedule:
   backup: "0 3 * * *"

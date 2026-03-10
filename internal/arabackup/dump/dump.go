@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -83,6 +84,12 @@ func (d *Dumper) Dump(app *discovery.App, svc discovery.ServiceBackupConfig) (st
 	_ = os.Symlink(filename, latestLink)
 
 	slog.Info("Dump completed", "app", app.Name, "service", svc.ServiceName, "driver", driver.Name(), "file", dumpPath)
+
+	// Clean up old dump files for this driver, keeping only the configured number
+	if d.cfg.Dumps.Keep > 0 {
+		d.cleanupOldDumps(dumpDir, driver.Name(), driver.FileExtension(), d.cfg.Dumps.Keep)
+	}
+
 	return dumpPath, nil
 }
 
@@ -169,6 +176,45 @@ func (d *Dumper) resolveDriver(svc discovery.ServiceBackupConfig) (Driver, error
 	return Get(driverName)
 }
 
+// cleanupOldDumps removes old dump files for a driver, keeping only the most recent `keep` files.
+// Symlinks (e.g. *-latest.*) are excluded from counting and removal.
+func (d *Dumper) cleanupOldDumps(dumpDir, driverName, ext string, keep int) {
+	entries, err := os.ReadDir(dumpDir)
+	if err != nil {
+		return
+	}
+
+	prefix := driverName + "-"
+	suffix := "." + ext
+	latestSuffix := "-latest" + suffix
+
+	var dumpFiles []string
+	for _, e := range entries {
+		name := e.Name()
+		if strings.HasPrefix(name, prefix) && strings.HasSuffix(name, suffix) && !strings.HasSuffix(name, latestSuffix) {
+			if e.Type().IsRegular() {
+				dumpFiles = append(dumpFiles, name)
+			}
+		}
+	}
+
+	if len(dumpFiles) <= keep {
+		return
+	}
+
+	// Sort lexicographically — timestamp format ensures chronological order
+	sort.Strings(dumpFiles)
+
+	for _, name := range dumpFiles[:len(dumpFiles)-keep] {
+		path := filepath.Join(dumpDir, name)
+		if err := os.Remove(path); err != nil {
+			slog.Warn("Failed to remove old dump file", "path", path, "error", err)
+		} else {
+			slog.Debug("Removed old dump file", "path", path)
+		}
+	}
+}
+
 // findContainer finds the running container name for a service in a compose project.
 func (d *Dumper) findContainer(app *discovery.App, svc discovery.ServiceBackupConfig) (string, error) {
 	// docker compose uses <project>-<service>-1 naming convention
@@ -179,13 +225,18 @@ func (d *Dumper) findContainer(app *discovery.App, svc discovery.ServiceBackupCo
 		"-f", filepath.Join(app.AppDir, "docker-compose.yml"),
 		"ps", "--format", "{{.Name}}", svc.ServiceName)
 	if err != nil {
-		// Fallback to convention-based naming
-		return projectName + "-" + svc.ServiceName + "-1", nil
+		fallback := projectName + "-" + svc.ServiceName + "-1"
+		slog.Warn("Could not query container name via docker compose, falling back to convention-based name",
+			"app", app.Name, "service", svc.ServiceName, "fallback", fallback, "error", err)
+		return fallback, nil
 	}
 
 	name := strings.TrimSpace(result.Stdout)
 	if name == "" {
-		return projectName + "-" + svc.ServiceName + "-1", nil
+		fallback := projectName + "-" + svc.ServiceName + "-1"
+		slog.Warn("Docker compose returned empty container name, falling back to convention-based name",
+			"app", app.Name, "service", svc.ServiceName, "fallback", fallback)
+		return fallback, nil
 	}
 
 	// Take first line if multiple

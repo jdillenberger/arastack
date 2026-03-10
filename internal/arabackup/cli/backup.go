@@ -21,11 +21,15 @@ import (
 	"github.com/jdillenberger/arastack/pkg/executil"
 )
 
-var backupType string
+var (
+	backupType   string
+	backupDryRun bool
+)
 
 func init() {
 	rootCmd.AddCommand(backupCmd)
 	backupCmd.Flags().StringVar(&backupType, "type", "all", "backup type: all, borg, dump")
+	backupCmd.Flags().BoolVar(&backupDryRun, "dry-run", false, "show what would be backed up without executing")
 	backupCmd.ValidArgsFunction = completeAppNames
 }
 
@@ -36,7 +40,8 @@ var backupCmd = &cobra.Command{
 	Example: `  arabackup backup
   arabackup backup nextcloud
   arabackup backup nextcloud --type borg
-  arabackup backup --type dump`,
+  arabackup backup --type dump
+  arabackup backup --dry-run`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if backupType != "all" && backupType != "borg" && backupType != "dump" {
@@ -63,6 +68,10 @@ var backupCmd = &cobra.Command{
 		if len(apps) == 0 {
 			fmt.Println("No apps with backup labels found.")
 			return nil
+		}
+
+		if backupDryRun {
+			return backupDryRunAll(cfg, apps, backupType)
 		}
 
 		var failed []string
@@ -246,51 +255,93 @@ func PruneAll(cfg *config.Config, runner *executil.Runner) {
 func resolveRetention(cfg *config.Config, app *discovery.App) config.RetentionConfig {
 	ret := cfg.Borg.Retention
 
-	dailySet := false
-	weeklySet := false
-	monthlySet := false
+	type field struct {
+		ptr   *int
+		label string
+		get   func(discovery.BackupLabels) string
+	}
 
-	// Check for per-app overrides from labels, using the highest (most conservative) value
-	for _, svc := range app.Services {
-		if svc.Labels.RetentionKeepDaily != "" {
-			if v, err := strconv.Atoi(svc.Labels.RetentionKeepDaily); err == nil {
-				if dailySet && v != ret.KeepDaily {
-					slog.Warn("Conflicting retention.keep-daily across services, using highest value",
-						"app", app.Name, "service", svc.ServiceName, "value", v, "current", ret.KeepDaily)
-				}
-				if !dailySet || v > ret.KeepDaily {
-					ret.KeepDaily = v
-				}
-				dailySet = true
+	fields := []field{
+		{&ret.KeepDaily, "keep-daily", func(l discovery.BackupLabels) string { return l.RetentionKeepDaily }},
+		{&ret.KeepWeekly, "keep-weekly", func(l discovery.BackupLabels) string { return l.RetentionKeepWeekly }},
+		{&ret.KeepMonthly, "keep-monthly", func(l discovery.BackupLabels) string { return l.RetentionKeepMonthly }},
+	}
+
+	for i := range fields {
+		f := &fields[i]
+		set := false
+		for _, svc := range app.Services {
+			raw := f.get(svc.Labels)
+			if raw == "" {
+				continue
 			}
-		}
-		if svc.Labels.RetentionKeepWeekly != "" {
-			if v, err := strconv.Atoi(svc.Labels.RetentionKeepWeekly); err == nil {
-				if weeklySet && v != ret.KeepWeekly {
-					slog.Warn("Conflicting retention.keep-weekly across services, using highest value",
-						"app", app.Name, "service", svc.ServiceName, "value", v, "current", ret.KeepWeekly)
-				}
-				if !weeklySet || v > ret.KeepWeekly {
-					ret.KeepWeekly = v
-				}
-				weeklySet = true
+			v, err := strconv.Atoi(raw)
+			if err != nil {
+				continue
 			}
-		}
-		if svc.Labels.RetentionKeepMonthly != "" {
-			if v, err := strconv.Atoi(svc.Labels.RetentionKeepMonthly); err == nil {
-				if monthlySet && v != ret.KeepMonthly {
-					slog.Warn("Conflicting retention.keep-monthly across services, using highest value",
-						"app", app.Name, "service", svc.ServiceName, "value", v, "current", ret.KeepMonthly)
-				}
-				if !monthlySet || v > ret.KeepMonthly {
-					ret.KeepMonthly = v
-				}
-				monthlySet = true
+			if set && v != *f.ptr {
+				slog.Warn("Conflicting retention."+f.label+" across services, using highest value",
+					"app", app.Name, "service", svc.ServiceName, "value", v, "current", *f.ptr)
 			}
+			if !set || v > *f.ptr {
+				*f.ptr = v
+			}
+			set = true
 		}
 	}
 
 	return ret
+}
+
+func backupDryRunAll(cfg *config.Config, apps []discovery.App, backupType string) error {
+	fmt.Printf("Dry run: backup plan (%d app(s), type: %s)\n\n", len(apps), backupType)
+
+	for _, app := range apps {
+		fmt.Printf("App: %s\n", app.Name)
+
+		if backupType == "all" || backupType == "dump" {
+			dumpServices := app.DumpServices()
+			if len(dumpServices) > 0 {
+				for _, svc := range dumpServices {
+					fmt.Printf("  dump: %s/%s (driver: %s)\n", app.Name, svc.ServiceName, svc.Labels.DumpDriver)
+				}
+			} else {
+				fmt.Println("  dump: (no dump services)")
+			}
+		}
+
+		if backupType == "all" || backupType == "borg" {
+			repo := cfg.BorgRepoDir(app.Name)
+			fmt.Printf("  borg: repo=%s\n", repo)
+
+			var borgPaths []string
+			for _, svc := range app.Services {
+				if svc.Labels.BorgPaths != "" {
+					for _, p := range strings.Split(svc.Labels.BorgPaths, ",") {
+						p = strings.TrimSpace(p)
+						if p != "" {
+							borgPaths = append(borgPaths, filepath.Join(app.DataDir, p))
+						}
+					}
+				}
+			}
+			if len(borgPaths) > 0 {
+				fmt.Printf("  borg paths: %s\n", strings.Join(borgPaths, ", "))
+			} else {
+				fmt.Printf("  borg paths: %s (default: entire data dir)\n", app.DataDir)
+			}
+
+			dumpDir := cfg.DumpDir(app.Name)
+			if dirExists(dumpDir) {
+				fmt.Printf("  borg paths: %s (dumps)\n", dumpDir)
+			}
+		}
+
+		fmt.Println()
+	}
+
+	fmt.Println("Dry run — no changes applied.")
+	return nil
 }
 
 func dirExists(path string) bool {

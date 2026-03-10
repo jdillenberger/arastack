@@ -18,8 +18,9 @@ import (
 )
 
 var (
-	restoreType string
-	restoreYes  bool
+	restoreType     string
+	restoreYes      bool
+	restoreNoBackup bool
 )
 
 func init() {
@@ -27,6 +28,7 @@ func init() {
 	restoreCmd.Flags().StringVar(&restoreType, "type", "all", "restore type: all, borg, dump")
 	restoreCmd.Flags().BoolVarP(&restoreYes, "yes", "y", false, "skip confirmation prompt")
 	restoreCmd.Flags().Bool("dry-run", false, "Show what would be restored without performing the restore")
+	restoreCmd.Flags().BoolVar(&restoreNoBackup, "no-backup", false, "skip creating a safety backup before restore")
 	restoreCmd.ValidArgsFunction = completeAppNames
 }
 
@@ -114,6 +116,27 @@ var restoreCmd = &cobra.Command{
 
 func restoreApp(cfg *config.Config, runner *executil.Runner, app *discovery.App, archive, restoreType string) error {
 	slog.Info("Starting restore", "app", app.Name, "type", restoreType, "archive", archive)
+
+	// Create a safety backup before restore so the user can recover if restore goes wrong
+	if !restoreNoBackup {
+		b := borg.New(runner, cfg)
+		repo := cfg.BorgRepoDir(app.Name)
+		if b.RepoExists(repo) {
+			safetyName := fmt.Sprintf("pre-restore-%s", time.Now().Format("2006-01-02T15-04-05"))
+			fmt.Printf("Creating safety backup %s...\n", safetyName)
+
+			sourcePaths := []string{app.DataDir}
+			dumpDir := cfg.DumpDir(app.Name)
+			if dirExists(dumpDir) {
+				sourcePaths = append(sourcePaths, dumpDir)
+			}
+			if err := b.Create(repo, safetyName, sourcePaths); err != nil {
+				slog.Warn("Safety backup failed, proceeding with restore", "app", app.Name, "error", err)
+			} else {
+				fmt.Printf("Safety backup created: %s\n", safetyName)
+			}
+		}
+	}
 
 	// Stop the app
 	fmt.Printf("Stopping %s...\n", app.Name)

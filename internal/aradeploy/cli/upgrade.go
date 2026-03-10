@@ -271,7 +271,7 @@ func runUpgrade(cfg *config.Config, mgr *deploy.Manager, appName string, dryRun,
 		}
 	}
 
-	runner := &executil.Runner{Verbose: verbose}
+	runner := &executil.Runner{}
 	c := compose.New(runner, cfg.Docker.ComposeCommand)
 	composeUpErr := cliutil.RunWithSpinner(fmt.Sprintf("Recreating containers for %s...", appName), func() error {
 		if meta != nil && meta.RequiresBuild {

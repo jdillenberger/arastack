@@ -27,7 +27,14 @@ var runCmd = &cobra.Command{
 	Use:   "run",
 	Short: "Run the mDNS publisher (foreground)",
 	Long:  "Watch Docker containers for Traefik .local domains and publish them via Avahi mDNS.",
+	Example: `  aramdns run
+  aramdns run --interval 60s
+  aramdns run --runtime podman`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		// Apply flag override on top of config.
+		if cmd.Flags().Changed("interval") {
+			cfg.Interval = interval
+		}
 		pollInterval := resolveInterval()
 
 		// Ensure avahi-daemon is configured to use physical interfaces only,
@@ -98,10 +105,7 @@ var runCmd = &cobra.Command{
 }
 
 func resolveInterval() time.Duration {
-	s := interval
-	if s == "" {
-		s = os.Getenv("ARAMDNS_INTERVAL")
-	}
+	s := cfg.Interval
 	if s == "" {
 		return 30 * time.Second
 	}

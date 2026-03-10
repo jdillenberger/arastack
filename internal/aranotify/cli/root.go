@@ -5,6 +5,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"github.com/jdillenberger/arastack/internal/aranotify/config"
 )
 
 var (
@@ -12,6 +14,7 @@ var (
 	quiet      bool
 	jsonOutput bool
 	configPath string
+	cfg        config.Config
 )
 
 var rootCmd = &cobra.Command{
@@ -31,10 +34,21 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
+	cobra.OnInitialize(initConfig)
+
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
 	rootCmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "suppress non-essential output")
 	rootCmd.PersistentFlags().BoolVar(&jsonOutput, "json", false, "output as JSON")
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "", "override config file path")
+}
+
+func initConfig() {
+	var err error
+	cfg, err = config.Load(configPath)
+	if err != nil {
+		slog.Warn("Config file has errors, using defaults", "error", err)
+		cfg = config.Defaults()
+	}
 }
 
 // Execute runs the root command.

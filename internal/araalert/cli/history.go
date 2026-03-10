@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jdillenberger/arastack/internal/araalert/alert"
-	"github.com/jdillenberger/arastack/internal/araalert/config"
 )
 
 func init() {
@@ -21,11 +20,6 @@ var historyCmd = &cobra.Command{
 	Use:   "history",
 	Short: "Show recent alert history",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, err := config.Load(configFile)
-		if err != nil {
-			return err
-		}
-
 		count, _ := cmd.Flags().GetInt("count")
 
 		store := alert.NewStore(cfg.DataDir)

@@ -43,7 +43,7 @@ var backupCmd = &cobra.Command{
 			return fmt.Errorf("invalid --type %q: must be one of: all, borg, dump", backupType)
 		}
 
-		runner := &executil.Runner{Verbose: verbose}
+		runner := &executil.Runner{}
 
 		var apps []discovery.App
 		var err error

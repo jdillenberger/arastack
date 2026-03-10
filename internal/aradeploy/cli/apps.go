@@ -22,7 +22,7 @@ import (
 )
 
 func newManager() (*deploy.Manager, error) {
-	runner := &executil.Runner{Verbose: verbose}
+	runner := &executil.Runner{}
 	repoMgr := repo.NewManager(cfg.ReposDir(), cfg.ManifestPath(), runner)
 	if err := repoMgr.EnsureDefaults(); err != nil {
 		return nil, fmt.Errorf("ensuring default repos: %w", err)
@@ -299,7 +299,7 @@ var logsCmd = &cobra.Command{
 	Short: "Show app logs",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		runner := &executil.Runner{Verbose: verbose}
+		runner := &executil.Runner{}
 		c := compose.New(runner, cfg.Docker.ComposeCommand)
 		follow, _ := cmd.Flags().GetBool("follow")
 		lines, _ := cmd.Flags().GetInt("lines")
@@ -322,7 +322,7 @@ var listCmd = &cobra.Command{
 		filterLower := strings.ToLower(filter)
 
 		if showAll {
-			fmt.Fprintln(os.Stderr, "Warning: 'list --all' is deprecated. Use 'aradeploy templates list' instead.")
+			slog.Warn("'list --all' is deprecated, use 'aradeploy templates list' instead")
 			type appListEntry struct {
 				Name        string `json:"name"`
 				Category    string `json:"category"`
@@ -505,7 +505,7 @@ var showCmd = &cobra.Command{
 	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if cmd.CalledAs() == "show" {
-			fmt.Fprintln(os.Stderr, "Warning: 'show' is deprecated. Use 'aradeploy inspect' instead.")
+			slog.Warn("'show' is deprecated, use 'aradeploy inspect' instead")
 		}
 		mgr, err := newManager()
 		if err != nil {

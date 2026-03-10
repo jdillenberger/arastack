@@ -29,7 +29,9 @@ var tagsCmd = &cobra.Command{
 var tagsSetCmd = &cobra.Command{
 	Use:   "set key=value [key2=value2 ...]",
 	Short: "Set tags on the local peer",
-	Args:  cobra.MinimumNArgs(1),
+	Example: `  arascanner tags set role=primary
+  arascanner tags set env=prod location=rack1`,
+	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		st := store.New(cfg.Server.DataDir)
 		if err := st.Load(); err != nil {
@@ -64,9 +66,10 @@ var tagsSetCmd = &cobra.Command{
 
 // tagsRemoveCmd removes one or more tags from the local peer.
 var tagsRemoveCmd = &cobra.Command{
-	Use:   "remove key [key2 ...]",
-	Short: "Remove tags from the local peer",
-	Args:  cobra.MinimumNArgs(1),
+	Use:     "remove key [key2 ...]",
+	Short:   "Remove tags from the local peer",
+	Example: "  arascanner tags remove role",
+	Args:    cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		st := store.New(cfg.Server.DataDir)
 		if err := st.Load(); err != nil {
@@ -97,8 +100,9 @@ var tagsRemoveCmd = &cobra.Command{
 
 // tagsListCmd lists all tags on the local peer.
 var tagsListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List tags on the local peer",
+	Use:     "list",
+	Short:   "List tags on the local peer",
+	Example: "  arascanner tags list",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		st := store.New(cfg.Server.DataDir)
 		if err := st.Load(); err != nil {

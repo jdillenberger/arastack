@@ -2,18 +2,20 @@ package cli
 
 import (
 	"fmt"
-	"os"
+	"log/slog"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 
+	"github.com/jdillenberger/arastack/internal/aratop/config"
 	"github.com/jdillenberger/arastack/internal/aratop/tui"
 	"github.com/jdillenberger/arastack/pkg/clients"
 	"github.com/jdillenberger/arastack/pkg/ports"
 )
 
 var (
+	configPath    string
 	monitorURL    string
 	alertURL      string
 	backupURL     string
@@ -22,49 +24,78 @@ var (
 	scannerURL    string
 	scannerSecret string
 	interval      time.Duration
+	cfg           config.Config
 )
 
 var rootCmd = &cobra.Command{
 	Use:   "aratop",
 	Short: "Terminal dashboard for arastack",
 	Long:  "Comprehensive terminal dashboard showing container health, system stats, alerts, backups, and peer status.",
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		resolveEnvDefaults(cmd)
-	},
+	Example: `  aratop
+  aratop --interval 10s
+  aratop --monitor-url http://192.168.1.10:7130`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Handle --url alias for --monitor-url.
+		// Apply flag overrides on top of config values.
+		if cmd.Flags().Changed("monitor-url") {
+			cfg.MonitorURL = monitorURL
+		}
 		if cmd.Flags().Changed("url") && !cmd.Flags().Changed("monitor-url") {
 			v, _ := cmd.Flags().GetString("url")
-			monitorURL = v
+			cfg.MonitorURL = v
+		}
+		if cmd.Flags().Changed("alert-url") {
+			cfg.AlertURL = alertURL
+		}
+		if cmd.Flags().Changed("backup-url") {
+			cfg.BackupURL = backupURL
+		}
+		if cmd.Flags().Changed("dashboard-url") {
+			cfg.DashboardURL = dashboardURL
+		}
+		if cmd.Flags().Changed("notify-url") {
+			cfg.NotifyURL = notifyURL
+		}
+		if cmd.Flags().Changed("scanner-url") {
+			cfg.ScannerURL = scannerURL
+		}
+		if cmd.Flags().Changed("scanner-secret") {
+			cfg.ScannerSecret = scannerSecret
+		}
+		if cmd.Flags().Changed("interval") {
+			cfg.Interval = interval.String()
 		}
 
-		monitorClient := clients.NewMonitorClient(monitorURL)
+		parsedInterval, err := time.ParseDuration(cfg.Interval)
+		if err != nil {
+			parsedInterval = 5 * time.Second
+		}
 
-		alertClient := clients.NewAlertClient(alertURL)
-		backupClient := clients.NewBackupClient(backupURL)
+		monitorClient := clients.NewMonitorClient(cfg.MonitorURL)
+		alertClient := clients.NewAlertClient(cfg.AlertURL)
+		backupClient := clients.NewBackupClient(cfg.BackupURL)
 
 		var scannerClient *clients.AraScannerClient
-		if scannerURL != "" && scannerSecret != "" {
-			scannerClient = clients.NewAraScannerClient(scannerURL, scannerSecret)
+		if cfg.ScannerURL != "" && cfg.ScannerSecret != "" {
+			scannerClient = clients.NewAraScannerClient(cfg.ScannerURL, cfg.ScannerSecret)
 		}
 
-		cfg := tui.Config{
+		tuiCfg := tui.Config{
 			MonitorClient: monitorClient,
 			AlertClient:   alertClient,
 			BackupClient:  backupClient,
 			ScannerClient: scannerClient,
-			MonitorURL:    monitorURL,
-			AlertURL:      alertURL,
-			BackupURL:     backupURL,
-			DashboardURL:  dashboardURL,
-			NotifyURL:     notifyURL,
-			ScannerURL:    scannerURL,
-			Interval:      interval,
+			MonitorURL:    cfg.MonitorURL,
+			AlertURL:      cfg.AlertURL,
+			BackupURL:     cfg.BackupURL,
+			DashboardURL:  cfg.DashboardURL,
+			NotifyURL:     cfg.NotifyURL,
+			ScannerURL:    cfg.ScannerURL,
+			Interval:      parsedInterval,
 		}
 
-		model := tui.NewModel(cfg)
+		model := tui.NewModel(tuiCfg)
 		p := tea.NewProgram(model, tea.WithAltScreen())
-		_, err := p.Run()
+		_, err = p.Run()
 		if err != nil {
 			return fmt.Errorf("running TUI: %w", err)
 		}
@@ -74,6 +105,9 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
+	cobra.OnInitialize(initConfig)
+
+	rootCmd.PersistentFlags().StringVar(&configPath, "config", "", "config file (default /etc/arastack/config/aratop.yaml)")
 	rootCmd.Flags().StringVar(&monitorURL, "monitor-url", ports.DefaultURL(ports.AraMonitor), "aramonitor URL (env: ARATOP_MONITOR_URL)")
 	rootCmd.Flags().StringVar(&alertURL, "alert-url", ports.DefaultURL(ports.AraAlert), "araalert URL (env: ARATOP_ALERT_URL)")
 	rootCmd.Flags().StringVar(&backupURL, "backup-url", ports.DefaultURL(ports.AraBackup), "arabackup URL (env: ARATOP_BACKUP_URL)")
@@ -87,48 +121,12 @@ func init() {
 	rootCmd.Flags().String("url", ports.DefaultURL(ports.AraMonitor), "aramonitor URL (alias for --monitor-url)")
 }
 
-func resolveEnvDefaults(cmd *cobra.Command) {
-	if !cmd.Flags().Changed("monitor-url") {
-		if v := os.Getenv("ARATOP_MONITOR_URL"); v != "" {
-			monitorURL = v
-		}
-	}
-	if !cmd.Flags().Changed("alert-url") {
-		if v := os.Getenv("ARATOP_ALERT_URL"); v != "" {
-			alertURL = v
-		}
-	}
-	if !cmd.Flags().Changed("backup-url") {
-		if v := os.Getenv("ARATOP_BACKUP_URL"); v != "" {
-			backupURL = v
-		}
-	}
-	if !cmd.Flags().Changed("dashboard-url") {
-		if v := os.Getenv("ARATOP_DASHBOARD_URL"); v != "" {
-			dashboardURL = v
-		}
-	}
-	if !cmd.Flags().Changed("notify-url") {
-		if v := os.Getenv("ARATOP_NOTIFY_URL"); v != "" {
-			notifyURL = v
-		}
-	}
-	if !cmd.Flags().Changed("scanner-url") {
-		if v := os.Getenv("ARATOP_SCANNER_URL"); v != "" {
-			scannerURL = v
-		}
-	}
-	if !cmd.Flags().Changed("scanner-secret") {
-		if v := os.Getenv("ARATOP_SCANNER_SECRET"); v != "" {
-			scannerSecret = v
-		}
-	}
-	if !cmd.Flags().Changed("interval") {
-		if v := os.Getenv("ARATOP_INTERVAL"); v != "" {
-			if d, err := time.ParseDuration(v); err == nil {
-				interval = d
-			}
-		}
+func initConfig() {
+	var err error
+	cfg, err = config.Load(configPath)
+	if err != nil {
+		slog.Warn("Config file has errors, using defaults", "error", err)
+		cfg = config.Defaults()
 	}
 }
 

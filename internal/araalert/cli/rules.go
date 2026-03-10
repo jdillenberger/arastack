@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jdillenberger/arastack/internal/araalert/alert"
-	"github.com/jdillenberger/arastack/internal/araalert/config"
 )
 
 func init() {
@@ -38,11 +37,6 @@ var rulesListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List configured alert rules",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, err := config.Load(configFile)
-		if err != nil {
-			return err
-		}
-
 		store := alert.NewStore(cfg.DataDir)
 		rules, err := store.LoadRules()
 		if err != nil {
@@ -92,11 +86,6 @@ var rulesAddCmd = &cobra.Command{
   araalert rules add --type backup-failed --channel email --app nextcloud
   araalert rules add --type app-down --threshold 90 --channel slack`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, err := config.Load(configFile)
-		if err != nil {
-			return err
-		}
-
 		ruleType, _ := cmd.Flags().GetString("type")
 		threshold, _ := cmd.Flags().GetFloat64("threshold")
 		channel, _ := cmd.Flags().GetString("channel")
@@ -138,11 +127,6 @@ var rulesRemoveCmd = &cobra.Command{
 	Short: "Remove an alert rule",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, err := config.Load(configFile)
-		if err != nil {
-			return err
-		}
-
 		store := alert.NewStore(cfg.DataDir)
 
 		// Support short IDs.

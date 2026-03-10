@@ -32,7 +32,7 @@ var reposAddCmd = &cobra.Command{
 	Short: "Add a git template repository",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		runner := &executil.Runner{Verbose: verbose}
+		runner := &executil.Runner{}
 		mgr := repo.NewManager(cfg.ReposDir(), cfg.ManifestPath(), runner)
 
 		name, _ := cmd.Flags().GetString("name")
@@ -53,7 +53,7 @@ var reposRemoveCmd = &cobra.Command{
 	Short: "Remove a template repository",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		runner := &executil.Runner{Verbose: verbose}
+		runner := &executil.Runner{}
 		mgr := repo.NewManager(cfg.ReposDir(), cfg.ManifestPath(), runner)
 
 		if err := mgr.Remove(args[0]); err != nil {
@@ -68,7 +68,7 @@ var reposListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List template repositories",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		runner := &executil.Runner{Verbose: verbose}
+		runner := &executil.Runner{}
 		mgr := repo.NewManager(cfg.ReposDir(), cfg.ManifestPath(), runner)
 
 		repos, err := mgr.List()
@@ -104,7 +104,7 @@ var reposUpdateCmd = &cobra.Command{
 	Short: "Pull latest from repos",
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		runner := &executil.Runner{Verbose: verbose}
+		runner := &executil.Runner{}
 		mgr := repo.NewManager(cfg.ReposDir(), cfg.ManifestPath(), runner)
 
 		if len(args) > 0 {

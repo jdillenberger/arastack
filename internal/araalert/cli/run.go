@@ -13,7 +13,6 @@ import (
 
 	"github.com/jdillenberger/arastack/internal/araalert/alert"
 	"github.com/jdillenberger/arastack/internal/araalert/api"
-	"github.com/jdillenberger/arastack/internal/araalert/config"
 	"github.com/jdillenberger/arastack/internal/araalert/health"
 	"github.com/jdillenberger/arastack/pkg/clients"
 	"github.com/jdillenberger/arastack/pkg/version"
@@ -33,11 +32,6 @@ var runCmd = &cobra.Command{
 }
 
 func runDaemon() error {
-	cfg, err := config.Load(configFile)
-	if err != nil {
-		return err
-	}
-
 	slog.Info("starting araalert",
 		"port", cfg.Server.Port,
 		"bind", cfg.Server.Bind,
@@ -55,7 +49,7 @@ func runDaemon() error {
 
 	// Start cron scheduler for health polling from aramonitor.
 	c := cron.New()
-	_, err = c.AddFunc(cfg.Aramonitor.Schedule, func() {
+	_, err := c.AddFunc(cfg.Aramonitor.Schedule, func() {
 		slog.Debug("polling health from aramonitor")
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()

@@ -21,9 +21,10 @@ func init() {
 
 // joinCmd joins a peer group using an invite token from another peer.
 var joinCmd = &cobra.Command{
-	Use:   "join <token>",
-	Short: "Join a peer group using an invite token",
-	Args:  cobra.ExactArgs(1),
+	Use:     "join <token>",
+	Short:   "Join a peer group using an invite token",
+	Example: "  arascanner join <base64-token>",
+	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Decode the base64 token.
 		raw, err := base64.StdEncoding.DecodeString(args[0])

@@ -76,7 +76,7 @@ var templatesListCmd = &cobra.Command{
 			Status      string `json:"status"`
 		}
 
-		runner := &executil.Runner{Verbose: verbose}
+		runner := &executil.Runner{}
 		repoMgr := repo.NewManager(cfg.ReposDir(), cfg.ManifestPath(), runner)
 		repoNames, _ := repoMgr.RepoNames()
 

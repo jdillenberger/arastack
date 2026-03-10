@@ -254,6 +254,7 @@ var tools = []Tool{
 		Description: "aramdns - Traefik Docker mDNS publisher",
 		ExecArgs:    "run",
 		Port:        0,
+		ConfigPath:  "/etc/arastack/config/aramdns.yaml",
 		Order:       8,
 		ServiceConfig: systemd.ServiceConfig{
 			BinaryName:  "aramdns",

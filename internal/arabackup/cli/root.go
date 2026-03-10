@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	cfgFile    string
+	configPath string
 	verbose    bool
 	quiet      bool
 	jsonOutput bool
@@ -39,7 +39,7 @@ func Execute() error {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default /etc/arastack/config/arabackup.yaml)")
+	rootCmd.PersistentFlags().StringVar(&configPath, "config", "", "config file (default /etc/arastack/config/arabackup.yaml)")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
 	rootCmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "suppress non-essential output")
 	rootCmd.PersistentFlags().BoolVar(&jsonOutput, "json", false, "output as JSON")
@@ -47,8 +47,8 @@ func init() {
 
 func initConfig() {
 	var err error
-	if cfgFile != "" {
-		cfg, err = config.LoadWithOverride(cfgFile)
+	if configPath != "" {
+		cfg, err = config.LoadWithOverride(configPath)
 	} else {
 		cfg, err = config.Load()
 	}

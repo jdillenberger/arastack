@@ -19,7 +19,7 @@ var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Overview of all apps and their backup status",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		runner := &executil.Runner{Verbose: verbose}
+		runner := &executil.Runner{}
 		b := borg.New(runner, cfg)
 
 		apps, err := discovery.DiscoverAll(cfg)

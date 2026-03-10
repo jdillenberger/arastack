@@ -4,15 +4,10 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jdillenberger/arastack/internal/araalert/alert"
-	"github.com/jdillenberger/arastack/internal/araalert/config"
 )
 
 func completeRuleIDs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	if len(args) != 0 {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-	cfg, err := config.Load(configFile)
-	if err != nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 	store := alert.NewStore(cfg.DataDir)

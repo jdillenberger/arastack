@@ -26,7 +26,7 @@ var daemonCmd = &cobra.Command{
 	Short: "Run arabackup as a daemon (used by systemd)",
 	Long:  "Start the backup daemon that runs scheduled backups, prunes, and an API server.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		runner := &executil.Runner{Verbose: verbose}
+		runner := &executil.Runner{}
 		sched := scheduler.New()
 
 		// Register backup job

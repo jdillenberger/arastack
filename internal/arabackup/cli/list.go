@@ -21,7 +21,7 @@ var listCmd = &cobra.Command{
 	Long:  "List borg archives for one or all apps.",
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		runner := &executil.Runner{Verbose: verbose}
+		runner := &executil.Runner{}
 		b := borg.New(runner, cfg)
 
 		var apps []discovery.App

@@ -25,9 +25,10 @@ func init() {
 }
 
 var runCmd = &cobra.Command{
-	Use:   "run",
-	Short: "Run the peer scanner daemon (foreground)",
-	Long:  "Starts mDNS advertising, peer discovery, API server, and heartbeat loop.",
+	Use:     "run",
+	Short:   "Run the peer scanner daemon (foreground)",
+	Long:    "Starts mDNS advertising, peer discovery, API server, and heartbeat loop.",
+	Example: "  arascanner run",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runDaemon()
 	},

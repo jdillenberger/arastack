@@ -46,7 +46,7 @@ var restoreCmd = &cobra.Command{
 
 		dryRun, _ := cmd.Flags().GetBool("dry-run")
 
-		runner := &executil.Runner{Verbose: verbose}
+		runner := &executil.Runner{}
 
 		app, err := discovery.DiscoverApp(cfg, args[0])
 		if err != nil {
@@ -61,7 +61,7 @@ var restoreCmd = &cobra.Command{
 		// Interactive archive selection when no archive arg and stdin is a terminal.
 		if archive == "" {
 			if fi, err := os.Stdin.Stat(); err == nil && fi.Mode()&os.ModeCharDevice != 0 {
-				runner := &executil.Runner{Verbose: verbose}
+				runner := &executil.Runner{}
 				b := borg.New(runner, cfg)
 				repo := cfg.BorgRepoDir(app.Name)
 				if b.RepoExists(repo) {
@@ -199,7 +199,7 @@ func restoreDryRun(cfg *config.Config, app *discovery.App, archive, restoreType 
 	fmt.Printf("  1. Stop app %s\n", app.Name)
 
 	if restoreType == "all" || restoreType == "borg" {
-		runner := &executil.Runner{Verbose: verbose}
+		runner := &executil.Runner{}
 		b := borg.New(runner, cfg)
 		repo := cfg.BorgRepoDir(app.Name)
 		if b.RepoExists(repo) {
@@ -216,7 +216,7 @@ func restoreDryRun(cfg *config.Config, app *discovery.App, archive, restoreType 
 	if restoreType == "all" || restoreType == "dump" {
 		dumpServices := app.DumpServices()
 		if len(dumpServices) > 0 {
-			runner := &executil.Runner{Verbose: verbose}
+			runner := &executil.Runner{}
 			d := dump.NewDumper(runner, cfg)
 			for _, svc := range dumpServices {
 				dumpFile, err := d.LatestDump(app, svc)

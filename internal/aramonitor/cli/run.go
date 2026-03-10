@@ -13,7 +13,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jdillenberger/arastack/internal/aramonitor/api"
-	"github.com/jdillenberger/arastack/internal/aramonitor/config"
 	"github.com/jdillenberger/arastack/internal/aramonitor/containers"
 	"github.com/jdillenberger/arastack/internal/aramonitor/health"
 	"github.com/jdillenberger/arastack/internal/aramonitor/monitor"
@@ -35,11 +34,6 @@ var runCmd = &cobra.Command{
 }
 
 func runDaemon() error {
-	cfg, err := config.Load(configFile)
-	if err != nil {
-		return err
-	}
-
 	slog.Info("starting aramonitor",
 		"port", cfg.Server.Port,
 		"bind", cfg.Server.Bind,
@@ -65,7 +59,7 @@ func runDaemon() error {
 
 	// Start cron scheduler for health checks and stats collection.
 	c := cron.New()
-	_, err = c.AddFunc(cfg.Health.Schedule, func() {
+	_, err := c.AddFunc(cfg.Health.Schedule, func() {
 		slog.Debug("running scheduled health check")
 		results, err := checker.CheckAll()
 		if err != nil {

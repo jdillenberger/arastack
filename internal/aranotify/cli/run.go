@@ -11,7 +11,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jdillenberger/arastack/internal/aranotify/api"
-	"github.com/jdillenberger/arastack/internal/aranotify/config"
 	"github.com/jdillenberger/arastack/internal/aranotify/notify"
 	"github.com/jdillenberger/arastack/pkg/version"
 )
@@ -30,11 +29,6 @@ var runCmd = &cobra.Command{
 }
 
 func runDaemon() error {
-	cfg, err := config.Load(configPath)
-	if err != nil {
-		return err
-	}
-
 	dispatcher := notify.NewDispatcher(cfg)
 	channels := dispatcher.Channels()
 

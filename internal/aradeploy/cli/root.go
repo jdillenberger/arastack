@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"fmt"
 	"log/slog"
 	"os"
 
@@ -11,7 +10,7 @@ import (
 )
 
 var (
-	cfgFile    string
+	configPath string
 	appsDir    string
 	verbose    bool
 	quiet      bool
@@ -41,7 +40,7 @@ func Execute() error {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default /etc/arastack/config/aradeploy.yaml)")
+	rootCmd.PersistentFlags().StringVar(&configPath, "config", "", "config file (default /etc/arastack/config/aradeploy.yaml)")
 	rootCmd.PersistentFlags().StringVar(&appsDir, "apps-dir", "", "apps directory override")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
 	rootCmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "suppress non-essential output")
@@ -50,14 +49,14 @@ func init() {
 
 func initConfig() {
 	var err error
-	if cfgFile != "" {
-		cfg, err = config.LoadWithOverride(cfgFile)
+	if configPath != "" {
+		cfg, err = config.LoadWithOverride(configPath)
 	} else {
 		cfg, err = config.Load()
 	}
 	if err != nil {
 		if os.IsNotExist(err) {
-			slog.Info("Config file not found, using defaults. Run 'aradeploy config init' to create one.")
+			slog.Info("Config file not found, using defaults. Run 'aramanager config init aradeploy' to create one.")
 		} else {
 			slog.Warn("Config file has errors, using defaults", "error", err)
 		}
@@ -70,10 +69,10 @@ func initConfig() {
 	}
 
 	if errs := config.Validate(cfg); len(errs) > 0 {
-		fmt.Fprintf(os.Stderr, "Warning: configuration issues detected:\n")
+		slog.Warn("configuration issues detected", "errors", len(errs))
 		for _, e := range errs {
-			fmt.Fprintf(os.Stderr, "  - %s\n", e)
+			slog.Warn("config issue", "detail", e)
 		}
-		fmt.Fprintf(os.Stderr, "Run 'aradeploy config validate' for details.\n")
+		slog.Warn("Run 'aramanager config validate aradeploy' for details.")
 	}
 }

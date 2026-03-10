@@ -22,20 +22,16 @@ func init() {
 }
 
 var runCmd = &cobra.Command{
-	Use:   "run",
-	Short: "Start the dashboard daemon (foreground)",
-	Long:  "Starts the web dashboard HTTP server with health polling and signal handling.",
+	Use:     "run",
+	Short:   "Start the dashboard daemon (foreground)",
+	Long:    "Starts the web dashboard HTTP server with health polling and signal handling.",
+	Example: "  aradashboard run",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runDaemon()
 	},
 }
 
 func runDaemon() error {
-	cfg, err := config.Load(configFile)
-	if err != nil {
-		return fmt.Errorf("loading config: %w", err)
-	}
-
 	ldc, err := config.ReadAradeployConfig(cfg.Aradeploy.Config)
 	if err != nil {
 		return fmt.Errorf("reading aradeploy config: %w", err)

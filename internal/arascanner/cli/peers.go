@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -32,6 +33,8 @@ func init() {
 var peersCmd = &cobra.Command{
 	Use:   "peers",
 	Short: "List known peers from the running daemon",
+	Example: `  arascanner peers
+  arascanner peers --json`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Load store to get PSK for authenticated API call.
 		st := store.New(cfg.Server.DataDir)
@@ -53,7 +56,7 @@ var peersCmd = &cobra.Command{
 		client := &http.Client{Timeout: 5 * time.Second}
 		resp, err := client.Do(req)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "Warning: daemon not reachable, falling back to mDNS discovery...")
+			slog.Warn("daemon not reachable, falling back to mDNS discovery")
 			peers, mdnsErr := mdns.Discover(5 * time.Second)
 			if mdnsErr != nil {
 				return fmt.Errorf("daemon unreachable and mDNS discovery failed: %w", mdnsErr)
@@ -95,6 +98,8 @@ var peersCmd = &cobra.Command{
 var peersDiscoverCmd = &cobra.Command{
 	Use:   "discover",
 	Short: "Run one-shot mDNS discovery",
+	Example: `  arascanner peers discover
+  arascanner peers discover --timeout 10s`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		timeout, _ := cmd.Flags().GetDuration("timeout")
 

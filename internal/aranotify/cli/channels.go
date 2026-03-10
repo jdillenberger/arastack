@@ -35,8 +35,15 @@ var channelsListCmd = &cobra.Command{
 		channels := dispatcher.Channels()
 
 		if len(channels) == 0 {
+			if jsonOutput {
+				return outputJSON([]struct{}{})
+			}
 			fmt.Println("No notification channels configured.")
 			return nil
+		}
+
+		if jsonOutput {
+			return outputJSON(channels)
 		}
 
 		fmt.Println("Configured channels:")

@@ -1,7 +1,6 @@
 package deploy
 
 import (
-	"bufio"
 	"fmt"
 	"io/fs"
 	"log/slog"
@@ -16,6 +15,7 @@ import (
 	"github.com/jdillenberger/arastack/internal/aradeploy/routing"
 	"github.com/jdillenberger/arastack/internal/aradeploy/template"
 	"github.com/jdillenberger/arastack/pkg/aradeployconfig"
+	"github.com/jdillenberger/arastack/pkg/cliutil"
 	"github.com/jdillenberger/arastack/pkg/executil"
 	"gopkg.in/yaml.v3"
 )
@@ -826,14 +826,10 @@ func printDeploySummary(appName string, meta *template.AppMeta, mergedValues map
 }
 
 // AskConfirmation prompts the user for y/n and returns true if they confirm.
+//
+// Deprecated: use cliutil.AskConfirmation instead.
 func AskConfirmation(prompt string) bool {
-	fmt.Printf("%s [y/N]: ", prompt)
-	scanner := bufio.NewScanner(os.Stdin)
-	if scanner.Scan() {
-		answer := strings.TrimSpace(strings.ToLower(scanner.Text()))
-		return answer == "y" || answer == "yes"
-	}
-	return false
+	return cliutil.AskConfirmation(prompt)
 }
 
 // printPostDeployInfo displays post-deploy information to the user.

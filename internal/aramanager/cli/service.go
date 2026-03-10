@@ -24,6 +24,10 @@ func init() {
 var serviceCmd = &cobra.Command{
 	Use:   "service",
 	Short: "Manage systemd services for arastack tools",
+	Example: `  aramanager service status
+  aramanager service start arabackup
+  aramanager service restart aramonitor
+  aramanager service install`,
 }
 
 var serviceInstallCmd = &cobra.Command{

@@ -12,6 +12,7 @@ import (
 
 func init() {
 	rootCmd.AddCommand(listCmd)
+	listCmd.ValidArgsFunction = completeAppNames
 }
 
 var listCmd = &cobra.Command{

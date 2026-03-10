@@ -14,6 +14,7 @@ import (
 
 func init() {
 	rootCmd.AddCommand(pruneCmd)
+	pruneCmd.ValidArgsFunction = completeAppNames
 }
 
 var pruneCmd = &cobra.Command{

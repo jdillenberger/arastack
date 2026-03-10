@@ -14,6 +14,7 @@ import (
 	"github.com/jdillenberger/arastack/internal/aradeploy/lint"
 	"github.com/jdillenberger/arastack/internal/aradeploy/repo"
 	"github.com/jdillenberger/arastack/internal/aradeploy/template"
+	"github.com/jdillenberger/arastack/pkg/cliutil"
 	"github.com/jdillenberger/arastack/pkg/executil"
 )
 
@@ -30,6 +31,7 @@ func init() {
 	templatesLintCmd.ValidArgsFunction = completeTemplateNames
 	templatesExportCmd.Flags().Bool("force", false, "Overwrite existing local template")
 	templatesExportCmd.ValidArgsFunction = completeTemplateNames
+	templatesDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 	templatesDeleteCmd.ValidArgsFunction = completeLocalTemplates
 	templatesNewCmd.Flags().Bool("dockerfile", false, "Generate Dockerfile-based template")
 }
@@ -167,6 +169,12 @@ var templatesDeleteCmd = &cobra.Command{
 		templateDir := filepath.Join(cfg.TemplatesDir, templateName)
 		if _, err := os.Stat(templateDir); os.IsNotExist(err) {
 			return fmt.Errorf("local template %s not found", templateName)
+		}
+
+		yes, _ := cmd.Flags().GetBool("yes")
+		if !yes && !cliutil.AskConfirmation(fmt.Sprintf("Delete local template %q?", templateName)) {
+			fmt.Println("Cancelled.")
+			return nil
 		}
 
 		if err := os.RemoveAll(templateDir); err != nil {

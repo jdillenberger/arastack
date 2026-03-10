@@ -25,13 +25,18 @@ var backupType string
 func init() {
 	rootCmd.AddCommand(backupCmd)
 	backupCmd.Flags().StringVar(&backupType, "type", "all", "backup type: all, borg, dump")
+	backupCmd.ValidArgsFunction = completeAppNames
 }
 
 var backupCmd = &cobra.Command{
 	Use:   "backup [app]",
 	Short: "Create backup for one or all apps",
 	Long:  "Run dump and/or borg backup for deployed apps with arabackup labels.",
-	Args:  cobra.MaximumNArgs(1),
+	Example: `  arabackup backup
+  arabackup backup nextcloud
+  arabackup backup nextcloud --type borg
+  arabackup backup --type dump`,
+	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if backupType != "all" && backupType != "borg" && backupType != "dump" {
 			return fmt.Errorf("invalid --type %q: must be one of: all, borg, dump", backupType)

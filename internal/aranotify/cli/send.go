@@ -31,6 +31,9 @@ func init() {
 var sendCmd = &cobra.Command{
 	Use:   "send",
 	Short: "Send a notification directly (no daemon needed)",
+	Example: `  aranotify send --title "Backup complete" --body "All apps backed up successfully"
+  aranotify send --title "Alert" --body "Disk space low" --severity critical
+  aranotify send --title "Test" --body "Hello" --channel slack,email`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.Load(configPath)
 		if err != nil {

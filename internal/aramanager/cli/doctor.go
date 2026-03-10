@@ -19,7 +19,11 @@ var doctorCmd = &cobra.Command{
 	Use:   "doctor [tool]",
 	Short: "Run doctor checks for all or a specific tool",
 	Long:  "Checks system dependencies, configuration, and service health for arastack tools.",
-	Args:  cobra.MaximumNArgs(1),
+	Example: `  aramanager doctor
+  aramanager doctor arabackup
+  aramanager doctor --fix
+  aramanager doctor aramonitor --fix`,
+	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fix, _ := cmd.Flags().GetBool("fix")
 

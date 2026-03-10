@@ -6,11 +6,14 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+
+	"github.com/jdillenberger/arastack/pkg/cliutil"
 )
 
 func init() {
 	rootCmd.AddCommand(ejectCmd)
 	ejectCmd.Flags().StringP("output", "o", "", "Output directory (default: ./aradeploy-eject)")
+	ejectCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 }
 
 var ejectCmd = &cobra.Command{
@@ -37,6 +40,15 @@ to a directory, so you can manage them without aradeploy.`,
 		if len(deployed) == 0 {
 			fmt.Println("No apps deployed. Nothing to eject.")
 			return nil
+		}
+
+		// Warn if output directory already exists with content.
+		if entries, err := os.ReadDir(outputDir); err == nil && len(entries) > 0 {
+			yes, _ := cmd.Flags().GetBool("yes")
+			if !yes && !cliutil.AskConfirmation(fmt.Sprintf("Output directory %q already exists. Overwrite?", outputDir)) {
+				fmt.Println("Eject cancelled.")
+				return nil
+			}
 		}
 
 		if err := os.MkdirAll(outputDir, 0o750); err != nil {

@@ -35,7 +35,12 @@ var historyCmd = &cobra.Command{
 		}
 
 		if len(history) == 0 {
-			fmt.Println("No alert history.")
+			if !jsonOutput {
+				fmt.Println("No alert history.")
+			}
+			if jsonOutput {
+				return outputJSON([]struct{}{})
+			}
 			return nil
 		}
 
@@ -45,6 +50,10 @@ var historyCmd = &cobra.Command{
 			start = len(history) - count
 		}
 		recent := history[start:]
+
+		if jsonOutput {
+			return outputJSON(recent)
+		}
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 		_, _ = fmt.Fprintln(w, "TIME\tSEVERITY\tTYPE\tMESSAGE")

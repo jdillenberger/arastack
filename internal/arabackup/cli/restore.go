@@ -25,17 +25,25 @@ func init() {
 	rootCmd.AddCommand(restoreCmd)
 	restoreCmd.Flags().StringVar(&restoreType, "type", "all", "restore type: all, borg, dump")
 	restoreCmd.Flags().BoolVarP(&restoreYes, "yes", "y", false, "skip confirmation prompt")
+	restoreCmd.Flags().Bool("dry-run", false, "Show what would be restored without performing the restore")
+	restoreCmd.ValidArgsFunction = completeAppNames
 }
 
 var restoreCmd = &cobra.Command{
 	Use:   "restore <app> [archive]",
 	Short: "Restore an app from backup",
 	Long:  "Restore borg archive and/or database dumps for an app.",
-	Args:  cobra.RangeArgs(1, 2),
+	Example: `  arabackup restore nextcloud
+  arabackup restore nextcloud --type borg
+  arabackup restore nextcloud nextcloud-2024-01-15T03-00-00
+  arabackup restore nextcloud --dry-run`,
+	Args: cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if restoreType != "all" && restoreType != "borg" && restoreType != "dump" {
 			return fmt.Errorf("invalid --type %q: must be one of: all, borg, dump", restoreType)
 		}
+
+		dryRun, _ := cmd.Flags().GetBool("dry-run")
 
 		runner := &executil.Runner{Verbose: verbose}
 
@@ -47,6 +55,10 @@ var restoreCmd = &cobra.Command{
 		var archive string
 		if len(args) > 1 {
 			archive = args[1]
+		}
+
+		if dryRun {
+			return restoreDryRun(cfg, app, archive, restoreType)
 		}
 
 		if !restoreYes {
@@ -148,5 +160,48 @@ func restoreApp(cfg *config.Config, runner *executil.Runner, app *discovery.App,
 	}
 
 	fmt.Printf("Restore completed for %s.\n", app.Name)
+	return nil
+}
+
+func restoreDryRun(cfg *config.Config, app *discovery.App, archive, restoreType string) error {
+	fmt.Printf("Dry run: restore plan for %s (type: %s)\n\n", app.Name, restoreType)
+
+	fmt.Printf("  1. Stop app %s\n", app.Name)
+
+	if restoreType == "all" || restoreType == "borg" {
+		runner := &executil.Runner{Verbose: verbose}
+		b := borg.New(runner, cfg)
+		repo := cfg.BorgRepoDir(app.Name)
+		if b.RepoExists(repo) {
+			archiveLabel := archive
+			if archiveLabel == "" {
+				archiveLabel = "(latest)"
+			}
+			fmt.Printf("  2. Restore borg archive %s from %s\n", archiveLabel, repo)
+		} else {
+			fmt.Printf("  2. Skip borg restore (no repository found)\n")
+		}
+	}
+
+	if restoreType == "all" || restoreType == "dump" {
+		dumpServices := app.DumpServices()
+		if len(dumpServices) > 0 {
+			runner := &executil.Runner{Verbose: verbose}
+			d := dump.NewDumper(runner, cfg)
+			for _, svc := range dumpServices {
+				dumpFile, err := d.LatestDump(app, svc)
+				if err != nil {
+					fmt.Printf("  3. Skip dump restore for %s/%s (no dump found)\n", app.Name, svc.ServiceName)
+					continue
+				}
+				fmt.Printf("  3. Restore dump for %s/%s from %s\n", app.Name, svc.ServiceName, dumpFile)
+			}
+		} else {
+			fmt.Printf("  3. Skip dump restore (no dump services configured)\n")
+		}
+	}
+
+	fmt.Printf("  4. Start app %s\n", app.Name)
+	fmt.Println("\nDry run — no changes applied.")
 	return nil
 }

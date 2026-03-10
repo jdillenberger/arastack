@@ -17,6 +17,7 @@ import (
 	"github.com/jdillenberger/arastack/internal/aradeploy/template"
 	"github.com/jdillenberger/arastack/internal/aradeploy/wizard"
 	"github.com/jdillenberger/arastack/pkg/clients"
+	"github.com/jdillenberger/arastack/pkg/cliutil"
 	"github.com/jdillenberger/arastack/pkg/executil"
 )
 
@@ -102,7 +103,12 @@ func init() {
 var deployCmd = &cobra.Command{
 	Use:   "deploy <app>",
 	Short: "Deploy an app from a template",
-	Args:  cobra.ExactArgs(1),
+	Example: `  aradeploy deploy nextcloud
+  aradeploy deploy nextcloud -f values.yaml
+  aradeploy deploy nextcloud --set domain=cloud.example.com --set admin_password=secret
+  aradeploy deploy nextcloud --quick --yes
+  aradeploy deploy nextcloud --dry-run`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		mgr, err := newManager()
 		if err != nil {
@@ -180,7 +186,7 @@ var removeCmd = &cobra.Command{
 			if purgeData {
 				msg = fmt.Sprintf("Remove app %s (including all data)?", args[0])
 			}
-			if !deploy.AskConfirmation(msg) {
+			if !cliutil.AskConfirmation(msg) {
 				fmt.Println("Aborted.")
 				return nil
 			}

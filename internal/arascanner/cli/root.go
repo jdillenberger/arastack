@@ -13,6 +13,8 @@ import (
 
 var (
 	verbose           bool
+	quiet             bool
+	jsonOutput        bool
 	port              int
 	dataDir           string
 	hostname          string
@@ -29,6 +31,8 @@ var rootCmd = &cobra.Command{
 		level := slog.LevelInfo
 		if verbose {
 			level = slog.LevelDebug
+		} else if quiet {
+			level = slog.LevelError
 		}
 		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level})))
 
@@ -39,6 +43,8 @@ var rootCmd = &cobra.Command{
 
 func init() {
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
+	rootCmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "suppress non-essential output")
+	rootCmd.PersistentFlags().BoolVar(&jsonOutput, "json", false, "output as JSON")
 	rootCmd.PersistentFlags().IntVar(&port, "port", ports.AraScanner, "API server port (env: ARASCANNER_PORT)")
 	rootCmd.PersistentFlags().StringVar(&dataDir, "data-dir", "/var/lib/arascanner", "data directory (env: ARASCANNER_DATA_DIR)")
 	rootCmd.PersistentFlags().StringVar(&hostname, "hostname", "", "hostname override (env: ARASCANNER_HOSTNAME)")

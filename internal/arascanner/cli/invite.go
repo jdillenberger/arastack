@@ -25,6 +25,8 @@ func init() {
 var inviteCmd = &cobra.Command{
 	Use:   "invite",
 	Short: "Generate an invite token for a remote peer",
+	Example: `  arascanner invite
+  arascanner invite --ttl 1h`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ttl, _ := cmd.Flags().GetDuration("ttl")
 

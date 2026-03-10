@@ -25,6 +25,8 @@ func init() {
 	rulesAddCmd.Flags().String("app", "", "App name (for app-specific rules)")
 	_ = rulesAddCmd.MarkFlagRequired("type")
 	_ = rulesAddCmd.MarkFlagRequired("channel")
+
+	rulesRemoveCmd.ValidArgsFunction = completeRuleIDs
 }
 
 var rulesCmd = &cobra.Command{
@@ -48,8 +50,15 @@ var rulesListCmd = &cobra.Command{
 		}
 
 		if len(rules) == 0 {
+			if jsonOutput {
+				return outputJSON([]struct{}{})
+			}
 			fmt.Println("No alert rules configured.")
 			return nil
+		}
+
+		if jsonOutput {
+			return outputJSON(rules)
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
@@ -79,6 +88,9 @@ var rulesListCmd = &cobra.Command{
 var rulesAddCmd = &cobra.Command{
 	Use:   "add",
 	Short: "Add an alert rule",
+	Example: `  araalert rules add --type app-down --channel slack
+  araalert rules add --type backup-failed --channel email --app nextcloud
+  araalert rules add --type app-down --threshold 90 --channel slack`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.Load(configFile)
 		if err != nil {

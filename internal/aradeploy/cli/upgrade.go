@@ -13,6 +13,7 @@ import (
 	"github.com/jdillenberger/arastack/internal/aradeploy/deploy"
 	"github.com/jdillenberger/arastack/internal/aradeploy/image"
 	"github.com/jdillenberger/arastack/internal/aradeploy/template"
+	"github.com/jdillenberger/arastack/pkg/cliutil"
 	"github.com/jdillenberger/arastack/pkg/executil"
 )
 
@@ -35,7 +36,12 @@ type imageUpdatePlan struct {
 var upgradeCmd = &cobra.Command{
 	Use:   "upgrade [app]",
 	Short: "Upgrade an app's template or container images",
-	Args:  cobra.MaximumNArgs(1),
+	Example: `  aradeploy upgrade nextcloud
+  aradeploy upgrade nextcloud --check
+  aradeploy upgrade nextcloud --patch-only --yes
+  aradeploy upgrade --all --images-only
+  aradeploy upgrade nextcloud --dry-run`,
+	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		mgr, err := newManager()
 		if err != nil {
@@ -219,7 +225,7 @@ func runUpgrade(cfg *config.Config, mgr *deploy.Manager, appName string, dryRun,
 		return nil
 	}
 
-	if !yes && !deploy.AskConfirmation("Apply upgrade?") {
+	if !yes && !cliutil.AskConfirmation("Apply upgrade?") {
 		fmt.Println("Upgrade cancelled.")
 		return nil
 	}

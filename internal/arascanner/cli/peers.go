@@ -66,6 +66,10 @@ var peersCmd = &cobra.Command{
 			return fmt.Errorf("decoding response: %w", err)
 		}
 
+		if jsonOutput {
+			return outputJSON(apiResp)
+		}
+
 		printPeerTable(apiResp.Peers)
 		return nil
 	},
@@ -84,8 +88,15 @@ var peersDiscoverCmd = &cobra.Command{
 		}
 
 		if len(peers) == 0 {
+			if jsonOutput {
+				return outputJSON([]struct{}{})
+			}
 			fmt.Println("No peers discovered.")
 			return nil
+		}
+
+		if jsonOutput {
+			return outputJSON(peers)
 		}
 
 		printPeerTable(peers)

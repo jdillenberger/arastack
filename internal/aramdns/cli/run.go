@@ -114,7 +114,7 @@ func resolveInterval() time.Duration {
 
 	d, err := time.ParseDuration(s)
 	if err != nil {
-		slog.Warn("invalid interval, using default 30s", "value", s, "error", err)
+		slog.Warn("invalid interval, using default 30s", "value", s, "error", err) // #nosec G706 -- log values are sanitized by slog
 		return 30 * time.Second
 	}
 	return d

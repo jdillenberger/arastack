@@ -1,6 +1,7 @@
 package doctor
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -244,7 +245,7 @@ func checkBorgRepos(runner *iexec.Runner, cfg *config.Config) []doctor.CheckResu
 func checkServiceRunning() doctor.CheckResult {
 	result := doctor.CheckResult{Name: "arabackup-running"}
 
-	cmd := exec.Command("systemctl", "is-active", "--quiet", "arabackup.service")
+	cmd := exec.CommandContext(context.Background(), "systemctl", "is-active", "--quiet", "arabackup.service")
 	if err := cmd.Run(); err != nil {
 		result.Version = "not active"
 		return result

@@ -2,7 +2,9 @@ package cli
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -121,6 +123,34 @@ var setupCmd = &cobra.Command{
 
 			fmt.Println()
 		}
+
+		// Install bash completions for all tools that support it
+		fmt.Println("=== bash completions ===")
+		completionDir := "/etc/bash_completion.d"
+		if _, err := os.Stat(completionDir); err == nil {
+			allTools := append([]string{"aramanager"}, registry.Names()...)
+			for _, name := range allTools {
+				binPath, err := exec.LookPath(name)
+				if err != nil {
+					continue
+				}
+				// Check if the tool supports "completion bash"
+				probe := exec.Command(binPath, "completion", "bash") // #nosec G204 -- binPath is from trusted internal config
+				out, err := probe.Output()
+				if err != nil || len(out) == 0 {
+					continue
+				}
+				dest := filepath.Join(completionDir, name)
+				if err := os.WriteFile(dest, out, 0o600); err != nil {
+					fmt.Printf("  Failed to write %s: %v\n", dest, err)
+					continue
+				}
+				fmt.Printf("  Installed %s\n", dest)
+			}
+		} else {
+			fmt.Printf("  %s not found, skipping\n", completionDir)
+		}
+		fmt.Println()
 
 		fmt.Println("Setup complete.")
 		return nil

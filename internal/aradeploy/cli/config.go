@@ -60,11 +60,11 @@ var configInitCmd = &cobra.Command{
 			return fmt.Errorf("marshalling default config: %w", err)
 		}
 
-		if err := os.MkdirAll(filepath.Dir(cfgPath), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(cfgPath), 0o750); err != nil {
 			return fmt.Errorf("creating config directory: %w", err)
 		}
 
-		if err := os.WriteFile(cfgPath, data, 0o644); err != nil {
+		if err := os.WriteFile(cfgPath, data, 0o600); err != nil {
 			return fmt.Errorf("writing config file: %w", err)
 		}
 

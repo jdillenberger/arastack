@@ -57,7 +57,7 @@ func Load(path string) (*Config, error) {
 			return nil, err
 		}
 	} else {
-		data, err := os.ReadFile(path)
+		data, err := os.ReadFile(path) // #nosec G304 -- path is from config
 		if err != nil {
 			return nil, fmt.Errorf("reading aradeploy config %s: %w", path, err)
 		}
@@ -95,7 +95,7 @@ func loadFromSearchPaths(cfg *Config) error {
 }
 
 func mergeFromFile(cfg *Config, path string) error {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) // #nosec G304 -- path is from config
 	if err != nil {
 		return err
 	}

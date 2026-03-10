@@ -82,8 +82,8 @@ func fetchPeers(client *clients.AraScannerClient) tea.Cmd {
 		}
 		return peersMsg{
 			peerGroup: resp.PeerGroup.Name,
-			self:  resp.Self,
-			peers: resp.Peers,
+			self:      resp.Self,
+			peers:     resp.Peers,
 		}
 	}
 }

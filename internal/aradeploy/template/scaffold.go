@@ -17,7 +17,7 @@ func Scaffold(destDir, name string, opts ScaffoldOptions) error {
 		return fmt.Errorf("template %q already exists at %s", name, destDir)
 	}
 
-	if err := os.MkdirAll(destDir, 0o755); err != nil {
+	if err := os.MkdirAll(destDir, 0o750); err != nil {
 		return fmt.Errorf("creating template directory: %w", err)
 	}
 
@@ -161,7 +161,7 @@ CMD ["echo", "TODO: replace with your app command"]
 
 	for fname, content := range files {
 		fpath := filepath.Join(destDir, fname)
-		if err := os.WriteFile(fpath, []byte(content), 0o644); err != nil {
+		if err := os.WriteFile(fpath, []byte(content), 0o600); err != nil {
 			return fmt.Errorf("writing %s: %w", fname, err)
 		}
 	}

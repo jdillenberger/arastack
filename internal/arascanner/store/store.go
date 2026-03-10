@@ -22,10 +22,10 @@ const yamlFile = "peers.yaml"
 type persistedState struct {
 	// Fleet is the legacy YAML key; existing files use "fleet:".
 	// On load both keys are accepted; on save only "peer_group:" is written.
-	Fleet     *peer.PeerGroup     `yaml:"fleet,omitempty"`
-	PeerGroup peer.PeerGroup      `yaml:"peer_group"`
-	Self      peer.Peer           `yaml:"self"`
-	Peers     []peer.Peer         `yaml:"peers"`
+	Fleet     *peer.PeerGroup      `yaml:"fleet,omitempty"`
+	PeerGroup peer.PeerGroup       `yaml:"peer_group"`
+	Self      peer.Peer            `yaml:"self"`
+	Peers     []peer.Peer          `yaml:"peers"`
 	Invites   []peer.PendingInvite `yaml:"invites,omitempty"`
 }
 
@@ -54,7 +54,7 @@ func (s *Store) Load() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	data, err := os.ReadFile(s.path)
+	data, err := os.ReadFile(s.path) // #nosec G304
 	if err != nil {
 		if !os.IsNotExist(err) {
 			return fmt.Errorf("reading %s: %w", s.path, err)
@@ -103,7 +103,7 @@ func (s *Store) Save() error {
 	}
 
 	dir := filepath.Dir(s.path)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return fmt.Errorf("creating data dir %s: %w", dir, err)
 	}
 

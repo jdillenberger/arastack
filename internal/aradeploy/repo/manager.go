@@ -62,14 +62,14 @@ func (m *Manager) Load() (*Manifest, error) {
 
 // Save writes the manifest to disk.
 func (m *Manager) Save(manifest *Manifest) error {
-	if err := os.MkdirAll(filepath.Dir(m.manifestPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(m.manifestPath), 0o750); err != nil {
 		return fmt.Errorf("creating manifest directory: %w", err)
 	}
 	data, err := yaml.Marshal(manifest)
 	if err != nil {
 		return fmt.Errorf("marshaling manifest: %w", err)
 	}
-	return os.WriteFile(m.manifestPath, data, 0o644)
+	return os.WriteFile(m.manifestPath, data, 0o600)
 }
 
 // Add clones a git repository and records it in the manifest.
@@ -93,7 +93,7 @@ func (m *Manager) Add(url, name, ref string) (*Repo, error) {
 	}
 
 	dest := filepath.Join(m.reposDir, name)
-	if err := os.MkdirAll(m.reposDir, 0o755); err != nil {
+	if err := os.MkdirAll(m.reposDir, 0o750); err != nil {
 		return nil, fmt.Errorf("creating repos directory: %w", err)
 	}
 

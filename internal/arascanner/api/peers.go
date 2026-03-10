@@ -21,8 +21,8 @@ func (srv *Server) handleGetPeers(w http.ResponseWriter, r *http.Request) {
 
 	resp := peersResponse{
 		PeerGroup: srv.store.PeerGroup(),
-		Self:  srv.store.Self(),
-		Peers: srv.store.List(),
+		Self:      srv.store.Self(),
+		Peers:     srv.store.List(),
 	}
 
 	w.Header().Set("Content-Type", "application/json")

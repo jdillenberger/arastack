@@ -145,7 +145,7 @@ func (m *Manager) Deploy(appName string, opts DeployOptions) error {
 
 	// Generate local certificates for traefik (data dir must exist first)
 	if appName == "traefik" && m.cfg.Routing.HTTPS.Enabled {
-		if err := os.MkdirAll(m.cfg.DataPath("traefik"), 0o2775); err != nil {
+		if err := os.MkdirAll(m.cfg.DataPath("traefik"), 0o2775); err != nil { // #nosec G301 -- setgid needed for shared access
 			return fmt.Errorf("creating traefik data directory: %w", err)
 		}
 		cm := certs.NewManager(m.cfg.DataPath("traefik"))
@@ -252,11 +252,11 @@ func (m *Manager) Deploy(appName string, opts DeployOptions) error {
 	}
 
 	// Create directories (group-writable + setgid to match parent)
-	if err := os.MkdirAll(appDir, 0o2775); err != nil {
+	if err := os.MkdirAll(appDir, 0o2775); err != nil { // #nosec G301 -- setgid needed for shared access
 		return fmt.Errorf("creating app directory: %w", err)
 	}
 	dataDir := m.cfg.DataPath(appName)
-	if err := os.MkdirAll(dataDir, 0o2775); err != nil {
+	if err := os.MkdirAll(dataDir, 0o2775); err != nil { // #nosec G301 -- setgid needed for shared access
 		return fmt.Errorf("creating data directory: %w", err)
 	}
 
@@ -277,7 +277,7 @@ func (m *Manager) Deploy(appName string, opts DeployOptions) error {
 	// Write rendered files
 	for name, content := range rendered {
 		outPath := filepath.Join(appDir, name)
-		if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(outPath), 0o750); err != nil {
 			return fmt.Errorf("creating directory for %s: %w", name, err)
 		}
 		if err := os.WriteFile(outPath, []byte(content), 0o600); err != nil {
@@ -288,7 +288,7 @@ func (m *Manager) Deploy(appName string, opts DeployOptions) error {
 	// Write static files
 	for name, data := range staticFiles {
 		outPath := filepath.Join(appDir, name)
-		if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(outPath), 0o750); err != nil {
 			return fmt.Errorf("creating directory for %s: %w", name, err)
 		}
 		if err := os.WriteFile(outPath, data, 0o600); err != nil {
@@ -446,7 +446,7 @@ func (m *Manager) Remove(appName string, keepData bool) error {
 		if err := os.RemoveAll(dataDir); err != nil {
 			if _, dockerErr := m.runner.Run(m.cfg.Docker.Runtime, "run", "--rm",
 				"-v", dataDir+":/data", "alpine", "sh", "-c", "rm -rf /data/*"); dockerErr != nil {
-				return fmt.Errorf("removing data directory: %w (docker fallback also failed: %v)", err, dockerErr)
+				return fmt.Errorf("removing data directory: %w (docker fallback also failed: %w)", err, dockerErr)
 			}
 			_ = os.RemoveAll(dataDir)
 		}
@@ -546,7 +546,7 @@ func (m *Manager) GetDeployedInfo(appName string) (*DeployedApp, error) {
 	appDir := m.cfg.AppDir(appName)
 	infoPath := stateFilePath(appDir)
 
-	data, err := os.ReadFile(infoPath)
+	data, err := os.ReadFile(infoPath) // #nosec G304 -- path is constructed internally
 	if err != nil {
 		return nil, fmt.Errorf("reading deploy info: %w", err)
 	}
@@ -766,13 +766,13 @@ func (m *Manager) collectAllRoutingDomains(currentApp string, mergedValues map[s
 // If the local CA cert is not available (e.g. traefik not yet deployed),
 // it falls back to using just the system CA bundle so the mount still works.
 func generateCABundle(caCertPath, dataDir string) error {
-	systemBundle, err := os.ReadFile("/etc/ssl/certs/ca-certificates.crt")
+	systemBundle, err := os.ReadFile("/etc/ssl/certs/ca-certificates.crt") // #nosec G304 -- well-known system path
 	if err != nil {
 		return fmt.Errorf("reading system CA bundle: %w", err)
 	}
 
 	bundle := systemBundle
-	localCA, err := os.ReadFile(caCertPath)
+	localCA, err := os.ReadFile(caCertPath) // #nosec G304 -- path is constructed internally
 	if err != nil {
 		slog.Warn("Local CA cert not available, using system bundle only", "path", caCertPath, "error", err)
 	} else {
@@ -783,7 +783,7 @@ func generateCABundle(caCertPath, dataDir string) error {
 	}
 
 	bundlePath := filepath.Join(dataDir, "ca-bundle.crt")
-	return os.WriteFile(bundlePath, bundle, 0o644)
+	return os.WriteFile(bundlePath, bundle, 0o600) // #nosec G703 -- bundlePath is constructed internally
 }
 
 // printDeploySummary shows what will be deployed before asking for confirmation.

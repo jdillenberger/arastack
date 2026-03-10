@@ -52,13 +52,13 @@ func CheckConfigFile() doctor.CheckResult {
 func CheckDataDir(dataDir string) doctor.CheckResult {
 	result := doctor.CheckResult{Name: "data-dir"}
 
-	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+	if err := os.MkdirAll(dataDir, 0o750); err != nil {
 		result.Version = fmt.Sprintf("cannot create %s: %v", dataDir, err)
 		return result
 	}
 
 	tmpFile := filepath.Join(dataDir, ".doctor-write-test")
-	if err := os.WriteFile(tmpFile, []byte("ok"), 0o644); err != nil {
+	if err := os.WriteFile(tmpFile, []byte("ok"), 0o600); err != nil {
 		result.Version = fmt.Sprintf("%s is not writable: %v", dataDir, err)
 		return result
 	}
@@ -109,7 +109,7 @@ func CheckAranotify(url string) doctor.CheckResult {
 func CheckServiceRunning() doctor.CheckResult {
 	result := doctor.CheckResult{Name: "araalert-running"}
 
-	cmd := exec.Command("systemctl", "is-active", "araalert")
+	cmd := exec.CommandContext(context.Background(), "systemctl", "is-active", "araalert") // #nosec G204 -- command arguments are not user-controlled
 	out, err := cmd.CombinedOutput()
 	if err == nil && strings.TrimSpace(string(out)) == "active" {
 		result.Installed = true
@@ -128,7 +128,7 @@ func Fix(r doctor.CheckResult, cfg config.Config) error {
 
 	switch r.Name {
 	case "data-dir":
-		cmd := exec.Command("sudo", "mkdir", "-p", cfg.DataDir)
+		cmd := exec.CommandContext(context.Background(), "sudo", "mkdir", "-p", cfg.DataDir) // #nosec G204 -- command arguments are not user-controlled
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("creating %s: %w", cfg.DataDir, err)

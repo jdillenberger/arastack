@@ -116,7 +116,7 @@ var deployCmd = &cobra.Command{
 		values := make(map[string]string)
 		valuesFile, _ := cmd.Flags().GetString("values")
 		if valuesFile != "" {
-			data, err := os.ReadFile(valuesFile)
+			data, err := os.ReadFile(valuesFile) // #nosec G304 -- user-specified values file
 			if err != nil {
 				return fmt.Errorf("reading values file: %w", err)
 			}
@@ -521,14 +521,14 @@ var showCmd = &cobra.Command{
 
 		if jsonOutput {
 			type showOutput struct {
-				Name       string            `json:"name"`
-				Version    string            `json:"version"`
-				DeployedAt string            `json:"deployed_at"`
-				DataDir    string            `json:"data_dir"`
-				Values     map[string]string `json:"values"`
+				Name       string                   `json:"name"`
+				Version    string                   `json:"version"`
+				DeployedAt string                   `json:"deployed_at"`
+				DataDir    string                   `json:"data_dir"`
+				Values     map[string]string        `json:"values"`
 				Ports      []template.PortMapping   `json:"ports,omitempty"`
 				Volumes    []template.VolumeMapping `json:"volumes,omitempty"`
-				URLs       []string          `json:"urls,omitempty"`
+				URLs       []string                 `json:"urls,omitempty"`
 			}
 			maskedValues := make(map[string]string)
 			for k, v := range info.Values {

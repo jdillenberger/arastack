@@ -39,7 +39,7 @@ to a directory, so you can manage them without aradeploy.`,
 			return nil
 		}
 
-		if err := os.MkdirAll(outputDir, 0o755); err != nil {
+		if err := os.MkdirAll(outputDir, 0o750); err != nil {
 			return fmt.Errorf("creating output directory: %w", err)
 		}
 
@@ -49,7 +49,7 @@ to a directory, so you can manage them without aradeploy.`,
 		for _, appName := range deployed {
 			appDir := cfg.AppDir(appName)
 			destDir := filepath.Join(outputDir, appName)
-			if err := os.MkdirAll(destDir, 0o755); err != nil {
+			if err := os.MkdirAll(destDir, 0o750); err != nil {
 				fmt.Printf("  %s: failed to create directory: %v\n", appName, err)
 				continue
 			}
@@ -57,7 +57,7 @@ to a directory, so you can manage them without aradeploy.`,
 			copied := 0
 			for _, f := range filesToCopy {
 				srcPath := filepath.Join(appDir, f)
-				data, err := os.ReadFile(srcPath)
+				data, err := os.ReadFile(srcPath) // #nosec G304 -- path is constructed internally
 				if err != nil {
 					continue
 				}

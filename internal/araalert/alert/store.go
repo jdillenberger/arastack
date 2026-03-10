@@ -113,7 +113,7 @@ func (s *Store) AppendHistory(a Alert) error {
 		history = history[len(history)-maxHistory:]
 	}
 
-	if err := os.MkdirAll(s.dataDir, 0o755); err != nil {
+	if err := os.MkdirAll(s.dataDir, 0o750); err != nil {
 		return fmt.Errorf("creating data dir: %w", err)
 	}
 
@@ -129,7 +129,8 @@ func (s *Store) AppendHistory(a Alert) error {
 // loadRulesLocked reads rules from disk. Caller must hold s.mu.
 func (s *Store) loadRulesLocked() ([]Rule, error) {
 	path := filepath.Join(s.dataDir, rulesFile)
-	data, err := os.ReadFile(path)
+	path = filepath.Clean(path)
+	data, err := os.ReadFile(path) // #nosec G304 -- path is constructed internally
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -146,7 +147,7 @@ func (s *Store) loadRulesLocked() ([]Rule, error) {
 
 // saveRulesLocked writes rules to disk. Caller must hold s.mu.
 func (s *Store) saveRulesLocked(rules []Rule) error {
-	if err := os.MkdirAll(s.dataDir, 0o755); err != nil {
+	if err := os.MkdirAll(s.dataDir, 0o750); err != nil {
 		return fmt.Errorf("creating data dir: %w", err)
 	}
 
@@ -197,7 +198,7 @@ func atomicWriteFile(path string, data []byte, perm os.FileMode) error {
 // loadHistoryLocked reads history from disk. Caller must hold s.mu.
 func (s *Store) loadHistoryLocked() ([]Alert, error) {
 	path := filepath.Join(s.dataDir, historyFile)
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) // #nosec G304 -- path is constructed internally
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil

@@ -124,7 +124,7 @@ var templatesExportCmd = &cobra.Command{
 			return fmt.Errorf("local template %s already exists (use --force to overwrite)", templateName)
 		}
 
-		if err := os.MkdirAll(destDir, 0o755); err != nil {
+		if err := os.MkdirAll(destDir, 0o750); err != nil {
 			return fmt.Errorf("creating template directory: %w", err)
 		}
 
@@ -140,14 +140,14 @@ var templatesExportCmd = &cobra.Command{
 
 			destPath := filepath.Join(destDir, relPath)
 			if d.IsDir() {
-				return os.MkdirAll(destPath, 0o755)
+				return os.MkdirAll(destPath, 0o750)
 			}
 
 			data, err := fs.ReadFile(mgr.Registry().FS(), path)
 			if err != nil {
 				return err
 			}
-			return os.WriteFile(destPath, data, 0o644)
+			return os.WriteFile(destPath, data, 0o600)
 		})
 		if err != nil {
 			return fmt.Errorf("copying template: %w", err)

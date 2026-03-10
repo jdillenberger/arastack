@@ -128,7 +128,7 @@ func LoadWithOverride(overridePath string) (*Config, error) {
 // EnsureDirectories creates the apps and data directories if they don't exist.
 func (c *Config) EnsureDirectories() error {
 	for _, dir := range []string{c.AppsDir, c.DataDir} {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			return fmt.Errorf("creating directory %s: %w", dir, err)
 		}
 	}

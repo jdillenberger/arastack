@@ -20,7 +20,7 @@ type composeService struct {
 
 // parseComposeLabels reads a docker-compose.yml file and extracts arabackup.* labels.
 func parseComposeLabels(composePath string) ([]ServiceBackupConfig, error) {
-	data, err := os.ReadFile(composePath)
+	data, err := os.ReadFile(composePath) // #nosec G304 -- path is constructed from config
 	if err != nil {
 		return nil, fmt.Errorf("reading %s: %w", composePath, err)
 	}

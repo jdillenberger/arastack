@@ -1,6 +1,7 @@
 package doctor
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -49,7 +50,7 @@ func Check(dep Dependency) doctor.CheckResult {
 	result.Installed = true
 
 	if len(dep.VersionArgs) > 0 {
-		cmd := exec.Command(path, dep.VersionArgs...)
+		cmd := exec.CommandContext(context.Background(), path, dep.VersionArgs...) // #nosec G204 -- command is from trusted config
 		out, err := cmd.CombinedOutput()
 		if err == nil {
 			ver := strings.TrimSpace(string(out))
@@ -84,7 +85,7 @@ func Fix(result doctor.CheckResult) error {
 	}
 
 	parts := strings.Fields(result.InstallCommand)
-	cmd := exec.Command("sudo", parts...)
+	cmd := exec.CommandContext(context.Background(), "sudo", parts...) // #nosec G204 -- command is from trusted config
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("installing %s: %w\n%s", result.Name, err, string(out))

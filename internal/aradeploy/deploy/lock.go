@@ -10,15 +10,15 @@ import (
 // acquireLock takes an exclusive file lock to prevent concurrent operations on the same app.
 func acquireLock(appsDir, appName string) (*os.File, error) {
 	lockDir := filepath.Join(appsDir, ".locks")
-	if err := os.MkdirAll(lockDir, 0o755); err != nil {
+	if err := os.MkdirAll(lockDir, 0o750); err != nil {
 		return nil, fmt.Errorf("creating lock directory: %w", err)
 	}
 	lockPath := filepath.Join(lockDir, appName+".lock")
-	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o600)
+	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o600) // #nosec G304 -- path is constructed internally
 	if err != nil {
 		return nil, fmt.Errorf("opening lock file: %w", err)
 	}
-	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil { // #nosec G115 -- fd fits in int
 		_ = f.Close()
 		return nil, fmt.Errorf("app %s is locked by another aradeploy process — wait or check for stuck operations", appName)
 	}
@@ -27,7 +27,7 @@ func acquireLock(appsDir, appName string) (*os.File, error) {
 
 // releaseLock releases the file lock and removes the lock file.
 func releaseLock(f *os.File) {
-	_ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+	_ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN) // #nosec G115 -- fd fits in int
 	name := f.Name()
 	_ = f.Close()
 	_ = os.Remove(name)

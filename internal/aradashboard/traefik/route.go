@@ -88,7 +88,7 @@ func NewRouteManager(dataDir, hostname, domain string, dashboardPort int, httpsE
 // Start writes the route file immediately (if possible) and starts a
 // background goroutine that re-syncs every 30 seconds.
 func (rm *RouteManager) Start() {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background()) // #nosec G118 -- cancel is stored for later use
 	rm.cancel = cancel
 	rm.done = make(chan struct{})
 
@@ -146,12 +146,12 @@ func (rm *RouteManager) sync() {
 
 	path := filepath.Join(rm.dynamicDir, routeFileName)
 
-	existing, err := os.ReadFile(path)
+	existing, err := os.ReadFile(path) // #nosec G304 -- path is constructed internally
 	if err == nil && bytes.Equal(existing, buf.Bytes()) {
 		return
 	}
 
-	if err := os.WriteFile(path, buf.Bytes(), 0o644); err != nil {
+	if err := os.WriteFile(path, buf.Bytes(), 0o600); err != nil {
 		slog.Error("Traefik route: failed to write route file", "error", err, "path", path)
 		return
 	}

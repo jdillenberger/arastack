@@ -1,10 +1,13 @@
 package netutil
 
-import "net"
+import (
+	"context"
+	"net"
+)
 
 // DetectLocalIP returns the primary non-loopback IPv4 address.
 func DetectLocalIP() string {
-	conn, err := net.Dial("udp4", "8.8.8.8:53")
+	conn, err := (&net.Dialer{}).DialContext(context.Background(), "udp4", "8.8.8.8:53")
 	if err != nil {
 		return ""
 	}

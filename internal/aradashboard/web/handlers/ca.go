@@ -64,7 +64,7 @@ func (h *Handler) HandleCAPage(c echo.Context) error {
 func (h *Handler) HandleCACert(c echo.Context) error {
 	caCertPath := h.resolveCACertPath()
 
-	data, err := os.ReadFile(caCertPath)
+	data, err := os.ReadFile(caCertPath) // #nosec G304 -- path is from config
 	if err != nil {
 		return c.String(http.StatusNotFound, "CA certificate not available.")
 	}
@@ -183,7 +183,7 @@ func (h *Handler) caIPBaseURL() string {
 }
 
 func loadX509CertFromFile(path string) (*x509.Certificate, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) // #nosec G304 -- path is constructed internally
 	if err != nil {
 		return nil, err
 	}

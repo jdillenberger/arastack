@@ -1,6 +1,7 @@
 package systemd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -78,7 +79,7 @@ WantedBy=multi-user.target
 func (c *ServiceConfig) Install() error {
 	unit := c.generateUnitFile()
 
-	cmd := exec.Command("sudo", "tee", c.unitPath())
+	cmd := exec.CommandContext(context.Background(), "sudo", "tee", c.unitPath()) // #nosec G204 -- command arguments are not user-controlled
 	cmd.Stdin = strings.NewReader(unit)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = nil // suppress tee's stdout
@@ -121,7 +122,7 @@ func (c *ServiceConfig) Uninstall() error {
 	_ = runSystemctl("stop", c.unitName())
 	_ = runSystemctl("disable", c.unitName())
 
-	cmd := exec.Command("sudo", "rm", "-f", c.unitPath())
+	cmd := exec.CommandContext(context.Background(), "sudo", "rm", "-f", c.unitPath()) // #nosec G204 -- command arguments are not user-controlled
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("removing unit file: %w", err)
@@ -137,7 +138,7 @@ func (c *ServiceConfig) Uninstall() error {
 
 // IsActive returns true if the systemd service is currently active.
 func (c *ServiceConfig) IsActive() bool {
-	cmd := exec.Command("systemctl", "is-active", "--quiet", c.unitName())
+	cmd := exec.CommandContext(context.Background(), "systemctl", "is-active", "--quiet", c.unitName()) // #nosec G204 -- command arguments are not user-controlled
 	return cmd.Run() == nil
 }
 
@@ -180,7 +181,7 @@ func newStatusCmd(cfg *ServiceConfig) *cobra.Command {
 		Use:   "status",
 		Short: "Show systemd service status",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := exec.Command("systemctl", "status", cfg.unitName())
+			c := exec.CommandContext(context.Background(), "systemctl", "status", cfg.unitName()) // #nosec G204 -- command arguments are not user-controlled
 			c.Stdout = os.Stdout
 			c.Stderr = os.Stderr
 			_ = c.Run()
@@ -191,7 +192,7 @@ func newStatusCmd(cfg *ServiceConfig) *cobra.Command {
 
 func runSystemctl(args ...string) error {
 	sudoArgs := append([]string{"systemctl"}, args...)
-	c := exec.Command("sudo", sudoArgs...)
+	c := exec.CommandContext(context.Background(), "sudo", sudoArgs...) // #nosec G204 -- command arguments are not user-controlled
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
 	if err := c.Run(); err != nil {

@@ -1,6 +1,7 @@
 package doctor
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -31,7 +32,7 @@ func CheckConfigFile() doctor.CheckResult {
 	}
 
 	for _, p := range paths {
-		if _, err := os.ReadFile(p); err == nil {
+		if _, err := os.ReadFile(p); err == nil { // #nosec G304 -- paths are hardcoded config locations
 			result.Installed = true
 			result.Version = p
 			return result
@@ -47,13 +48,13 @@ func CheckDataDir() doctor.CheckResult {
 	dataDir := "/var/lib/aranotify"
 	result := doctor.CheckResult{Name: "data-dir"}
 
-	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+	if err := os.MkdirAll(dataDir, 0o750); err != nil {
 		result.Version = fmt.Sprintf("cannot create %s: %v", dataDir, err)
 		return result
 	}
 
 	tmpFile := filepath.Join(dataDir, ".doctor-write-test")
-	if err := os.WriteFile(tmpFile, []byte("ok"), 0o644); err != nil {
+	if err := os.WriteFile(tmpFile, []byte("ok"), 0o600); err != nil {
 		result.Version = fmt.Sprintf("%s is not writable: %v", dataDir, err)
 		return result
 	}
@@ -68,7 +69,7 @@ func CheckDataDir() doctor.CheckResult {
 func CheckServiceRunning() doctor.CheckResult {
 	result := doctor.CheckResult{Name: "aranotify-running"}
 
-	cmd := exec.Command("systemctl", "is-active", "aranotify")
+	cmd := exec.CommandContext(context.Background(), "systemctl", "is-active", "aranotify") // #nosec G204 -- args are static
 	out, err := cmd.CombinedOutput()
 	if err == nil && strings.TrimSpace(string(out)) == "active" {
 		result.Installed = true
@@ -102,7 +103,7 @@ func fixConfigFile() error {
 	dir := "/etc/arastack/config"
 	path := filepath.Join(dir, "aranotify.yaml")
 
-	mkdirCmd := exec.Command("sudo", "mkdir", "-p", dir)
+	mkdirCmd := exec.CommandContext(context.Background(), "sudo", "mkdir", "-p", dir) // #nosec G204 -- args are static
 	mkdirCmd.Stderr = os.Stderr
 	if err := mkdirCmd.Run(); err != nil {
 		return fmt.Errorf("creating %s: %w", dir, err)
@@ -130,7 +131,7 @@ channels:
     webhook_url: ""
 `
 
-	teeCmd := exec.Command("sudo", "tee", path)
+	teeCmd := exec.CommandContext(context.Background(), "sudo", "tee", path) // #nosec G204 -- args are static
 	teeCmd.Stdin = strings.NewReader(content)
 	teeCmd.Stderr = os.Stderr
 	teeCmd.Stdout = nil
@@ -138,7 +139,7 @@ channels:
 		return fmt.Errorf("writing %s: %w", path, err)
 	}
 	// Restrict permissions on config file (may contain secrets).
-	chmodCmd := exec.Command("sudo", "chmod", "600", path)
+	chmodCmd := exec.CommandContext(context.Background(), "sudo", "chmod", "600", path) // #nosec G204 -- args are static
 	chmodCmd.Stderr = os.Stderr
 	if err := chmodCmd.Run(); err != nil {
 		return fmt.Errorf("chmod %s: %w", path, err)
@@ -149,7 +150,7 @@ channels:
 
 func fixDataDir() error {
 	dataDir := "/var/lib/aranotify"
-	cmd := exec.Command("sudo", "mkdir", "-p", dataDir)
+	cmd := exec.CommandContext(context.Background(), "sudo", "mkdir", "-p", dataDir) // #nosec G204 -- args are static
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("creating %s: %w", dataDir, err)

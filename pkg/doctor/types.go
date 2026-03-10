@@ -1,6 +1,7 @@
 package doctor
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -43,7 +44,7 @@ func Check(dep Dependency) CheckResult {
 	result.Installed = true
 
 	if len(dep.VersionArgs) > 0 {
-		cmd := exec.Command(path, dep.VersionArgs...)
+		cmd := exec.CommandContext(context.Background(), path, dep.VersionArgs...) // #nosec G204 -- command is from trusted dependency config
 		out, err := cmd.CombinedOutput()
 		if err == nil {
 			ver := strings.TrimSpace(string(out))
@@ -59,7 +60,7 @@ func Check(dep Dependency) CheckResult {
 
 func checkLibrary(pattern string, result CheckResult) CheckResult {
 	libDirs := []string{"/lib", "/usr/lib"}
-	cmd := exec.Command("find", append(libDirs, "-name", pattern, "-type", "f")...)
+	cmd := exec.CommandContext(context.Background(), "find", append(libDirs, "-name", pattern, "-type", "f")...) // #nosec G204 -- args are constructed internally
 	out, err := cmd.CombinedOutput()
 	if err == nil && strings.TrimSpace(string(out)) != "" {
 		result.Installed = true
@@ -79,7 +80,7 @@ func Fix(result CheckResult) error {
 	}
 
 	parts := strings.Fields(result.InstallCommand)
-	cmd := exec.Command("sudo", parts...)
+	cmd := exec.CommandContext(context.Background(), "sudo", parts...) // #nosec G204 -- command is from trusted config
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("installing %s: %w\n%s", result.Name, err, string(out))

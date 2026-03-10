@@ -1,7 +1,9 @@
 package docker
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os/exec"
@@ -73,10 +75,11 @@ func ExtractHosts(rule string) []string {
 // run executes a command and returns stdout.
 func run(name string, args ...string) (string, error) {
 	slog.Debug("exec", "cmd", name, "args", args)
-	cmd := exec.Command(name, args...)
+	cmd := exec.CommandContext(context.Background(), name, args...) // #nosec G204 -- command is from internal config
 	out, err := cmd.Output()
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			return "", fmt.Errorf("command %q exited with code %d: %s", name, exitErr.ExitCode(), string(exitErr.Stderr))
 		}
 		return "", fmt.Errorf("command %q failed: %w", name, err)

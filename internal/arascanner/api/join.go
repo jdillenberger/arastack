@@ -87,12 +87,12 @@ func (srv *Server) handleJoin(w http.ResponseWriter, r *http.Request) {
 	resp := joinResponse{
 		PeerGroup: pg,
 		PSK:       pg.Secret,
-		Hostname: srv.hostname,
-		Address:  self.Address,
-		Port:     self.Port,
-		Version:  srv.version,
-		Role:     self.Role,
-		Tags:     self.Tags,
+		Hostname:  srv.hostname,
+		Address:   self.Address,
+		Port:      self.Port,
+		Version:   srv.version,
+		Role:      self.Role,
+		Tags:      self.Tags,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

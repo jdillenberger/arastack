@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
@@ -63,10 +64,10 @@ var inviteCmd = &cobra.Command{
 		// Build invite token — does NOT contain the PSK.
 		token := peer.InviteToken{
 			PeerGroup: pg.Name,
-			Address: localIP,
-			Port:    port,
-			Token:   oneTimeToken,
-			Expires: expires,
+			Address:   localIP,
+			Port:      port,
+			Token:     oneTimeToken,
+			Expires:   expires,
 		}
 
 		data, err := json.Marshal(token)
@@ -86,7 +87,7 @@ var inviteCmd = &cobra.Command{
 
 func detectLocalIP() (string, error) {
 	// Try outbound UDP dial first (works when there's internet).
-	conn, err := net.Dial("udp", "8.8.8.8:53")
+	conn, err := (&net.Dialer{}).DialContext(context.Background(), "udp", "8.8.8.8:53")
 	if err == nil {
 		defer conn.Close() //nolint:errcheck // UDP connection close
 		localAddr := conn.LocalAddr().(*net.UDPAddr)

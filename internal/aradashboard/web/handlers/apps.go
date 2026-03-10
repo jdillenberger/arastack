@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -141,7 +142,7 @@ func (h *Handler) buildAppAddresses(info *discovery.DeployedApp) []AppAddress {
 // checkMDNS attempts to resolve a .local domain via avahi-resolve.
 // Go's net.LookupHost does not reliably resolve mDNS .local domains.
 func checkMDNS(domain string) bool {
-	out, err := exec.Command("avahi-resolve", "-n", domain).Output()
+	out, err := exec.CommandContext(context.Background(), "avahi-resolve", "-n", domain).Output() // #nosec G204 -- domain is from internal service discovery
 	return err == nil && strings.TrimSpace(string(out)) != ""
 }
 

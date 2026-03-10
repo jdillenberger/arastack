@@ -63,10 +63,10 @@ type Model struct {
 	backupErr    error
 
 	// Data: peers.
-	peerGroupName  string
-	peersSelf  clients.Peer
-	peersRemote []clients.Peer
-	peersErr   error
+	peerGroupName string
+	peersSelf     clients.Peer
+	peersRemote   []clients.Peer
+	peersErr      error
 
 	// Data: service health.
 	serviceHealth map[string]bool

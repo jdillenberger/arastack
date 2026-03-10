@@ -2,6 +2,7 @@ package deploy
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -86,7 +87,7 @@ func executeHTTPHook(hook tmpl.Hook, values map[string]string) error {
 		bodyReader = bytes.NewReader(nil)
 	}
 	slog.Info("Running HTTP hook", "method", method, "url", url)
-	req, err := http.NewRequest(method, url, bodyReader)
+	req, err := http.NewRequestWithContext(context.Background(), method, url, bodyReader)
 	if err != nil {
 		slog.Warn("Hook: failed to create request", "error", err)
 		return err

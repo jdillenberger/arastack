@@ -53,7 +53,7 @@ func (hc *Checker) CheckHTTP(ctx context.Context, url string) Result {
 // CheckTCP attempts a TCP connection to host:port.
 func (hc *Checker) CheckTCP(host string, port int) Result {
 	addr := net.JoinHostPort(host, fmt.Sprintf("%d", port))
-	conn, err := net.DialTimeout("tcp", addr, 5*time.Second)
+	conn, err := (&net.Dialer{Timeout: 5 * time.Second}).DialContext(context.Background(), "tcp", addr)
 	if err != nil {
 		return Result{Status: StatusUnhealthy, Detail: err.Error()}
 	}

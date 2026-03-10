@@ -11,7 +11,7 @@ import (
 
 // ParseExportFile reads and parses an export YAML file.
 func ParseExportFile(path string) (*Export, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) // #nosec G304 -- path is from config
 	if err != nil {
 		return nil, fmt.Errorf("reading export file: %w", err)
 	}

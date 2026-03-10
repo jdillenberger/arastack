@@ -2,6 +2,7 @@ package syscheck
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -68,8 +69,11 @@ func Fix(r doctor.CheckResult) error {
 	case r.Name == "arastack-group":
 		return sudoRun("groupadd", groupName)
 	case r.Name == "user-in-group":
-		username := os.Getenv("USER")
+		username := os.Getenv("SUDO_USER")
 		if username == "" {
+			username = os.Getenv("USER")
+		}
+		if username == "" || username == "root" {
 			u, err := user.Current()
 			if err != nil {
 				return fmt.Errorf("cannot determine current user: %w", err)
@@ -190,7 +194,7 @@ func modeForPath(path string) os.FileMode {
 }
 
 func sudoRun(args ...string) error {
-	cmd := exec.Command("sudo", args...)
+	cmd := exec.CommandContext(context.Background(), "sudo", args...) // #nosec G204 G702 -- command is from trusted config
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {

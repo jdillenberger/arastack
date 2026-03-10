@@ -118,6 +118,7 @@ var doctorCmd = &cobra.Command{
 			fmt.Println("All checks passed.")
 		} else if !fix {
 			fmt.Println("Some checks failed. Run with --fix to fix automatically.")
+			return fmt.Errorf("some checks failed")
 		}
 
 		return nil

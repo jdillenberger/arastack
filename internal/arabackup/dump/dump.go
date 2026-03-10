@@ -44,7 +44,7 @@ func (d *Dumper) Dump(app *discovery.App, svc discovery.ServiceBackupConfig) (st
 
 	// Ensure dump directory exists
 	dumpDir := d.cfg.DumpDir(app.Name)
-	if err := os.MkdirAll(dumpDir, 0o755); err != nil {
+	if err := os.MkdirAll(dumpDir, 0o750); err != nil {
 		return "", fmt.Errorf("creating dump directory %s: %w", dumpDir, err)
 	}
 
@@ -65,7 +65,7 @@ func (d *Dumper) Dump(app *discovery.App, svc discovery.ServiceBackupConfig) (st
 	dockerArgs := append([]string{"exec", containerName}, dumpCmd...)
 
 	// Open output file
-	f, err := os.Create(dumpPath)
+	f, err := os.Create(dumpPath) // #nosec G304 -- path is constructed internally
 	if err != nil {
 		return "", fmt.Errorf("creating dump file %s: %w", dumpPath, err)
 	}
@@ -111,7 +111,7 @@ func (d *Dumper) Restore(app *discovery.App, svc discovery.ServiceBackupConfig, 
 	}
 
 	// Pipe dump file contents to docker exec stdin instead of using sh -c
-	f, err := os.Open(dumpFile)
+	f, err := os.Open(dumpFile) // #nosec G304 -- path is constructed internally
 	if err != nil {
 		return fmt.Errorf("opening dump file %s: %w", dumpFile, err)
 	}

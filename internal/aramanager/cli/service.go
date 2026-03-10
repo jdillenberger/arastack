@@ -61,7 +61,7 @@ var serviceStatusCmd = &cobra.Command{
 			if t == nil {
 				return fmt.Errorf("unknown tool: %s", args[0])
 			}
-			c := exec.Command("systemctl", "status", t.ServiceName+".service")
+			c := exec.Command("systemctl", "status", t.ServiceName+".service") // #nosec G204 -- command arguments are not user-controlled
 			c.Stdout = os.Stdout
 			c.Stderr = os.Stderr
 			_ = c.Run()

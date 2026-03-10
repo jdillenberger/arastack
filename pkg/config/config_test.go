@@ -83,7 +83,7 @@ func TestApplyEnvOverrides_EmptyPrefix(t *testing.T) {
 func TestLoad_OverridePath(t *testing.T) {
 	dir := t.TempDir()
 	cfgFile := filepath.Join(dir, "test.yaml")
-	if err := os.WriteFile(cfgFile, []byte("name: from-file\ntimeout: 99\n"), 0o644); err != nil {
+	if err := os.WriteFile(cfgFile, []byte("name: from-file\ntimeout: 99\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -105,7 +105,7 @@ func TestLoad_OverridePath(t *testing.T) {
 
 func TestLoad_ExtraSearchDirs(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "myapp.yaml"), []byte("name: extra-dir\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "myapp.yaml"), []byte("name: extra-dir\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -126,7 +126,7 @@ func TestLoad_ExtraSearchDirs(t *testing.T) {
 func TestLoad_EnvOverrideAfterFile(t *testing.T) {
 	dir := t.TempDir()
 	cfgFile := filepath.Join(dir, "test.yaml")
-	if err := os.WriteFile(cfgFile, []byte("name: from-file\n"), 0o644); err != nil {
+	if err := os.WriteFile(cfgFile, []byte("name: from-file\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 

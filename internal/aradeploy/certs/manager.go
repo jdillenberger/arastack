@@ -41,10 +41,10 @@ func (cm *Manager) EnsureCerts(domains []string) error {
 		return nil
 	}
 
-	if err := os.MkdirAll(cm.certsDir, 0o755); err != nil {
+	if err := os.MkdirAll(cm.certsDir, 0o750); err != nil {
 		return fmt.Errorf("creating certs directory: %w", err)
 	}
-	if err := os.MkdirAll(cm.dynamicDir, 0o755); err != nil {
+	if err := os.MkdirAll(cm.dynamicDir, 0o750); err != nil {
 		return fmt.Errorf("creating dynamic directory: %w", err)
 	}
 
@@ -219,7 +219,7 @@ func writePEM(path, typ string, key *ecdsa.PrivateKey) error {
 	if err != nil {
 		return err
 	}
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600) // #nosec G304 -- path is constructed internally
 	if err != nil {
 		return err
 	}
@@ -228,7 +228,7 @@ func writePEM(path, typ string, key *ecdsa.PrivateKey) error {
 }
 
 func writeCertPEM(path string, der []byte) error {
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600) // #nosec G304 -- path is constructed internally
 	if err != nil {
 		return err
 	}
@@ -237,7 +237,7 @@ func writeCertPEM(path string, der []byte) error {
 }
 
 func loadECKey(path string) (*ecdsa.PrivateKey, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) // #nosec G304 -- path is constructed internally
 	if err != nil {
 		return nil, err
 	}
@@ -249,7 +249,7 @@ func loadECKey(path string) (*ecdsa.PrivateKey, error) {
 }
 
 func loadCert(path string) (*x509.Certificate, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) // #nosec G304 -- path is constructed internally
 	if err != nil {
 		return nil, err
 	}

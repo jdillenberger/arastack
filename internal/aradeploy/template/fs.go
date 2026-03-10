@@ -279,7 +279,7 @@ func BuildTemplateFS(repoDirs []string, localDir string) fs.FS {
 	}
 
 	// Auto-create the local templates directory.
-	if err := os.MkdirAll(localDir, 0o755); err != nil {
+	if err := os.MkdirAll(localDir, 0o750); err != nil {
 		if base != nil {
 			return base
 		}

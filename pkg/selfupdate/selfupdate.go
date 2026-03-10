@@ -63,11 +63,11 @@ func ExtractBinariesFromTarGz(r io.Reader, names []string) (map[string][]byte, e
 // ReplaceBinary atomically replaces the binary at dst with the one at src.
 func ReplaceBinary(src, dst string) error {
 	if err := os.Rename(src, dst); err == nil {
-		return os.Chmod(dst, 0o755)
+		return os.Chmod(dst, 0o755) // #nosec G302 -- executable needs to be executable
 	}
 
 	// Cross-device fallback: copy to a temp file on the same filesystem as dst, then rename.
-	in, err := os.Open(src)
+	in, err := os.Open(src) // #nosec G304 -- path is from internal update logic
 	if err != nil {
 		return fmt.Errorf("opening temp file: %w", err)
 	}

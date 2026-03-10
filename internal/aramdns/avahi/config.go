@@ -1,30 +1,17 @@
 package avahi
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/jdillenberger/arastack/pkg/mdns"
 )
 
 const avahiConfigPath = "/etc/avahi/avahi-daemon.conf"
-
-// virtualPrefixes lists network interface name prefixes that are virtual/container-related.
-var virtualPrefixes = []string{
-	"docker",    // Docker default bridge
-	"br-",       // Docker user-defined bridges
-	"veth",      // Docker container veth pairs
-	"virbr",     // libvirt
-	"tun",       // VPN tunnels
-	"tap",       // TAP devices
-	"wg",        // WireGuard
-	"tailscale", // Tailscale VPN
-	"cni",       // CNI networks (Kubernetes/Podman)
-	"flannel",   // Flannel overlay
-	"calico",    // Calico overlay
-}
 
 // EnsureAvahiConfig makes sure avahi-daemon.conf restricts mDNS to physical
 // network interfaces so that Docker bridge interfaces don't cause hostname
@@ -51,7 +38,7 @@ func EnsureAvahiConfig() {
 		}
 	}
 
-	ifaces, err := PhysicalInterfaces()
+	ifaces, err := mdns.PhysicalInterfaceNames()
 	if err != nil || len(ifaces) == 0 {
 		fmt.Fprintf(os.Stderr, "avahi: cannot detect physical interfaces: %v\n", err)
 		return
@@ -67,7 +54,7 @@ func EnsureAvahiConfig() {
 		content = strings.Replace(content, "[server]\n", "[server]\n"+directive+"\n", 1)
 	}
 
-	if err := os.WriteFile(avahiConfigPath, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(avahiConfigPath, []byte(content), 0o600); err != nil { // #nosec G703 -- avahiConfigPath is a well-known system path
 		if errors.Is(err, os.ErrPermission) {
 			fmt.Fprintf(os.Stderr, "avahi: cannot write %s (permission denied). Run with sudo or manually set:\n  %s\n", avahiConfigPath, directive)
 		} else {
@@ -78,36 +65,7 @@ func EnsureAvahiConfig() {
 
 	fmt.Fprintf(os.Stderr, "avahi: configured allow-interfaces=%s\n", ifaceList)
 
-	if out, err := exec.Command("systemctl", "restart", "avahi-daemon").CombinedOutput(); err != nil {
+	if out, err := exec.CommandContext(context.Background(), "systemctl", "restart", "avahi-daemon").CombinedOutput(); err != nil { // #nosec G204 -- args are static
 		fmt.Fprintf(os.Stderr, "avahi: restart failed: %v: %s\n", err, out)
 	}
-}
-
-// PhysicalInterfaces returns the names of non-virtual, non-loopback network interfaces.
-func PhysicalInterfaces() ([]string, error) {
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		return nil, err
-	}
-
-	var physical []string
-	for _, iface := range ifaces {
-		if iface.Flags&net.FlagLoopback != 0 {
-			continue
-		}
-		if isVirtual(iface.Name) {
-			continue
-		}
-		physical = append(physical, iface.Name)
-	}
-	return physical, nil
-}
-
-func isVirtual(name string) bool {
-	for _, prefix := range virtualPrefixes {
-		if strings.HasPrefix(name, prefix) {
-			return true
-		}
-	}
-	return false
 }

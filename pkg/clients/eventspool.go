@@ -51,7 +51,7 @@ func (s *EventSpool) Flush(client *AlertClient) int {
 	}
 
 	if len(remaining) == 0 {
-		os.Remove(s.path) //nolint:errcheck // best-effort cleanup
+		_ = os.Remove(s.path) // best-effort cleanup
 	} else {
 		_ = s.save(remaining)
 	}
@@ -72,12 +72,12 @@ func (s *EventSpool) load() ([]Event, error) {
 }
 
 func (s *EventSpool) save(events []Event) error {
-	if err := os.MkdirAll(filepath.Dir(s.path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(s.path), 0o750); err != nil {
 		return fmt.Errorf("creating spool directory: %w", err)
 	}
 	data, err := json.Marshal(events)
 	if err != nil {
 		return fmt.Errorf("marshaling event spool: %w", err)
 	}
-	return os.WriteFile(s.path, data, 0o644)
+	return os.WriteFile(s.path, data, 0o600)
 }

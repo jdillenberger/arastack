@@ -74,7 +74,7 @@ func Load(cfg any, opts Options) error {
 
 // mergeFromFile reads a YAML file and unmarshals it on top of the existing config.
 func mergeFromFile(cfg any, path string) error {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) // #nosec G304 -- path is from config
 	if err != nil {
 		return err
 	}

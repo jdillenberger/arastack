@@ -60,11 +60,11 @@ var configInitCmd = &cobra.Command{
 			return fmt.Errorf("config file already exists: %s", path)
 		}
 
-		if err := os.MkdirAll("/etc/arastack/config", 0o755); err != nil {
+		if err := os.MkdirAll("/etc/arastack/config", 0o750); err != nil {
 			return fmt.Errorf("creating config directory: %w (are you root?)", err)
 		}
 
-		if err := os.WriteFile(path, []byte(config.DefaultConfigYAML()), 0o644); err != nil {
+		if err := os.WriteFile(path, []byte(config.DefaultConfigYAML()), 0o600); err != nil {
 			return fmt.Errorf("writing config file: %w", err)
 		}
 

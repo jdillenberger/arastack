@@ -70,8 +70,9 @@ func Defaults() *Config {
 		},
 		Borg: BorgConfig{
 			BaseDir:        "/mnt/backup/borg",
-			PassphraseFile: "/etc/arastack/borg-passphrase",
-			Encryption:     "repokey",
+			PassphraseFile: "/etc/arastack/borg-passphrase", // #nosec G101 -- this is a config path, not a credential
+
+			Encryption: "repokey",
 			Retention: RetentionConfig{
 				KeepDaily:   7,
 				KeepWeekly:  4,

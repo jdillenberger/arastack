@@ -106,7 +106,7 @@ func runUpgrade(cfg *config.Config, mgr *deploy.Manager, appName string, dryRun,
 
 	appDir := cfg.AppDir(appName)
 	composePath := filepath.Join(appDir, "docker-compose.yml")
-	composeData, err := os.ReadFile(composePath)
+	composeData, err := os.ReadFile(composePath) // #nosec G304 -- path is constructed internally
 	if err != nil {
 		return fmt.Errorf("reading compose file: %w", err)
 	}
@@ -193,7 +193,7 @@ func runUpgrade(cfg *config.Config, mgr *deploy.Manager, appName string, dryRun,
 		fmt.Println("\nTemplate changes:")
 		for name, newContent := range rendered {
 			existingPath := filepath.Join(appDir, name)
-			existingData, err := os.ReadFile(existingPath)
+			existingData, err := os.ReadFile(existingPath) // #nosec G304 -- path is constructed internally
 			if err != nil {
 				fmt.Printf("  + %s (new file)\n", name)
 				hasTemplateChanges = true
@@ -224,7 +224,7 @@ func runUpgrade(cfg *config.Config, mgr *deploy.Manager, appName string, dryRun,
 		return nil
 	}
 
-	origCompose, err := os.ReadFile(composePath)
+	origCompose, err := os.ReadFile(composePath) // #nosec G304 -- path is constructed internally
 	if err != nil {
 		return fmt.Errorf("reading compose file for backup: %w", err)
 	}
@@ -232,7 +232,7 @@ func runUpgrade(cfg *config.Config, mgr *deploy.Manager, appName string, dryRun,
 	if hasTemplateChanges && rendered != nil {
 		for name, content := range rendered {
 			outPath := filepath.Join(appDir, name)
-			if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil {
+			if err := os.MkdirAll(filepath.Dir(outPath), 0o750); err != nil {
 				return fmt.Errorf("creating directory for %s: %w", name, err)
 			}
 			if err := os.WriteFile(outPath, []byte(content), 0o600); err != nil {
@@ -242,7 +242,7 @@ func runUpgrade(cfg *config.Config, mgr *deploy.Manager, appName string, dryRun,
 	}
 
 	if len(imageUpdates) > 0 {
-		content, err := os.ReadFile(composePath)
+		content, err := os.ReadFile(composePath) // #nosec G304 -- path is constructed internally
 		if err != nil {
 			return fmt.Errorf("reading compose file for image update: %w", err)
 		}
@@ -253,7 +253,7 @@ func runUpgrade(cfg *config.Config, mgr *deploy.Manager, appName string, dryRun,
 			newRef.Tag = iu.update.NewTag
 			text = strings.ReplaceAll(text, oldImage, newRef.String())
 		}
-		if err := os.WriteFile(composePath, []byte(text), 0o600); err != nil {
+		if err := os.WriteFile(composePath, []byte(text), 0o600); err != nil { // #nosec G703 -- composePath is constructed from config
 			return fmt.Errorf("writing updated compose file: %w", err)
 		}
 	}
@@ -269,8 +269,8 @@ func runUpgrade(cfg *config.Config, mgr *deploy.Manager, appName string, dryRun,
 	}
 	if composeUpErr != nil {
 		fmt.Printf("Container recreation failed, rolling back compose file...\n")
-		if rollbackErr := os.WriteFile(composePath, origCompose, 0o600); rollbackErr != nil {
-			return fmt.Errorf("recreating containers: %w (rollback also failed: %v)", composeUpErr, rollbackErr)
+		if rollbackErr := os.WriteFile(composePath, origCompose, 0o600); rollbackErr != nil { // #nosec G703 -- composePath is constructed from config
+			return fmt.Errorf("recreating containers: %w (rollback also failed: %w)", composeUpErr, rollbackErr)
 		}
 		return fmt.Errorf("recreating containers (rolled back): %w", composeUpErr)
 	}

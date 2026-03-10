@@ -54,7 +54,7 @@ func CheckDocker(composeCmd string) doctor.CheckResult {
 	args := make([]string, len(parts)-1, len(parts))
 	copy(args, parts[1:])
 	args = append(args, "version")
-	cmd := exec.Command(parts[0], args...)
+	cmd := exec.CommandContext(context.Background(), parts[0], args...) // #nosec G204 -- command is from trusted config
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		result.Version = fmt.Sprintf("%s not accessible: %v", composeCmd, err)
@@ -88,7 +88,7 @@ func CheckAramonitor(url string) doctor.CheckResult {
 func CheckServiceRunning() doctor.CheckResult {
 	result := doctor.CheckResult{Name: "aramonitor-running"}
 
-	cmd := exec.Command("systemctl", "is-active", "aramonitor")
+	cmd := exec.CommandContext(context.Background(), "systemctl", "is-active", "aramonitor")
 	out, err := cmd.CombinedOutput()
 	if err == nil && strings.TrimSpace(string(out)) == "active" {
 		result.Installed = true

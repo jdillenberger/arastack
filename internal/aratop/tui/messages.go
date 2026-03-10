@@ -37,9 +37,9 @@ type backupMsg struct {
 // peersMsg carries peer list from arascanner.
 type peersMsg struct {
 	peerGroup string
-	self  clients.Peer
-	peers []clients.Peer
-	err   error
+	self      clients.Peer
+	peers     []clients.Peer
+	err       error
 }
 
 // serviceHealthMsg carries health check results for all services.

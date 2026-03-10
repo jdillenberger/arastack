@@ -1,6 +1,7 @@
 package avahi
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -41,7 +42,7 @@ func (p *Publisher) Publish(domain string) error {
 
 	slog.Debug("publishing domain", "domain", domain, "ip", p.localIP)
 
-	cmd := exec.Command("avahi-publish", "-a", "-R", domain, p.localIP)
+	cmd := exec.CommandContext(context.Background(), "avahi-publish", "-a", "-R", domain, p.localIP) // #nosec G204 -- args are from internal config
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Start(); err != nil {
@@ -95,7 +96,7 @@ func (p *Publisher) ListPublished() map[string]bool {
 // CleanStaleProcesses kills any orphaned avahi-publish address processes
 // left over from a previous run.
 func (p *Publisher) CleanStaleProcesses() {
-	cmd := exec.Command("pkill", "-f", "avahi-publish -a -R")
+	cmd := exec.CommandContext(context.Background(), "pkill", "-f", "avahi-publish -a -R")
 	_ = cmd.Run() // ignore error: exit 1 means no matching processes
 	slog.Debug("cleaned stale avahi-publish processes")
 }

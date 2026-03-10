@@ -1,6 +1,7 @@
 package containers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -145,7 +146,7 @@ func (c *Collector) composePS(appDir string) ([]composeContainer, error) {
 	args := make([]string, len(parts)-1, len(parts)+2)
 	copy(args, parts[1:])
 	args = append(args, "ps", "--format", "json")
-	cmd := exec.Command(parts[0], args...)
+	cmd := exec.CommandContext(context.Background(), parts[0], args...) // #nosec G204 -- command is from trusted config
 	cmd.Dir = appDir
 	out, err := cmd.Output()
 	if err != nil {
@@ -173,7 +174,7 @@ func (c *Collector) dockerStats(names []string) (map[string]dockerStatsJSON, err
 
 	// Extract docker binary from compose command (e.g., "docker compose" -> "docker").
 	dockerBin := strings.Fields(c.composeCmd)[0]
-	cmd := exec.Command(dockerBin, args...)
+	cmd := exec.CommandContext(context.Background(), dockerBin, args...) // #nosec G204 -- command is from trusted config
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("running docker stats: %w", err)

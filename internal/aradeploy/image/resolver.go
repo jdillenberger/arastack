@@ -1,6 +1,7 @@
 package image
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -69,7 +70,11 @@ func (r *Resolver) getToken(registry, repo string) (string, error) {
 	}
 
 	url := fmt.Sprintf("%s?service=%s&scope=repository:%s:pull", tokenURL, service, repo)
-	resp, err := r.client.Get(url)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, http.NoBody)
+	if err != nil {
+		return "", fmt.Errorf("creating token request: %w", err)
+	}
+	resp, err := r.client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("fetching token: %w", err)
 	}
@@ -94,7 +99,7 @@ func (r *Resolver) GetDigest(ref Ref) (string, error) {
 	}
 
 	url := fmt.Sprintf("%s/v2/%s/manifests/%s", registryAPIBase(ref.Registry), ref.FullRepo(), ref.Tag)
-	req, err := http.NewRequest("HEAD", url, http.NoBody)
+	req, err := http.NewRequestWithContext(context.Background(), "HEAD", url, http.NoBody)
 	if err != nil {
 		return "", err
 	}
@@ -134,7 +139,7 @@ func (r *Resolver) ListTags(ref Ref) ([]string, error) {
 	nextURL := baseURL
 
 	for nextURL != "" {
-		req, err := http.NewRequest("GET", nextURL, http.NoBody)
+		req, err := http.NewRequestWithContext(context.Background(), "GET", nextURL, http.NoBody)
 		if err != nil {
 			return nil, err
 		}

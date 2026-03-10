@@ -43,11 +43,11 @@ type PeerGroup struct {
 
 type InviteToken struct {
 	PeerGroup string    `json:"peer_group"`
-	Address string    `json:"address"`
-	Port    int       `json:"port"`
-	Token   string    `json:"token"` // one-time join token (NOT the PSK)
-	CACert  string    `json:"ca_cert,omitempty"`
-	Expires time.Time `json:"expires"`
+	Address   string    `json:"address"`
+	Port      int       `json:"port"`
+	Token     string    `json:"token"` // one-time join token (NOT the PSK)
+	CACert    string    `json:"ca_cert,omitempty"`
+	Expires   time.Time `json:"expires"`
 }
 
 type PendingInvite struct {

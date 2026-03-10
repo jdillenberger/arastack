@@ -1,6 +1,7 @@
 package health
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -136,7 +137,7 @@ func (c *Checker) runComposePS(appDir string) (string, error) {
 	args := make([]string, len(parts)-1, len(parts)+2)
 	copy(args, parts[1:])
 	args = append(args, "ps", "--format", "json")
-	cmd := exec.Command(parts[0], args...)
+	cmd := exec.CommandContext(context.Background(), parts[0], args...) // #nosec G204 -- command is from trusted config
 	cmd.Dir = appDir
 	out, err := cmd.Output()
 	if err != nil {

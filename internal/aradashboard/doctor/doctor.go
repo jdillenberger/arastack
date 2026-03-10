@@ -1,6 +1,7 @@
 package doctor
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -54,7 +55,7 @@ func checkBinary(name, bin string, args ...string) doctor.CheckResult {
 	}
 
 	result.Installed = true
-	cmd := exec.Command(path, args...)
+	cmd := exec.CommandContext(context.Background(), path, args...) // #nosec G204 -- command is from trusted config
 	out, err := cmd.CombinedOutput()
 	if err == nil {
 		ver := strings.TrimSpace(string(out))
@@ -107,7 +108,7 @@ func Fix(r doctor.CheckResult, cfg config.Config) error {
 
 	if r.Name == "aradeploy config" {
 		dir := "/etc/arastack/config/"
-		cmd := exec.Command("sudo", "mkdir", "-p", dir)
+		cmd := exec.CommandContext(context.Background(), "sudo", "mkdir", "-p", dir)
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("creating %s: %w", dir, err)
@@ -122,7 +123,16 @@ func checkHTTP(name, url string, optional bool) doctor.CheckResult {
 	result := doctor.CheckResult{Name: name, Optional: optional}
 
 	client := &http.Client{Timeout: 3 * time.Second}
-	resp, err := client.Get(url)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, http.NoBody)
+	if err != nil {
+		if optional {
+			result.Version = "unavailable (optional)"
+		} else {
+			result.Version = "unreachable"
+		}
+		return result
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		if optional {
 			result.Version = "unavailable (optional)"

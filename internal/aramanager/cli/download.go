@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -16,7 +17,11 @@ import (
 // fetchLatestRelease fetches the latest release metadata from GitHub.
 func fetchLatestRelease() (*githubRelease, error) {
 	apiURL := "https://api.github.com/repos/" + githubRepo + "/releases/latest"
-	resp, err := http.Get(apiURL)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, apiURL, http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("checking for updates: %w", err)
 	}
@@ -53,7 +58,11 @@ func downloadAndInstallBinaries(release *githubRelease, binaries []string) []str
 
 	fmt.Printf("Downloading arastack archive...\n")
 
-	dlResp, err := http.Get(downloadURL)
+	dlReq, err := http.NewRequestWithContext(context.Background(), http.MethodGet, downloadURL, http.NoBody)
+	if err != nil {
+		return []string{fmt.Sprintf("download request failed: %v", err)}
+	}
+	dlResp, err := http.DefaultClient.Do(dlReq)
 	if err != nil {
 		return []string{fmt.Sprintf("download failed: %v", err)}
 	}

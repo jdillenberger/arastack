@@ -3,6 +3,7 @@ package executil
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -28,7 +29,7 @@ func (r *Runner) Run(name string, args ...string) (*Result, error) {
 		fmt.Fprintf(os.Stderr, "exec: %s %s\n", name, strings.Join(args, " "))
 	}
 
-	cmd := exec.Command(name, args...)
+	cmd := exec.CommandContext(context.Background(), name, args...) // #nosec G204 -- runner is a general-purpose exec wrapper
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -39,7 +40,8 @@ func (r *Runner) Run(name string, args ...string) (*Result, error) {
 		Stderr: stderr.String(),
 	}
 
-	if exitErr, ok := err.(*exec.ExitError); ok {
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
 		result.ExitCode = exitErr.ExitCode()
 		return result, fmt.Errorf("command %q exited with code %d: %s", name, result.ExitCode, stderr.String())
 	}
@@ -56,7 +58,7 @@ func (r *Runner) RunWithEnv(env []string, name string, args ...string) (*Result,
 		fmt.Fprintf(os.Stderr, "exec: %s %s\n", name, strings.Join(args, " "))
 	}
 
-	cmd := exec.Command(name, args...)
+	cmd := exec.CommandContext(context.Background(), name, args...) // #nosec G204 -- runner is a general-purpose exec wrapper
 	cmd.Env = append(os.Environ(), env...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -68,7 +70,8 @@ func (r *Runner) RunWithEnv(env []string, name string, args ...string) (*Result,
 		Stderr: stderr.String(),
 	}
 
-	if exitErr, ok := err.(*exec.ExitError); ok {
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
 		result.ExitCode = exitErr.ExitCode()
 		return result, fmt.Errorf("command %q exited with code %d: %s", name, result.ExitCode, stderr.String())
 	}
@@ -85,7 +88,7 @@ func (r *Runner) RunWithContext(ctx context.Context, name string, args ...string
 		fmt.Fprintf(os.Stderr, "exec: %s %s\n", name, strings.Join(args, " "))
 	}
 
-	cmd := exec.CommandContext(ctx, name, args...)
+	cmd := exec.CommandContext(ctx, name, args...) // #nosec G204 -- runner is a general-purpose exec wrapper
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -99,7 +102,8 @@ func (r *Runner) RunWithContext(ctx context.Context, name string, args ...string
 	if ctx.Err() != nil {
 		return result, fmt.Errorf("command %q: %w", name, ctx.Err())
 	}
-	if exitErr, ok := err.(*exec.ExitError); ok {
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
 		result.ExitCode = exitErr.ExitCode()
 		return result, fmt.Errorf("command %q exited with code %d: %s", name, result.ExitCode, stderr.String())
 	}
@@ -116,7 +120,7 @@ func (r *Runner) RunInteractive(name string, args ...string) error {
 		fmt.Fprintf(os.Stderr, "exec: %s %s\n", name, strings.Join(args, " "))
 	}
 
-	cmd := exec.Command(name, args...)
+	cmd := exec.CommandContext(context.Background(), name, args...) // #nosec G204 -- runner is a general-purpose exec wrapper
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -130,7 +134,7 @@ func (r *Runner) RunStream(w io.Writer, name string, args ...string) error {
 		fmt.Fprintf(os.Stderr, "exec: %s %s\n", name, strings.Join(args, " "))
 	}
 
-	cmd := exec.Command(name, args...)
+	cmd := exec.CommandContext(context.Background(), name, args...) // #nosec G204 -- runner is a general-purpose exec wrapper
 	cmd.Stdout = w
 	cmd.Stderr = os.Stderr
 
@@ -143,7 +147,7 @@ func (r *Runner) RunPipe(w io.Writer, env []string, name string, args ...string)
 		fmt.Fprintf(os.Stderr, "exec: %s %s\n", name, strings.Join(args, " "))
 	}
 
-	cmd := exec.Command(name, args...)
+	cmd := exec.CommandContext(context.Background(), name, args...) // #nosec G204 -- runner is a general-purpose exec wrapper
 	if len(env) > 0 {
 		cmd.Env = append(os.Environ(), env...)
 	}
@@ -160,7 +164,7 @@ func (r *Runner) RunWithEnvAndDir(env []string, dir, name string, args ...string
 		fmt.Fprintf(os.Stderr, "exec: %s %s\n", name, strings.Join(args, " "))
 	}
 
-	cmd := exec.Command(name, args...)
+	cmd := exec.CommandContext(context.Background(), name, args...) // #nosec G204 -- runner is a general-purpose exec wrapper
 	if len(env) > 0 {
 		cmd.Env = append(os.Environ(), env...)
 	}
@@ -177,7 +181,8 @@ func (r *Runner) RunWithEnvAndDir(env []string, dir, name string, args ...string
 		Stderr: stderr.String(),
 	}
 
-	if exitErr, ok := err.(*exec.ExitError); ok {
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
 		result.ExitCode = exitErr.ExitCode()
 		return result, fmt.Errorf("command %q exited with code %d: %s", name, result.ExitCode, stderr.String())
 	}
@@ -195,7 +200,7 @@ func (r *Runner) RunPipeStdin(stdin io.Reader, name string, args ...string) (*Re
 		fmt.Fprintf(os.Stderr, "exec: %s %s\n", name, strings.Join(args, " "))
 	}
 
-	cmd := exec.Command(name, args...)
+	cmd := exec.CommandContext(context.Background(), name, args...) // #nosec G204 -- runner is a general-purpose exec wrapper
 	cmd.Stdin = stdin
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -207,7 +212,8 @@ func (r *Runner) RunPipeStdin(stdin io.Reader, name string, args ...string) (*Re
 		Stderr: stderr.String(),
 	}
 
-	if exitErr, ok := err.(*exec.ExitError); ok {
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
 		result.ExitCode = exitErr.ExitCode()
 		return result, fmt.Errorf("command %q exited with code %d: %s", name, result.ExitCode, stderr.String())
 	}

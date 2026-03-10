@@ -107,8 +107,34 @@ func (s *Store) Save() error {
 		return fmt.Errorf("creating data dir %s: %w", dir, err)
 	}
 
-	if err := os.WriteFile(s.path, data, 0o600); err != nil {
-		return fmt.Errorf("writing %s: %w", s.path, err)
+	tmp, err := os.CreateTemp(dir, filepath.Base(s.path)+".tmp*")
+	if err != nil {
+		return fmt.Errorf("creating temp file: %w", err)
+	}
+	tmpName := tmp.Name()
+
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(tmpName)
+		return fmt.Errorf("writing temp file: %w", err)
+	}
+	if err := tmp.Chmod(0o600); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(tmpName)
+		return fmt.Errorf("setting permissions: %w", err)
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(tmpName)
+		return fmt.Errorf("syncing temp file: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		_ = os.Remove(tmpName)
+		return fmt.Errorf("closing temp file: %w", err)
+	}
+	if err := os.Rename(tmpName, s.path); err != nil {
+		_ = os.Remove(tmpName)
+		return fmt.Errorf("renaming temp file: %w", err)
 	}
 
 	s.dirty = false

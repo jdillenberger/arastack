@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 )
 
 // MattermostNotifier sends notifications via a Mattermost incoming webhook.
@@ -18,7 +19,7 @@ type MattermostNotifier struct {
 func NewMattermostNotifier(webhookURL string) *MattermostNotifier {
 	return &MattermostNotifier{
 		webhookURL: webhookURL,
-		client:     &http.Client{},
+		client:     &http.Client{Timeout: 30 * time.Second},
 	}
 }
 

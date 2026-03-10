@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 )
 
 // WebhookNotifier sends notifications via HTTP POST to a webhook URL.
@@ -18,7 +19,7 @@ type WebhookNotifier struct {
 func NewWebhookNotifier(url string) *WebhookNotifier {
 	return &WebhookNotifier{
 		url:    url,
-		client: &http.Client{},
+		client: &http.Client{Timeout: 30 * time.Second},
 	}
 }
 

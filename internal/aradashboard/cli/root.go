@@ -14,8 +14,8 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use:          "aradashboard",
-	Short:        "Web dashboard for komphost homelab services",
-	Long:         "aradashboard provides a web-based dashboard for monitoring apps deployed via aradeploy and integrating with komphost services.",
+	Short:        "Web dashboard for arastack homelab services",
+	Long:         "aradashboard provides a web-based dashboard for monitoring apps deployed via aradeploy and integrating with arastack services.",
 	SilenceUsage: true,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		level := slog.LevelInfo

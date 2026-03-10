@@ -14,7 +14,7 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use:   "aranotify",
-	Short: "Notification delivery service for komphost",
+	Short: "Notification delivery service for arastack",
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		level := slog.LevelInfo
 		if verbose {

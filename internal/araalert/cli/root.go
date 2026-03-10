@@ -14,7 +14,7 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use:   "araalert",
-	Short: "Alert rule evaluation daemon for komphost",
+	Short: "Alert rule evaluation daemon for arastack",
 	Long:  "Evaluates alert rules against health check results and dispatches notifications via aranotify.",
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		level := slog.LevelInfo

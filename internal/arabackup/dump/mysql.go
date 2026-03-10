@@ -11,18 +11,21 @@ func (d *MySQLDriver) DumpCommand(opts DumpOptions) []string {
 		user = "root"
 	}
 
-	cmd := "mysqldump -u " + user
 	if opts.PasswordEnv != "" {
-		cmd += " -p\"$" + opts.PasswordEnv + "\""
+		// Use sh -c for env var expansion, passing user/db as positional args to avoid injection.
+		if opts.Database == "" || opts.Database == "all" {
+			return []string{"sh", "-c", "exec mysqldump -u \"$1\" -p\"$" + opts.PasswordEnv + "\" --all-databases", "--", user}
+		}
+		return []string{"sh", "-c", "exec mysqldump -u \"$1\" -p\"$" + opts.PasswordEnv + "\" \"$2\"", "--", user, opts.Database}
 	}
 
+	args := []string{"mysqldump", "-u", user}
 	if opts.Database == "" || opts.Database == "all" {
-		cmd += " --all-databases"
+		args = append(args, "--all-databases")
 	} else {
-		cmd += " " + opts.Database
+		args = append(args, opts.Database)
 	}
-
-	return []string{"sh", "-c", cmd}
+	return args
 }
 
 func (d *MySQLDriver) RestoreCommand(opts RestoreOptions) []string {
@@ -31,12 +34,11 @@ func (d *MySQLDriver) RestoreCommand(opts RestoreOptions) []string {
 		user = "root"
 	}
 
-	cmd := "mysql -u " + user
 	if opts.PasswordEnv != "" {
-		cmd += " -p\"$" + opts.PasswordEnv + "\""
+		return []string{"sh", "-c", "exec mysql -u \"$1\" -p\"$" + opts.PasswordEnv + "\"", "--", user}
 	}
 
-	return []string{"sh", "-c", cmd}
+	return []string{"mysql", "-u", user}
 }
 
 func (d *MySQLDriver) FileExtension() string { return "sql" }

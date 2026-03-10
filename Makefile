@@ -38,7 +38,7 @@ install: build ## Install all tools to /usr/local/bin
 	@$(foreach tool,$(TOOLS),sudo cp bin/$(tool) /usr/local/bin/$(tool);)
 
 test: ## Run all tests
-	go test ./... -v -count=1
+	go test -race ./... -v -count=1
 
 lint: ## Run golangci-lint
 	golangci-lint run ./...

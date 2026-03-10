@@ -74,7 +74,7 @@ func Defaults() Config {
 			Config: aradeployconfig.DefaultConfigPath,
 		},
 		Server: ServerConfig{
-			Bind: "0.0.0.0",
+			Bind: "127.0.0.1",
 			Port: ports.AraDashboard,
 		},
 		Services: Services{

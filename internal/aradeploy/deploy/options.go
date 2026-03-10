@@ -2,23 +2,18 @@ package deploy
 
 import (
 	"fmt"
-	"strings"
+	"regexp"
 )
 
-// ValidateAppName checks that an app name does not contain path traversal
-// characters or other unsafe sequences.
+var validAppName = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]*$`)
+
+// ValidateAppName checks that an app name only contains safe characters.
 func ValidateAppName(name string) error {
 	if name == "" {
 		return fmt.Errorf("app name must not be empty")
 	}
-	if strings.Contains(name, "..") {
-		return fmt.Errorf("app name %q must not contain '..'", name)
-	}
-	if strings.ContainsAny(name, "/\\") {
-		return fmt.Errorf("app name %q must not contain path separators", name)
-	}
-	if strings.ContainsAny(name, "\x00") {
-		return fmt.Errorf("app name %q contains invalid characters", name)
+	if !validAppName.MatchString(name) {
+		return fmt.Errorf("app name %q is invalid: must start with a letter or digit and contain only lowercase letters, digits, dots, hyphens, and underscores", name)
 	}
 	return nil
 }

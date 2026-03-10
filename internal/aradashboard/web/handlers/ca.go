@@ -69,7 +69,7 @@ func (h *Handler) HandleCACert(c echo.Context) error {
 		return c.String(http.StatusNotFound, "CA certificate not available.")
 	}
 
-	c.Response().Header().Set("Content-Disposition", "attachment; filename=komphost-ca.crt")
+	c.Response().Header().Set("Content-Disposition", "attachment; filename=arastack-ca.crt")
 	return c.Blob(http.StatusOK, "application/x-x509-ca-cert", data)
 }
 
@@ -88,13 +88,13 @@ if [ -z "$CERT" ]; then
     exit 1
 fi
 
-TMP=$(mktemp /tmp/komphost-ca.XXXXXX.crt)
+TMP=$(mktemp /tmp/arastack-ca.XXXXXX.crt)
 echo "$CERT" > "$TMP"
 trap "rm -f '$TMP'" EXIT
 
 case "$(uname)" in
     Linux)
-        sudo cp "$TMP" /usr/local/share/ca-certificates/komphost-ca.crt
+        sudo cp "$TMP" /usr/local/share/ca-certificates/arastack-ca.crt
         sudo update-ca-certificates
 
         if [ -n "$SUDO_USER" ]; then
@@ -121,14 +121,14 @@ case "$(uname)" in
         if command -v certutil >/dev/null 2>&1; then
             NSSDB="$USER_HOME/.pki/nssdb"
             if [ -d "$NSSDB" ]; then
-                certutil -d sql:"$NSSDB" -D -n "komphost CA" 2>/dev/null || true
-                certutil -d sql:"$NSSDB" -A -t "C,," -n "komphost CA" -i "$TMP"
+                certutil -d sql:"$NSSDB" -D -n "arastack CA" 2>/dev/null || true
+                certutil -d sql:"$NSSDB" -A -t "C,," -n "arastack CA" -i "$TMP"
                 echo "Installed into Chrome trust store."
             fi
             for profile in "$USER_HOME"/.mozilla/firefox/*/; do
                 if [ -f "${profile}cert9.db" ]; then
-                    certutil -d sql:"$profile" -D -n "komphost CA" 2>/dev/null || true
-                    certutil -d sql:"$profile" -A -t "C,," -n "komphost CA" -i "$TMP"
+                    certutil -d sql:"$profile" -D -n "arastack CA" 2>/dev/null || true
+                    certutil -d sql:"$profile" -A -t "C,," -n "arastack CA" -i "$TMP"
                     echo "Installed into Firefox profile: $(basename "$profile")"
                 fi
             done

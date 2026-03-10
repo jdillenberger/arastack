@@ -54,7 +54,7 @@
     <details>
         <summary><strong>Windows</strong></summary>
         <p>Run this command in PowerShell as Administrator:</p>
-        <pre><code>Invoke-WebRequest -Uri "{{.InstallURL}}/ca/cert" -OutFile "$env:TEMP\komphost-ca.crt"; Import-Certificate -FilePath "$env:TEMP\komphost-ca.crt" -CertStoreLocation Cert:\LocalMachine\Root</code></pre>
+        <pre><code>Invoke-WebRequest -Uri "{{.InstallURL}}/ca/cert" -OutFile "$env:TEMP\arastack-ca.crt"; Import-Certificate -FilePath "$env:TEMP\arastack-ca.crt" -CertStoreLocation Cert:\LocalMachine\Root</code></pre>
     </details>
 
     <details>

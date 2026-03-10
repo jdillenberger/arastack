@@ -8,13 +8,14 @@ import (
 )
 
 func truncate(s string, limit int) string {
-	if len(s) <= limit {
+	runes := []rune(s)
+	if len(runes) <= limit {
 		return s
 	}
 	if limit <= 1 {
 		return "…"
 	}
-	return s[:limit-1] + "…"
+	return string(runes[:limit-1]) + "…"
 }
 
 func formatBytes(b uint64) string {

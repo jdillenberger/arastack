@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -14,18 +13,8 @@ import (
 
 	"github.com/jdillenberger/arastack/internal/aradashboard/discovery"
 	"github.com/jdillenberger/arastack/internal/aradashboard/docker"
+	"github.com/jdillenberger/arastack/internal/aradeploy/deploy"
 )
-
-// validateAppName checks that the app name does not contain path traversal characters.
-func validateAppName(name string) error {
-	if strings.Contains(name, "/") || strings.Contains(name, "\\") || strings.Contains(name, "..") {
-		return fmt.Errorf("invalid app name")
-	}
-	if filepath.Base(name) != name {
-		return fmt.Errorf("invalid app name")
-	}
-	return nil
-}
 
 // AppAddress represents a single reachable address for an app.
 type AppAddress struct {
@@ -75,7 +64,7 @@ func (h *Handler) AppsList(c echo.Context) error {
 // AppDetail renders the app detail page.
 func (h *Handler) AppDetail(c echo.Context) error {
 	name := c.Param("name")
-	if err := validateAppName(name); err != nil {
+	if err := deploy.ValidateAppName(name); err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "app not found")
 	}
 
@@ -202,7 +191,7 @@ type AppLogsData struct {
 // AppLogs renders the logs viewer page.
 func (h *Handler) AppLogs(c echo.Context) error {
 	name := c.Param("name")
-	if err := validateAppName(name); err != nil {
+	if err := deploy.ValidateAppName(name); err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "app not found")
 	}
 
@@ -222,7 +211,7 @@ func (h *Handler) AppLogs(c echo.Context) error {
 // AppLogsStream streams raw log output as plain text.
 func (h *Handler) AppLogsStream(c echo.Context) error {
 	name := c.Param("name")
-	if err := validateAppName(name); err != nil {
+	if err := deploy.ValidateAppName(name); err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "app not found")
 	}
 

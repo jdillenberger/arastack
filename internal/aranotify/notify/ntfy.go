@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 )
 
 // NtfyNotifier sends notifications via ntfy.sh or a self-hosted ntfy server.
@@ -19,7 +20,7 @@ func NewNtfyNotifier(url, token string) *NtfyNotifier {
 	return &NtfyNotifier{
 		url:    url,
 		token:  token,
-		client: &http.Client{},
+		client: &http.Client{Timeout: 30 * time.Second},
 	}
 }
 

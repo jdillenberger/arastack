@@ -75,13 +75,7 @@ var setupCmd = &cobra.Command{
 				return fmt.Errorf("fetching release info: %w", err)
 			}
 
-			var dlErrors []string
-			if err := cliutil.RunWithSpinner("Downloading binaries...", func() error {
-				dlErrors = downloadAndInstallBinaries(release, missing)
-				return nil
-			}); err != nil {
-				return err
-			}
+			dlErrors := downloadAndInstallBinaries(release, missing)
 			if len(dlErrors) > 0 {
 				fmt.Println("\nDownload errors:")
 				for _, e := range dlErrors {

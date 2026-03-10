@@ -3,11 +3,13 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 
 	goruntime "runtime"
 
@@ -77,41 +79,82 @@ func downloadAndInstallBinaries(release *githubRelease, binaries []string) []str
 		return []string{fmt.Sprintf("extract failed: %v", err)}
 	}
 
-	var errors []string
+	var errs []string
 	for _, binName := range binaries {
 		data, ok := extracted[binName]
 		if !ok {
-			errors = append(errors, fmt.Sprintf("%s: not found in archive", binName))
+			errs = append(errs, fmt.Sprintf("%s: not found in archive", binName))
 			continue
 		}
 
 		tmpFile, err := os.CreateTemp("", binName+"-update-*")
 		if err != nil {
-			errors = append(errors, fmt.Sprintf("%s: temp file failed: %v", binName, err))
+			errs = append(errs, fmt.Sprintf("%s: temp file failed: %v", binName, err))
 			continue
 		}
 
 		if _, err := tmpFile.Write(data); err != nil {
 			_ = tmpFile.Close()
 			_ = os.Remove(tmpFile.Name())
-			errors = append(errors, fmt.Sprintf("%s: write failed: %v", binName, err))
+			errs = append(errs, fmt.Sprintf("%s: write failed: %v", binName, err))
 			continue
 		}
 		_ = tmpFile.Close()
+		_ = os.Chmod(tmpFile.Name(), 0o755) // #nosec G302 -- needs to be executable for sudo cp
 
 		destPath, err := exec.LookPath(binName)
 		if err != nil {
 			destPath = "/usr/local/bin/" + binName
 		}
 		if err := selfupdate.ReplaceBinary(tmpFile.Name(), destPath); err != nil {
-			_ = os.Remove(tmpFile.Name())
-			errors = append(errors, fmt.Sprintf("%s: replace failed: %v", binName, err))
-			continue
+			if isPermissionError(err) {
+				if sudoErr := installWithSudo(tmpFile.Name(), destPath); sudoErr != nil {
+					_ = os.Remove(tmpFile.Name())
+					errs = append(errs, fmt.Sprintf("%s: sudo install failed: %v", binName, sudoErr))
+					continue
+				}
+			} else {
+				_ = os.Remove(tmpFile.Name())
+				errs = append(errs, fmt.Sprintf("%s: replace failed: %v", binName, err))
+				continue
+			}
 		}
 		_ = os.Remove(tmpFile.Name())
 
 		fmt.Printf("  Installed %s.\n", binName)
 	}
 
-	return errors
+	return errs
+}
+
+// isPermissionError checks whether an error (or any wrapped error) is a permission denied error.
+func isPermissionError(err error) bool {
+	if errors.Is(err, os.ErrPermission) {
+		return true
+	}
+	var pathErr *os.PathError
+	if errors.As(err, &pathErr) {
+		return errors.Is(pathErr.Err, syscall.EACCES)
+	}
+	return false
+}
+
+// installWithSudo installs a binary using sudo, prompting the user for their password if needed.
+func installWithSudo(src, dst string) error {
+	fmt.Printf("  Permission denied, retrying with sudo...\n")
+	cmd := exec.CommandContext(context.Background(), "sudo", "cp", src, dst) // #nosec G204 -- paths are from internal update logic
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("sudo cp: %w", err)
+	}
+	chmod := exec.CommandContext(context.Background(), "sudo", "chmod", "755", dst) // #nosec G204 -- path is from internal update logic
+	chmod.Stdin = os.Stdin
+	chmod.Stdout = os.Stdout
+	chmod.Stderr = os.Stderr
+	if err := chmod.Run(); err != nil {
+		return fmt.Errorf("sudo chmod: %w", err)
+	}
+	return nil
 }

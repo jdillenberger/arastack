@@ -58,6 +58,7 @@ type DumpsConfig struct {
 type ScheduleConfig struct {
 	Backup string `yaml:"backup"`
 	Prune  string `yaml:"prune"`
+	Check  string `yaml:"check"`
 }
 
 // AradeployRef points to the aradeploy configuration file.
@@ -171,6 +172,11 @@ func Validate(c *Config) []string {
 			errs = append(errs, fmt.Sprintf("schedule.prune %q is not a valid cron expression: %v", c.Schedule.Prune, err))
 		}
 	}
+	if c.Schedule.Check != "" {
+		if _, err := cron.ParseStandard(c.Schedule.Check); err != nil {
+			errs = append(errs, fmt.Sprintf("schedule.check %q is not a valid cron expression: %v", c.Schedule.Check, err))
+		}
+	}
 	if c.Aradeploy.Config == "" {
 		errs = append(errs, "aradeploy.config is empty")
 	}
@@ -216,6 +222,7 @@ dumps:
 schedule:
   backup: "0 3 * * *"
   prune: "0 5 * * 0"
+  # check: "0 6 * * 0"  # optional: run borg check weekly
 
 aradeploy:
   config: %s

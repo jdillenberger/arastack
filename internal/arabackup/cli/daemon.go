@@ -55,6 +55,19 @@ var daemonCmd = &cobra.Command{
 			}
 		}
 
+		// Register check job (optional)
+		if cfg.Schedule.Check != "" {
+			if err := sched.Add(scheduler.Job{
+				Name:     "check",
+				Schedule: cfg.Schedule.Check,
+				Func: func() {
+					CheckAll(cfg, runner)
+				},
+			}); err != nil {
+				return fmt.Errorf("failed to register check job: %w", err)
+			}
+		}
+
 		sched.Start()
 		defer sched.Stop()
 
@@ -62,7 +75,8 @@ var daemonCmd = &cobra.Command{
 			"port", cfg.Server.Port,
 			"bind", cfg.Server.Bind,
 			"backup_schedule", cfg.Schedule.Backup,
-			"prune_schedule", cfg.Schedule.Prune)
+			"prune_schedule", cfg.Schedule.Prune,
+			"check_schedule", cfg.Schedule.Check)
 
 		// Start API server in background.
 		srv := api.New(cfg, sched, version.Version)

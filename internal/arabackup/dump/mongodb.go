@@ -19,7 +19,7 @@ func (d *MongoDBDriver) DumpCommand(opts DumpOptions) []string {
 }
 
 func (d *MongoDBDriver) RestoreCommand(opts RestoreOptions) []string {
-	args := []string{"mongorestore", "--archive"}
+	args := []string{"mongorestore", "--archive", "--drop"}
 
 	if opts.User != "" {
 		args = append(args, "--username", opts.User)
@@ -27,6 +27,12 @@ func (d *MongoDBDriver) RestoreCommand(opts RestoreOptions) []string {
 
 	return args
 }
+
+func (d *MongoDBDriver) ReadyCommand(opts DumpOptions) []string {
+	return []string{"mongosh", "--eval", "db.runCommand('ping')"}
+}
+
+func (d *MongoDBDriver) PreRestoreCommand(opts RestoreOptions) []string { return nil }
 
 func (d *MongoDBDriver) FileExtension() string { return "archive" }
 

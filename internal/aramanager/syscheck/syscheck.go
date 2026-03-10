@@ -90,7 +90,11 @@ func Fix(r doctor.CheckResult) error {
 		if err := sudoRun("chown", "root:"+groupName, path); err != nil {
 			return err
 		}
-		return sudoRun("chmod", fmt.Sprintf("%o", mode), path)
+		if err := sudoRun("chmod", fmt.Sprintf("%o", mode), path); err != nil {
+			return err
+		}
+		// Set default ACL so new files inherit group read/write regardless of umask.
+		return sudoRun("setfacl", "-d", "-m", "g::rw", path)
 	}
 
 	return fmt.Errorf("unknown check: %s", r.Name)

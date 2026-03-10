@@ -93,6 +93,50 @@ func (d *Dumper) Dump(app *discovery.App, svc discovery.ServiceBackupConfig) (st
 	return dumpPath, nil
 }
 
+// WaitForReady polls the database readiness command until it succeeds or times out.
+func (d *Dumper) WaitForReady(app *discovery.App, svc discovery.ServiceBackupConfig) error {
+	driver, err := d.resolveDriver(svc)
+	if err != nil {
+		return err
+	}
+
+	opts := DumpOptions{
+		User:        svc.Labels.DumpUser,
+		PasswordEnv: svc.Labels.DumpPasswordEnv,
+		Database:    svc.Labels.DumpDatabase,
+	}
+
+	readyCmd := driver.ReadyCommand(opts)
+	if readyCmd == nil {
+		// No health check available — fall back to a fixed sleep.
+		slog.Info("No health check for driver, waiting 10s", "driver", driver.Name(), "service", svc.ServiceName)
+		time.Sleep(10 * time.Second)
+		return nil
+	}
+
+	containerName, err := d.findContainer(app, svc)
+	if err != nil {
+		return fmt.Errorf("finding container for %s/%s: %w", app.Name, svc.ServiceName, err)
+	}
+
+	const timeout = 60 * time.Second
+	const interval = 1 * time.Second
+	deadline := time.Now().Add(timeout)
+
+	dockerArgs := append([]string{"exec", containerName}, readyCmd...)
+	for {
+		_, err := d.runner.Run("docker", dockerArgs...)
+		if err == nil {
+			slog.Info("Database ready", "app", app.Name, "service", svc.ServiceName)
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("database %s/%s not ready after %s", app.Name, svc.ServiceName, timeout)
+		}
+		time.Sleep(interval)
+	}
+}
+
 // Restore imports a dump file into the database container.
 func (d *Dumper) Restore(app *discovery.App, svc discovery.ServiceBackupConfig, dumpFile string) error {
 	driver, err := d.resolveDriver(svc)
@@ -107,14 +151,22 @@ func (d *Dumper) Restore(app *discovery.App, svc discovery.ServiceBackupConfig, 
 		FilePath:    dumpFile,
 	}
 
-	restoreCmd := driver.RestoreCommand(opts)
-	if len(restoreCmd) == 0 {
-		return fmt.Errorf("driver %q returned empty restore command", driver.Name())
-	}
-
 	containerName, err := d.findContainer(app, svc)
 	if err != nil {
 		return fmt.Errorf("finding container for %s/%s: %w", app.Name, svc.ServiceName, err)
+	}
+
+	// Execute pre-restore command if the driver provides one (e.g. rm existing SQLite DB).
+	if preCmd := driver.PreRestoreCommand(opts); preCmd != nil {
+		preArgs := append([]string{"exec", containerName}, preCmd...)
+		if _, err := d.runner.Run("docker", preArgs...); err != nil {
+			return fmt.Errorf("pre-restore command failed for %s/%s: %w", app.Name, svc.ServiceName, err)
+		}
+	}
+
+	restoreCmd := driver.RestoreCommand(opts)
+	if len(restoreCmd) == 0 {
+		return fmt.Errorf("driver %q returned empty restore command", driver.Name())
 	}
 
 	// Pipe dump file contents to docker exec stdin instead of using sh -c

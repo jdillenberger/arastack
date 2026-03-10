@@ -34,6 +34,10 @@ func (d *CustomDriver) RestoreCommand(opts RestoreOptions) []string {
 	return splitCommand(d.restoreCommand)
 }
 
+func (d *CustomDriver) ReadyCommand(opts DumpOptions) []string { return nil }
+
+func (d *CustomDriver) PreRestoreCommand(opts RestoreOptions) []string { return nil }
+
 func (d *CustomDriver) FileExtension() string { return d.fileExt }
 
 func (d *CustomDriver) Validate(labels map[string]string) error {

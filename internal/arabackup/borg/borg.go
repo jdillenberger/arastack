@@ -73,11 +73,22 @@ func (b *Borg) Init(repo string) error {
 	return nil
 }
 
+// CreateOptions holds optional parameters for archive creation.
+type CreateOptions struct {
+	ExcludePatterns []string
+}
+
 // Create creates a new borg archive.
-func (b *Borg) Create(repo, archiveName string, sourcePaths []string) error {
+func (b *Borg) Create(repo, archiveName string, sourcePaths []string, opts *CreateOptions) error {
 	env := b.borgEnv(repo)
 
-	args := []string{"create", "--stats", "::" + archiveName}
+	args := []string{"create", "--stats"}
+	if opts != nil {
+		for _, pattern := range opts.ExcludePatterns {
+			args = append(args, "--exclude", pattern)
+		}
+	}
+	args = append(args, "::"+archiveName)
 	args = append(args, sourcePaths...)
 
 	_, err := b.runner.RunWithEnv(env, "borg", args...)
@@ -174,6 +185,18 @@ func (b *Borg) Compact(repo string) error {
 	}
 
 	return nil
+}
+
+// Info returns borg repository information.
+func (b *Borg) Info(repo string) (string, error) {
+	env := b.borgEnv(repo)
+
+	result, err := b.runner.RunWithEnv(env, "borg", "info", "::")
+	if err != nil {
+		return "", fmt.Errorf("borg info %s: %w", repo, err)
+	}
+
+	return result.Stdout, nil
 }
 
 // Check runs integrity checks on a borg repository.

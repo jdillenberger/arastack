@@ -101,6 +101,9 @@ func parseBackupLabels(labels map[string]string) BackupLabels {
 	if v, ok := labels["arabackup.borg.paths"]; ok {
 		bl.BorgPaths = v
 	}
+	if v, ok := labels["arabackup.borg.exclude"]; ok {
+		bl.BorgExclude = v
+	}
 
 	// Dump settings
 	if v, ok := labels["arabackup.dump.driver"]; ok {

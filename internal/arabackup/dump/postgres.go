@@ -12,9 +12,9 @@ func (d *PostgresDriver) DumpCommand(opts DumpOptions) []string {
 	}
 
 	if opts.Database == "" || opts.Database == "all" {
-		return []string{"pg_dumpall", "-U", user}
+		return []string{"pg_dumpall", "-U", user, "--clean"}
 	}
-	return []string{"pg_dump", "-U", user, opts.Database}
+	return []string{"pg_dump", "-U", user, "--clean", opts.Database}
 }
 
 func (d *PostgresDriver) RestoreCommand(opts RestoreOptions) []string {
@@ -25,6 +25,16 @@ func (d *PostgresDriver) RestoreCommand(opts RestoreOptions) []string {
 
 	return []string{"psql", "-U", user}
 }
+
+func (d *PostgresDriver) ReadyCommand(opts DumpOptions) []string {
+	user := opts.User
+	if user == "" {
+		user = "postgres"
+	}
+	return []string{"pg_isready", "-U", user}
+}
+
+func (d *PostgresDriver) PreRestoreCommand(opts RestoreOptions) []string { return nil }
 
 func (d *PostgresDriver) FileExtension() string { return "sql" }
 

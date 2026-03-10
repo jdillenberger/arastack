@@ -118,11 +118,12 @@ func restoreApp(cfg *config.Config, runner *executil.Runner, app *discovery.App,
 	slog.Info("Starting restore", "app", app.Name, "type", restoreType, "archive", archive)
 
 	// Create a safety backup before restore so the user can recover if restore goes wrong
+	var safetyName string
 	if !restoreNoBackup {
 		b := borg.New(runner, cfg)
 		repo := cfg.BorgRepoDir(app.Name)
 		if b.RepoExists(repo) {
-			safetyName := fmt.Sprintf("pre-restore-%s", time.Now().Format("2006-01-02T15-04-05"))
+			safetyName = fmt.Sprintf("pre-restore-%s", time.Now().Format("2006-01-02T15-04-05"))
 			fmt.Printf("Creating safety backup %s...\n", safetyName)
 
 			sourcePaths := []string{app.DataDir}
@@ -130,14 +131,48 @@ func restoreApp(cfg *config.Config, runner *executil.Runner, app *discovery.App,
 			if dirExists(dumpDir) {
 				sourcePaths = append(sourcePaths, dumpDir)
 			}
-			if err := b.Create(repo, safetyName, sourcePaths); err != nil {
+			if err := b.Create(repo, safetyName, sourcePaths, nil); err != nil {
 				slog.Warn("Safety backup failed, proceeding with restore", "app", app.Name, "error", err)
+				safetyName = "" // no safety backup available
 			} else {
 				fmt.Printf("Safety backup created: %s\n", safetyName)
 			}
 		}
 	}
 
+	if err := executeRestore(cfg, runner, app, archive, restoreType); err != nil {
+		if safetyName != "" {
+			if restoreYes {
+				// Non-interactive: print manual rollback command
+				fmt.Printf("\nRestore failed. To rollback to the safety backup, run:\n")
+				fmt.Printf("  arabackup restore %s %s --no-backup --yes\n", app.Name, safetyName)
+			} else {
+				// Interactive: prompt for rollback
+				var rollback bool
+				promptErr := huh.NewConfirm().
+					Title(fmt.Sprintf("Restore failed: %v\nRollback to safety backup %q?", err, safetyName)).
+					Affirmative("Yes, rollback").
+					Negative("No").
+					Value(&rollback).
+					Run()
+				if promptErr == nil && rollback {
+					fmt.Println("Rolling back to safety backup...")
+					if rbErr := executeRestore(cfg, runner, app, safetyName, "all"); rbErr != nil {
+						return fmt.Errorf("rollback also failed: %w (original error: %w)", rbErr, err)
+					}
+					fmt.Printf("Rollback to %s completed.\n", safetyName)
+					return nil
+				}
+			}
+		}
+		return err
+	}
+
+	return nil
+}
+
+// executeRestore performs the actual restore: stop app, extract borg, restore dumps, start app.
+func executeRestore(cfg *config.Config, runner *executil.Runner, app *discovery.App, archive, restoreType string) error {
 	// Stop the app
 	fmt.Printf("Stopping %s...\n", app.Name)
 	_, _ = runner.Run("docker", "compose",
@@ -175,8 +210,12 @@ func restoreApp(cfg *config.Config, runner *executil.Runner, app *discovery.App,
 			}
 
 			// Wait for databases to be ready
-			fmt.Println("Waiting for databases to be ready...")
-			time.Sleep(10 * time.Second)
+			for _, svc := range dumpServices {
+				fmt.Printf("Waiting for %s/%s to be ready...\n", app.Name, svc.ServiceName)
+				if err := d.WaitForReady(app, svc); err != nil {
+					return fmt.Errorf("database readiness %s/%s: %w", app.Name, svc.ServiceName, err)
+				}
+			}
 
 			// Restore each dump
 			for _, svc := range dumpServices {

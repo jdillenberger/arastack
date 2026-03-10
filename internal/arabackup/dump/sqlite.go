@@ -21,6 +21,16 @@ func (d *SQLiteDriver) RestoreCommand(opts RestoreOptions) []string {
 	return []string{"sqlite3", db}
 }
 
+func (d *SQLiteDriver) ReadyCommand(opts DumpOptions) []string { return nil }
+
+func (d *SQLiteDriver) PreRestoreCommand(opts RestoreOptions) []string {
+	db := opts.Database
+	if db == "" {
+		db = "/data/db.sqlite"
+	}
+	return []string{"rm", "-f", db}
+}
+
 func (d *SQLiteDriver) FileExtension() string { return "sql" }
 
 func (d *SQLiteDriver) Validate(labels map[string]string) error { return nil }

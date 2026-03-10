@@ -159,6 +159,19 @@ func borgBackup(cfg *config.Config, b *borg.Borg, app *discovery.App) error {
 		sourcePaths = []string{app.DataDir}
 	}
 
+	// Collect exclude patterns from all services
+	var excludePatterns []string
+	for _, svc := range app.Services {
+		if svc.Labels.BorgExclude != "" {
+			for _, p := range strings.Split(svc.Labels.BorgExclude, ",") {
+				p = strings.TrimSpace(p)
+				if p != "" {
+					excludePatterns = append(excludePatterns, p)
+				}
+			}
+		}
+	}
+
 	// Always include dump directory if it exists
 	dumpDir := cfg.DumpDir(app.Name)
 	if dirExists(dumpDir) {
@@ -168,7 +181,12 @@ func borgBackup(cfg *config.Config, b *borg.Borg, app *discovery.App) error {
 	// Generate archive name
 	archiveName := fmt.Sprintf("%s-%s", app.Name, time.Now().Format("2006-01-02T15-04-05"))
 
-	return b.Create(repo, archiveName, sourcePaths)
+	var createOpts *borg.CreateOptions
+	if len(excludePatterns) > 0 {
+		createOpts = &borg.CreateOptions{ExcludePatterns: excludePatterns}
+	}
+
+	return b.Create(repo, archiveName, sourcePaths, createOpts)
 }
 
 // BackupAll runs backup for all discovered apps (used by daemon).
@@ -186,11 +204,31 @@ func BackupAll(cfg *config.Config, runner *executil.Runner) {
 		if err := backupApp(cfg, runner, &app, "all"); err != nil {
 			slog.Error("Backup failed", "app", app.Name, "error", err)
 			pushAlertEvent(cfg, app.Name, err)
+		} else {
+			pushSuccessEvent(cfg, app.Name)
 		}
 	}
 }
 
 const eventSpoolPath = "/var/lib/arabackup/pending-events.json"
+
+// pushSuccessEvent sends a backup-succeeded event to araalert (daemon mode only).
+// Success events are not spooled — they are best-effort.
+func pushSuccessEvent(cfg *config.Config, appName string) {
+	if cfg.Araalert.URL == "" {
+		return
+	}
+	event := clients.Event{
+		Type:     "backup-succeeded",
+		App:      appName,
+		Message:  fmt.Sprintf("Backup succeeded for %s", appName),
+		Severity: "info",
+	}
+	ac := clients.NewAlertClient(cfg.Araalert.URL)
+	if err := ac.PushEvent(context.Background(), event); err != nil {
+		slog.Warn("Failed to push success event", "app", appName, "error", err)
+	}
+}
 
 // pushAlertEvent sends a backup-failed event to araalert.
 // If delivery fails after retries, the event is spooled to disk for later retry.
@@ -334,6 +372,21 @@ func backupDryRunAll(cfg *config.Config, apps []discovery.App, backupType string
 			dumpDir := cfg.DumpDir(app.Name)
 			if dirExists(dumpDir) {
 				fmt.Printf("  borg paths: %s (dumps)\n", dumpDir)
+			}
+
+			var excludePatterns []string
+			for _, svc := range app.Services {
+				if svc.Labels.BorgExclude != "" {
+					for _, p := range strings.Split(svc.Labels.BorgExclude, ",") {
+						p = strings.TrimSpace(p)
+						if p != "" {
+							excludePatterns = append(excludePatterns, p)
+						}
+					}
+				}
+			}
+			if len(excludePatterns) > 0 {
+				fmt.Printf("  borg exclude: %s\n", strings.Join(excludePatterns, ", "))
 			}
 		}
 

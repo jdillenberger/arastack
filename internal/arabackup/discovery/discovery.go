@@ -28,7 +28,8 @@ type BackupLabels struct {
 	Enable bool
 
 	// Borg settings
-	BorgPaths string // comma-separated paths relative to data_dir
+	BorgPaths   string // comma-separated paths relative to data_dir
+	BorgExclude string // comma-separated borg exclude patterns
 
 	// Dump settings
 	DumpDriver         string

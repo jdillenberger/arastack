@@ -20,6 +20,12 @@ type Driver interface {
 	Name() string
 	DumpCommand(opts DumpOptions) []string
 	RestoreCommand(opts RestoreOptions) []string
+	// ReadyCommand returns a command to check if the database is ready.
+	// Return nil if no health check is available (falls back to sleep).
+	ReadyCommand(opts DumpOptions) []string
+	// PreRestoreCommand returns a command to run before restoring a dump
+	// (e.g. removing an existing SQLite database). Return nil to skip.
+	PreRestoreCommand(opts RestoreOptions) []string
 	FileExtension() string
 	Validate(labels map[string]string) error
 }

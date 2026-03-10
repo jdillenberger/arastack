@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -21,11 +22,18 @@ import (
 func init() {
 	rootCmd.AddCommand(templatesCmd)
 	templatesCmd.AddCommand(templatesListCmd)
+	templatesCmd.AddCommand(templatesInfoCmd)
 	templatesCmd.AddCommand(templatesExportCmd)
 	templatesCmd.AddCommand(templatesDeleteCmd)
 	templatesCmd.AddCommand(templatesPathCmd)
 	templatesCmd.AddCommand(templatesNewCmd)
 	templatesCmd.AddCommand(templatesLintCmd)
+
+	templatesInfoCmd.ValidArgsFunction = completeTemplateNames
+
+	// Deprecated: keep root-level "info" as alias for backward compatibility.
+	rootCmd.AddCommand(deprecatedInfoCmd)
+	deprecatedInfoCmd.ValidArgsFunction = completeTemplateNames
 
 	templatesLintCmd.Flags().Bool("suppress", false, "Add all current warnings/infos to lint_ignore in app.yaml")
 	templatesLintCmd.ValidArgsFunction = completeTemplateNames
@@ -114,6 +122,89 @@ var templatesListCmd = &cobra.Command{
 		_ = w.Flush()
 		return nil
 	},
+}
+
+var templatesInfoCmd = &cobra.Command{
+	Use:   "info <template>",
+	Short: "Show template details",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runTemplateInfo,
+}
+
+// deprecatedInfoCmd keeps the old root-level "info" working with a warning.
+var deprecatedInfoCmd = &cobra.Command{
+	Use:    "info <template>",
+	Short:  "Show template details (deprecated: use 'templates info')",
+	Args:   cobra.ExactArgs(1),
+	Hidden: true,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		slog.Warn("'info' is deprecated, use 'aradeploy templates info' instead")
+		return runTemplateInfo(cmd, args)
+	},
+}
+
+func runTemplateInfo(cmd *cobra.Command, args []string) error {
+	mgr, err := newManager()
+	if err != nil {
+		return err
+	}
+
+	meta, ok := mgr.Registry().Get(args[0])
+	if !ok {
+		return fmt.Errorf("unknown app template: %s", args[0])
+	}
+
+	if jsonOutput {
+		return outputJSON(meta)
+	}
+
+	fmt.Printf("App: %s\n", meta.Name)
+	fmt.Printf("Description: %s\n", meta.Description)
+	fmt.Printf("Category: %s\n", meta.Category)
+	fmt.Printf("Version: %s\n", meta.Version)
+
+	if len(meta.Ports) > 0 {
+		fmt.Println("\nPorts:")
+		for _, p := range meta.Ports {
+			fmt.Printf("  %d:%d/%s  %s\n", p.Host, p.Container, p.Protocol, p.Description)
+		}
+	}
+
+	if len(meta.Volumes) > 0 {
+		fmt.Println("\nVolumes:")
+		for _, v := range meta.Volumes {
+			fmt.Printf("  %-15s %s  (%s)\n", v.Name, v.Container, v.Description)
+		}
+	}
+
+	if len(meta.Values) > 0 {
+		fmt.Println("\nValues:")
+		for _, v := range meta.Values {
+			req := ""
+			if v.Required {
+				req = " [required]"
+			}
+			def := ""
+			if v.Default != "" {
+				def = fmt.Sprintf(" (default: %s)", v.Default)
+			}
+			secret := ""
+			if v.Secret {
+				secret = " [secret]"
+			}
+			autoGen := ""
+			if v.AutoGen != "" {
+				autoGen = fmt.Sprintf(" [auto: %s]", v.AutoGen)
+			}
+			fmt.Printf("  %-20s %s%s%s%s%s\n", v.Name, v.Description, def, req, secret, autoGen)
+		}
+	}
+
+	if len(meta.Dependencies) > 0 {
+		fmt.Printf("\nDependencies: %s\n", strings.Join(meta.Dependencies, ", "))
+	}
+
+	return nil
 }
 
 var templatesExportCmd = &cobra.Command{

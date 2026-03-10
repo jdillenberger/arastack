@@ -224,7 +224,7 @@ var tools = []Tool{
 		BinaryName:  "aradeploy",
 		ServiceName: "aradeploy",
 		Description: "aradeploy deployment manager",
-		ExecArgs:    "update --all",
+		ExecArgs:    "upgrade --all --images-only",
 		Port:        0,
 		ConfigPath:  "/etc/arastack/config/aradeploy.yaml",
 		Order:       7,
@@ -232,7 +232,7 @@ var tools = []Tool{
 			BinaryName:  "aradeploy",
 			ServiceName: "aradeploy",
 			Description: "aradeploy deployment manager",
-			ExecArgs:    "update --all",
+			ExecArgs:    "upgrade --all --images-only",
 			Group:       "arastack",
 		},
 		DoctorCheck: func() ([]doctor.CheckResult, error) {

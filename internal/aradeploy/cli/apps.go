@@ -68,8 +68,7 @@ func init() {
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(logsCmd)
 	rootCmd.AddCommand(listCmd)
-	rootCmd.AddCommand(infoCmd)
-	rootCmd.AddCommand(showCmd)
+	rootCmd.AddCommand(inspectCmd)
 	deployCmd.Flags().StringP("values", "f", "", "YAML file with template values")
 	deployCmd.Flags().StringSlice("set", nil, "Set values (key=value)")
 	deployCmd.Flags().Bool("dry-run", false, "Show rendered files without deploying")
@@ -95,9 +94,7 @@ func init() {
 	listCmd.Flags().String("filter", "", "Filter apps by name or description substring")
 	listCmd.Flags().String("category", "", "Filter apps by category")
 
-	infoCmd.ValidArgsFunction = completeTemplateNames
-
-	showCmd.ValidArgsFunction = completeDeployedApps
+	inspectCmd.ValidArgsFunction = completeDeployedApps
 }
 
 var deployCmd = &cobra.Command{
@@ -381,7 +378,7 @@ var listCmd = &cobra.Command{
 			if jsonOutput {
 				return outputJSON([]struct{}{})
 			}
-			fmt.Println("No apps deployed. Use 'aradeploy list --all' to see available templates.")
+			fmt.Println("No apps deployed. Use 'aradeploy templates list' to see available templates.")
 			return nil
 		}
 
@@ -429,84 +426,11 @@ var listCmd = &cobra.Command{
 	},
 }
 
-var infoCmd = &cobra.Command{
-	Use:   "info <app>",
-	Short: "Show app template details",
+var inspectCmd = &cobra.Command{
+	Use:   "inspect <app>",
+	Short: "Show details of a deployed app",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		mgr, err := newManager()
-		if err != nil {
-			return err
-		}
-
-		meta, ok := mgr.Registry().Get(args[0])
-		if !ok {
-			return fmt.Errorf("unknown app template: %s", args[0])
-		}
-
-		if jsonOutput {
-			return outputJSON(meta)
-		}
-
-		fmt.Printf("App: %s\n", meta.Name)
-		fmt.Printf("Description: %s\n", meta.Description)
-		fmt.Printf("Category: %s\n", meta.Category)
-		fmt.Printf("Version: %s\n", meta.Version)
-
-		if len(meta.Ports) > 0 {
-			fmt.Println("\nPorts:")
-			for _, p := range meta.Ports {
-				fmt.Printf("  %d:%d/%s  %s\n", p.Host, p.Container, p.Protocol, p.Description)
-			}
-		}
-
-		if len(meta.Volumes) > 0 {
-			fmt.Println("\nVolumes:")
-			for _, v := range meta.Volumes {
-				fmt.Printf("  %-15s %s  (%s)\n", v.Name, v.Container, v.Description)
-			}
-		}
-
-		if len(meta.Values) > 0 {
-			fmt.Println("\nValues:")
-			for _, v := range meta.Values {
-				req := ""
-				if v.Required {
-					req = " [required]"
-				}
-				def := ""
-				if v.Default != "" {
-					def = fmt.Sprintf(" (default: %s)", v.Default)
-				}
-				secret := ""
-				if v.Secret {
-					secret = " [secret]"
-				}
-				autoGen := ""
-				if v.AutoGen != "" {
-					autoGen = fmt.Sprintf(" [auto: %s]", v.AutoGen)
-				}
-				fmt.Printf("  %-20s %s%s%s%s%s\n", v.Name, v.Description, def, req, secret, autoGen)
-			}
-		}
-
-		if len(meta.Dependencies) > 0 {
-			fmt.Printf("\nDependencies: %s\n", strings.Join(meta.Dependencies, ", "))
-		}
-
-		return nil
-	},
-}
-
-var showCmd = &cobra.Command{
-	Use:     "inspect <app>",
-	Aliases: []string{"show"},
-	Short:   "Show details of a deployed app",
-	Args:    cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		if cmd.CalledAs() == "show" {
-			slog.Warn("'show' is deprecated, use 'aradeploy inspect' instead")
-		}
 		mgr, err := newManager()
 		if err != nil {
 			return err

@@ -10,16 +10,16 @@ import (
 )
 
 func init() {
-	pruneCmd.Flags().Bool("force", false, "Actually prune (default is dry-run)")
+	pruneCmd.Flags().BoolP("yes", "y", false, "Actually prune (default is dry-run)")
 	rootCmd.AddCommand(pruneCmd)
 }
 
 var pruneCmd = &cobra.Command{
 	Use:   "prune",
 	Short: "Clean up unused Docker resources",
-	Long:  "Remove dangling images, unused volumes, networks, and build cache. Without --force, shows a dry-run.",
+	Long:  "Remove dangling images, unused volumes, networks, and build cache. Without --yes, shows a dry-run.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		force, _ := cmd.Flags().GetBool("force")
+		force, _ := cmd.Flags().GetBool("yes")
 		runner := &executil.Runner{Verbose: verbose}
 
 		runtime := cfg.Docker.Runtime
@@ -43,7 +43,7 @@ var pruneCmd = &cobra.Command{
 				fmt.Println("No unused volumes.")
 			}
 
-			fmt.Println("\nRun with --force to remove these resources.")
+			fmt.Println("\nRun with --yes to remove these resources.")
 			return nil
 		}
 

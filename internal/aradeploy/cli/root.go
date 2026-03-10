@@ -56,7 +56,11 @@ func initConfig() {
 		cfg, err = config.Load()
 	}
 	if err != nil {
-		slog.Warn("error loading config", "error", err)
+		if os.IsNotExist(err) {
+			slog.Info("Config file not found, using defaults. Run 'aradeploy config init' to create one.")
+		} else {
+			slog.Warn("Config file has errors, using defaults", "error", err)
+		}
 		cfg = config.DefaultConfig()
 	}
 

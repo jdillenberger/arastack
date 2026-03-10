@@ -68,8 +68,7 @@ func init() {
 	rootCmd.AddCommand(logsCmd)
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(infoCmd)
-	rootCmd.AddCommand(updateCmd)
-
+	rootCmd.AddCommand(showCmd)
 	deployCmd.Flags().StringP("values", "f", "", "YAML file with template values")
 	deployCmd.Flags().StringSlice("set", nil, "Set values (key=value)")
 	deployCmd.Flags().Bool("dry-run", false, "Show rendered files without deploying")
@@ -78,7 +77,7 @@ func init() {
 	deployCmd.ValidArgsFunction = completeTemplateNames
 
 	removeCmd.Flags().Bool("purge-data", false, "Also remove app data volumes")
-	removeCmd.Flags().BoolP("force", "f", false, "Skip confirmation prompt")
+	removeCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 	removeCmd.ValidArgsFunction = completeDeployedApps
 
 	startCmd.ValidArgsFunction = completeDeployedApps
@@ -95,10 +94,9 @@ func init() {
 	listCmd.Flags().String("filter", "", "Filter apps by name or description substring")
 	listCmd.Flags().String("category", "", "Filter apps by category")
 
-	updateCmd.Flags().Bool("all", false, "Update all deployed apps")
-	updateCmd.ValidArgsFunction = completeDeployedApps
-
 	infoCmd.ValidArgsFunction = completeTemplateNames
+
+	showCmd.ValidArgsFunction = completeDeployedApps
 }
 
 var deployCmd = &cobra.Command{
@@ -176,8 +174,8 @@ var removeCmd = &cobra.Command{
 			return err
 		}
 		purgeData, _ := cmd.Flags().GetBool("purge-data")
-		force, _ := cmd.Flags().GetBool("force")
-		if !force {
+		yes, _ := cmd.Flags().GetBool("yes")
+		if !yes {
 			msg := fmt.Sprintf("Remove app %s (data will be kept)?", args[0])
 			if purgeData {
 				msg = fmt.Sprintf("Remove app %s (including all data)?", args[0])
@@ -493,46 +491,108 @@ var infoCmd = &cobra.Command{
 	},
 }
 
-var updateCmd = &cobra.Command{
-	Use:   "update [app]",
-	Short: "Pull latest images and recreate containers",
-	Args:  cobra.MaximumNArgs(1),
+var showCmd = &cobra.Command{
+	Use:   "show <app>",
+	Short: "Show details of a deployed app",
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		mgr, err := newManager()
 		if err != nil {
 			return err
 		}
 
-		updateAll, _ := cmd.Flags().GetBool("all")
+		appName := args[0]
+		info, err := mgr.GetDeployedInfo(appName)
+		if err != nil {
+			return fmt.Errorf("app %s is not deployed: %w", appName, err)
+		}
 
-		if updateAll {
-			flushSpooledEvents()
+		meta, hasMeta := mgr.Registry().Get(appName)
 
-			deployed, err := mgr.ListDeployed()
-			if err != nil {
-				return err
-			}
-			if len(deployed) == 0 {
-				fmt.Println("No apps deployed.")
-				return nil
-			}
-			for _, appName := range deployed {
-				fmt.Printf("Updating %s...\n", appName)
-				if err := mgr.Update(appName); err != nil {
-					fmt.Printf("  Update failed for %s: %v\n", appName, err)
-					pushUpdateFailedEvent(appName, err)
-					continue
+		// Build set of secret value names for masking.
+		secretNames := make(map[string]bool)
+		if hasMeta {
+			for _, v := range meta.Values {
+				if v.Secret {
+					secretNames[v.Name] = true
 				}
-				fmt.Printf("  %s updated.\n", appName)
 			}
-			return nil
 		}
 
-		if len(args) == 0 {
-			return fmt.Errorf("app name required (or use --all)")
+		if jsonOutput {
+			type showOutput struct {
+				Name       string            `json:"name"`
+				Version    string            `json:"version"`
+				DeployedAt string            `json:"deployed_at"`
+				DataDir    string            `json:"data_dir"`
+				Values     map[string]string `json:"values"`
+				Ports      []template.PortMapping   `json:"ports,omitempty"`
+				Volumes    []template.VolumeMapping `json:"volumes,omitempty"`
+				URLs       []string          `json:"urls,omitempty"`
+			}
+			maskedValues := make(map[string]string)
+			for k, v := range info.Values {
+				if secretNames[k] {
+					maskedValues[k] = "***"
+				} else {
+					maskedValues[k] = v
+				}
+			}
+			out := showOutput{
+				Name:       info.Name,
+				Version:    info.Version,
+				DeployedAt: info.DeployedAt.Format("2006-01-02 15:04:05"),
+				DataDir:    cfg.DataPath(appName),
+				Values:     maskedValues,
+			}
+			if hasMeta {
+				out.Ports = meta.Ports
+				out.Volumes = meta.Volumes
+			}
+			if info.Routing != nil && info.Routing.Enabled {
+				out.URLs = info.Routing.Domains
+			}
+			return outputJSON(out)
 		}
 
-		return mgr.Update(args[0])
+		fmt.Printf("App:         %s\n", info.Name)
+		fmt.Printf("Version:     %s\n", info.Version)
+		fmt.Printf("Deployed at: %s\n", info.DeployedAt.Format("2006-01-02 15:04:05"))
+		fmt.Printf("Data dir:    %s\n", cfg.DataPath(appName))
+
+		if info.Routing != nil && info.Routing.Enabled && len(info.Routing.Domains) > 0 {
+			fmt.Printf("\nURLs:\n")
+			for _, d := range info.Routing.Domains {
+				fmt.Printf("  https://%s\n", d)
+			}
+		}
+
+		if hasMeta && len(meta.Ports) > 0 {
+			fmt.Println("\nPorts:")
+			for _, p := range meta.Ports {
+				fmt.Printf("  %d:%d/%s  %s\n", p.Host, p.Container, p.Protocol, p.Description)
+			}
+		}
+
+		if hasMeta && len(meta.Volumes) > 0 {
+			fmt.Println("\nVolumes:")
+			for _, v := range meta.Volumes {
+				fmt.Printf("  %-15s %s  (%s)\n", v.Name, v.Container, v.Description)
+			}
+		}
+
+		if len(info.Values) > 0 {
+			fmt.Println("\nValues:")
+			for k, v := range info.Values {
+				if secretNames[k] {
+					fmt.Printf("  %-20s ***\n", k)
+				} else {
+					fmt.Printf("  %-20s %s\n", k, v)
+				}
+			}
+		}
+
+		return nil
 	},
 }
 

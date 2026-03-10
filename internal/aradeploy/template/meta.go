@@ -53,6 +53,7 @@ type Value struct {
 	Required    bool   `yaml:"required"`
 	Secret      bool   `yaml:"secret"`
 	AutoGen     string `yaml:"auto_gen"`
+	Validation  string `yaml:"validation"`
 }
 
 // BackupMeta defines backup configuration for an app.
@@ -84,9 +85,10 @@ type HooksMeta struct {
 
 // Hook defines a single lifecycle hook action.
 type Hook struct {
-	Type    string `yaml:"type"`
-	URL     string `yaml:"url"`
-	Method  string `yaml:"method"`
-	Body    string `yaml:"body"`
-	Command string `yaml:"command"`
+	Type     string `yaml:"type"`
+	URL      string `yaml:"url"`
+	Method   string `yaml:"method"`
+	Body     string `yaml:"body"`
+	Command  string `yaml:"command"`
+	Required bool   `yaml:"required"`
 }

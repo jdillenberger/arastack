@@ -363,7 +363,9 @@ func (m *Manager) Deploy(appName string, opts DeployOptions) error {
 
 	// Execute post-deploy hooks
 	if meta.Hooks != nil {
-		executeHooks(meta.Hooks.PostDeploy, mergedValues, m.runner)
+		if err := executeHooks(meta.Hooks.PostDeploy, mergedValues, m.runner); err != nil {
+			return fmt.Errorf("post-deploy hook: %w", err)
+		}
 	}
 
 	// Invoke deploy callback
@@ -416,12 +418,14 @@ func (m *Manager) Remove(appName string, keepData bool) error {
 
 	meta, ok := m.registry.Get(appName)
 	if ok && meta.Hooks != nil {
-		executeHooks(meta.Hooks.PreRemove, map[string]string{
+		if err := executeHooks(meta.Hooks.PreRemove, map[string]string{
 			"app_name": appName,
 			"hostname": m.cfg.Hostname,
 			"domain":   m.cfg.Network.Domain,
 			"data_dir": m.cfg.DataPath(appName),
-		}, m.runner)
+		}, m.runner); err != nil {
+			return fmt.Errorf("pre-remove hook: %w", err)
+		}
 	}
 
 	fmt.Printf("Stopping %s...\n", appName)

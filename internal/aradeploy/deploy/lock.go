@@ -20,7 +20,7 @@ func acquireLock(appsDir, appName string) (*os.File, error) {
 	}
 	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		_ = f.Close()
-		return nil, fmt.Errorf("app %s: another operation is in progress", appName)
+		return nil, fmt.Errorf("app %s is locked by another aradeploy process — wait or check for stuck operations", appName)
 	}
 	return f, nil
 }

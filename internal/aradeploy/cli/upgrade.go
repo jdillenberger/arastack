@@ -23,6 +23,7 @@ func init() {
 	upgradeCmd.Flags().Bool("check", false, "Only show available image updates")
 	upgradeCmd.Flags().Bool("patch-only", false, "Only apply patch-level image updates")
 	upgradeCmd.Flags().Bool("all", false, "Upgrade all deployed apps")
+	upgradeCmd.Flags().Bool("images-only", false, "Only pull latest images and recreate containers (no template upgrade)")
 	upgradeCmd.ValidArgsFunction = completeDeployedApps
 }
 
@@ -46,8 +47,12 @@ var upgradeCmd = &cobra.Command{
 		check, _ := cmd.Flags().GetBool("check")
 		patchOnly, _ := cmd.Flags().GetBool("patch-only")
 		all, _ := cmd.Flags().GetBool("all")
+		imagesOnly, _ := cmd.Flags().GetBool("images-only")
 
 		if all {
+			if imagesOnly {
+				flushSpooledEvents()
+			}
 			deployed, err := mgr.ListDeployed()
 			if err != nil {
 				return err
@@ -59,10 +64,20 @@ var upgradeCmd = &cobra.Command{
 			var errs []string
 			for _, appName := range deployed {
 				fmt.Printf("=== %s ===\n", appName)
-				if err := runUpgrade(cfg, mgr, appName, dryRun, yes, check, patchOnly); err != nil {
-					fmt.Printf("  Error: %v\n", err)
-					errs = append(errs, appName)
-					pushUpdateFailedEvent(appName, err)
+				if imagesOnly {
+					if err := mgr.Update(appName); err != nil {
+						fmt.Printf("  Error: %v\n", err)
+						errs = append(errs, appName)
+						pushUpdateFailedEvent(appName, err)
+					} else {
+						fmt.Printf("  %s updated.\n", appName)
+					}
+				} else {
+					if err := runUpgrade(cfg, mgr, appName, dryRun, yes, check, patchOnly); err != nil {
+						fmt.Printf("  Error: %v\n", err)
+						errs = append(errs, appName)
+						pushUpdateFailedEvent(appName, err)
+					}
 				}
 				fmt.Println()
 			}
@@ -74,6 +89,10 @@ var upgradeCmd = &cobra.Command{
 
 		if len(args) == 0 {
 			return fmt.Errorf("app name required (or use --all)")
+		}
+
+		if imagesOnly {
+			return mgr.Update(args[0])
 		}
 		return runUpgrade(cfg, mgr, args[0], dryRun, yes, check, patchOnly)
 	},
@@ -94,15 +113,17 @@ func runUpgrade(cfg *config.Config, mgr *deploy.Manager, appName string, dryRun,
 
 	refs, _ := image.ScanDeployed(composeData)
 	var imageUpdates []imageUpdatePlan
+	var floatingTags []image.Ref
 	resolver := image.NewResolver()
 
 	for _, ref := range refs {
 		if _, err := image.ParseSemver(ref.Tag); err != nil {
+			floatingTags = append(floatingTags, ref)
 			continue
 		}
 		updates, err := resolver.FindNewerVersions(ref)
 		if err != nil {
-			fmt.Printf("  Warning: could not check %s: %v\n", ref.String(), err)
+			fmt.Printf("  Warning: could not check %s — registry may be unavailable or rate-limited: %v\n", ref.String(), err)
 			continue
 		}
 		for _, u := range updates {
@@ -114,13 +135,21 @@ func runUpgrade(cfg *config.Config, mgr *deploy.Manager, appName string, dryRun,
 	}
 
 	if check {
-		if len(imageUpdates) == 0 {
+		if len(imageUpdates) == 0 && len(floatingTags) == 0 {
 			fmt.Printf("No image updates available for %s.\n", appName)
 			return nil
 		}
-		fmt.Printf("Available image updates for %s:\n", appName)
-		for _, iu := range imageUpdates {
-			fmt.Printf("  %s: %s -> %s (%s)\n", iu.ref.String(), iu.update.CurrentTag, iu.update.NewTag, iu.update.Type)
+		if len(imageUpdates) > 0 {
+			fmt.Printf("Available image updates for %s:\n", appName)
+			for _, iu := range imageUpdates {
+				fmt.Printf("  %s: %s -> %s (%s)\n", iu.ref.String(), iu.update.CurrentTag, iu.update.NewTag, iu.update.Type)
+			}
+		}
+		if len(floatingTags) > 0 {
+			fmt.Printf("\nFloating (non-semver) tags in %s:\n", appName)
+			for _, ref := range floatingTags {
+				fmt.Printf("  %s (tag: %s)\n", ref.String(), ref.Tag)
+			}
 		}
 		return nil
 	}
@@ -142,6 +171,14 @@ func runUpgrade(cfg *config.Config, mgr *deploy.Manager, appName string, dryRun,
 		for _, iu := range imageUpdates {
 			fmt.Printf("  %s: %s -> %s (%s)\n", iu.ref.String(), iu.update.CurrentTag, iu.update.NewTag, iu.update.Type)
 		}
+	}
+
+	if len(floatingTags) > 0 {
+		fmt.Println("\nNote: floating (non-semver) tags detected:")
+		for _, ref := range floatingTags {
+			fmt.Printf("  %s (tag: %s)\n", ref.String(), ref.Tag)
+		}
+		fmt.Println("  Use 'upgrade --images-only' to pull latest versions of these images.")
 	}
 
 	hasTemplateChanges := false

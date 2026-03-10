@@ -2,6 +2,7 @@ package deploy
 
 import (
 	"bytes"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -29,8 +30,9 @@ func shellEscapeValues(values map[string]string) map[string]string {
 	return safe
 }
 
-// executeHooks runs lifecycle hooks, logging errors but not failing the deploy.
-func executeHooks(hooks []tmpl.Hook, values map[string]string, runner *executil.Runner) {
+// executeHooks runs lifecycle hooks. Optional hooks log warnings on failure;
+// required hooks (Required: true) return an error, aborting the operation.
+func executeHooks(hooks []tmpl.Hook, values map[string]string, runner *executil.Runner) error {
 	for _, hook := range hooks {
 		switch hook.Type {
 		case "exec":
@@ -38,55 +40,72 @@ func executeHooks(hooks []tmpl.Hook, values map[string]string, runner *executil.
 			// user-supplied data cannot break out of the intended command.
 			cmd, err := renderTemplate(hook.Command, shellEscapeValues(values))
 			if err != nil {
+				if hook.Required {
+					return fmt.Errorf("required hook: failed to render command template: %w", err)
+				}
 				slog.Warn("Hook: failed to render command template", "error", err)
 				continue
 			}
 			slog.Info("Running hook", "command", cmd)
 			if _, err := runner.Run("sh", "-c", cmd); err != nil {
+				if hook.Required {
+					return fmt.Errorf("required hook failed: %s: %w", cmd, err)
+				}
 				slog.Warn("Hook failed", "command", cmd, "error", err)
 			}
 		case "http":
-			url, err := renderTemplate(hook.URL, values)
-			if err != nil {
-				slog.Warn("Hook: failed to render URL template", "error", err)
-				continue
-			}
-			method := hook.Method
-			if method == "" {
-				method = "GET"
-			}
-			var bodyReader *bytes.Reader
-			if hook.Body != "" {
-				body, err := renderTemplate(hook.Body, values)
-				if err != nil {
-					slog.Warn("Hook: failed to render body template", "error", err)
-					continue
+			if err := executeHTTPHook(hook, values); err != nil {
+				if hook.Required {
+					return fmt.Errorf("required HTTP hook failed: %w", err)
 				}
-				bodyReader = bytes.NewReader([]byte(body))
-			} else {
-				bodyReader = bytes.NewReader(nil)
-			}
-			slog.Info("Running HTTP hook", "method", method, "url", url)
-			req, err := http.NewRequest(method, url, bodyReader)
-			if err != nil {
-				slog.Warn("Hook: failed to create request", "error", err)
-				continue
-			}
-			if hook.Body != "" {
-				req.Header.Set("Content-Type", "application/json")
-			}
-			client := &http.Client{Timeout: 30 * time.Second}
-			resp, err := client.Do(req)
-			if err != nil {
-				slog.Warn("HTTP hook failed", "url", url, "error", err)
-				continue
-			}
-			_ = resp.Body.Close()
-			if resp.StatusCode >= 400 {
-				slog.Warn("HTTP hook returned error", "url", url, "status", resp.StatusCode)
 			}
 		}
 	}
+	return nil
+}
+
+func executeHTTPHook(hook tmpl.Hook, values map[string]string) error {
+	url, err := renderTemplate(hook.URL, values)
+	if err != nil {
+		slog.Warn("Hook: failed to render URL template", "error", err)
+		return err
+	}
+	method := hook.Method
+	if method == "" {
+		method = "GET"
+	}
+	var bodyReader *bytes.Reader
+	if hook.Body != "" {
+		body, err := renderTemplate(hook.Body, values)
+		if err != nil {
+			slog.Warn("Hook: failed to render body template", "error", err)
+			return err
+		}
+		bodyReader = bytes.NewReader([]byte(body))
+	} else {
+		bodyReader = bytes.NewReader(nil)
+	}
+	slog.Info("Running HTTP hook", "method", method, "url", url)
+	req, err := http.NewRequest(method, url, bodyReader)
+	if err != nil {
+		slog.Warn("Hook: failed to create request", "error", err)
+		return err
+	}
+	if hook.Body != "" {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		slog.Warn("HTTP hook failed", "url", url, "error", err)
+		return err
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		slog.Warn("HTTP hook returned error", "url", url, "status", resp.StatusCode)
+		return fmt.Errorf("HTTP hook %s %s returned status %d", method, url, resp.StatusCode)
+	}
+	return nil
 }
 
 // renderTemplate renders a Go template string with the given values.

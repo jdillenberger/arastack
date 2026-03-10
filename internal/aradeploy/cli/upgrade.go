@@ -122,22 +122,29 @@ func runUpgrade(cfg *config.Config, mgr *deploy.Manager, appName string, dryRun,
 	var floatingTags []image.Ref
 	resolver := image.NewResolver()
 
-	for _, ref := range refs {
-		if _, err := image.ParseSemver(ref.Tag); err != nil {
-			floatingTags = append(floatingTags, ref)
-			continue
-		}
-		updates, err := resolver.FindNewerVersions(ref)
-		if err != nil {
-			fmt.Printf("  Warning: could not check %s — registry may be unavailable or rate-limited: %v\n", ref.String(), err)
-			continue
-		}
-		for _, u := range updates {
-			if patchOnly && u.Type != "patch" {
+	var checkWarnings []string
+	_ = cliutil.RunWithSpinner("Checking for image updates...", func() error {
+		for _, ref := range refs {
+			if _, err := image.ParseSemver(ref.Tag); err != nil {
+				floatingTags = append(floatingTags, ref)
 				continue
 			}
-			imageUpdates = append(imageUpdates, imageUpdatePlan{ref: ref, update: u})
+			updates, err := resolver.FindNewerVersions(ref)
+			if err != nil {
+				checkWarnings = append(checkWarnings, fmt.Sprintf("  Warning: could not check %s — registry may be unavailable or rate-limited: %v", ref.String(), err))
+				continue
+			}
+			for _, u := range updates {
+				if patchOnly && u.Type != "patch" {
+					continue
+				}
+				imageUpdates = append(imageUpdates, imageUpdatePlan{ref: ref, update: u})
+			}
 		}
+		return nil
+	})
+	for _, w := range checkWarnings {
+		fmt.Println(w)
 	}
 
 	if check {
@@ -266,13 +273,14 @@ func runUpgrade(cfg *config.Config, mgr *deploy.Manager, appName string, dryRun,
 
 	runner := &executil.Runner{Verbose: verbose}
 	c := compose.New(runner, cfg.Docker.ComposeCommand)
-	fmt.Printf("Recreating containers for %s...\n", appName)
-	var composeUpErr error
-	if meta != nil && meta.RequiresBuild {
-		_, composeUpErr = c.UpWithBuild(appDir)
-	} else {
-		_, composeUpErr = c.Up(appDir)
-	}
+	composeUpErr := cliutil.RunWithSpinner(fmt.Sprintf("Recreating containers for %s...", appName), func() error {
+		if meta != nil && meta.RequiresBuild {
+			_, err := c.UpWithBuild(appDir)
+			return err
+		}
+		_, err := c.Up(appDir)
+		return err
+	})
 	if composeUpErr != nil {
 		fmt.Printf("Container recreation failed, rolling back compose file...\n")
 		if rollbackErr := os.WriteFile(composePath, origCompose, 0o600); rollbackErr != nil { // #nosec G703 -- composePath is constructed from config

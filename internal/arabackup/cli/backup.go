@@ -17,6 +17,7 @@ import (
 	"github.com/jdillenberger/arastack/internal/arabackup/discovery"
 	"github.com/jdillenberger/arastack/internal/arabackup/dump"
 	"github.com/jdillenberger/arastack/pkg/clients"
+	"github.com/jdillenberger/arastack/pkg/cliutil"
 	"github.com/jdillenberger/arastack/pkg/executil"
 )
 
@@ -99,15 +100,21 @@ func backupApp(cfg *config.Config, runner *executil.Runner, app *discovery.App, 
 	// Dump phase
 	if backupType == "all" || backupType == "dump" {
 		for _, svc := range app.DumpServices() {
-			if _, err := d.Dump(app, svc); err != nil {
-				return fmt.Errorf("dump %s/%s: %w", app.Name, svc.ServiceName, err)
+			svcName := svc.ServiceName
+			if err := cliutil.RunWithSpinner(fmt.Sprintf("Dumping %s/%s...", app.Name, svcName), func() error {
+				_, err := d.Dump(app, svc)
+				return err
+			}); err != nil {
+				return fmt.Errorf("dump %s/%s: %w", app.Name, svcName, err)
 			}
 		}
 	}
 
 	// Borg phase
 	if backupType == "all" || backupType == "borg" {
-		if err := borgBackup(cfg, b, app); err != nil {
+		if err := cliutil.RunWithSpinner(fmt.Sprintf("Creating borg archive for %s...", app.Name), func() error {
+			return borgBackup(cfg, b, app)
+		}); err != nil {
 			return fmt.Errorf("borg backup %s: %w", app.Name, err)
 		}
 	}

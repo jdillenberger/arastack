@@ -31,7 +31,7 @@ var tagsSetCmd = &cobra.Command{
 	Short: "Set tags on the local peer",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		st := store.New(dataDir)
+		st := store.New(cfg.Server.DataDir)
 		if err := st.Load(); err != nil {
 			return fmt.Errorf("loading store: %w", err)
 		}
@@ -68,7 +68,7 @@ var tagsRemoveCmd = &cobra.Command{
 	Short: "Remove tags from the local peer",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		st := store.New(dataDir)
+		st := store.New(cfg.Server.DataDir)
 		if err := st.Load(); err != nil {
 			return fmt.Errorf("loading store: %w", err)
 		}
@@ -100,7 +100,7 @@ var tagsListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List tags on the local peer",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		st := store.New(dataDir)
+		st := store.New(cfg.Server.DataDir)
 		if err := st.Load(); err != nil {
 			return fmt.Errorf("loading store: %w", err)
 		}

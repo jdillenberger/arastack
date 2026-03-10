@@ -11,6 +11,7 @@ import (
 
 	"github.com/jdillenberger/arastack/internal/aramanager/registry"
 	"github.com/jdillenberger/arastack/internal/aramanager/syscheck"
+	"github.com/jdillenberger/arastack/pkg/cliutil"
 )
 
 func init() {
@@ -65,12 +66,22 @@ var setupCmd = &cobra.Command{
 		if len(missing) > 0 {
 			fmt.Printf("=== Downloading missing binaries: %s ===\n", strings.Join(missing, ", "))
 
-			release, err := fetchLatestRelease()
-			if err != nil {
+			var release *githubRelease
+			if err := cliutil.RunWithSpinner("Fetching release info...", func() error {
+				var fetchErr error
+				release, fetchErr = fetchLatestRelease()
+				return fetchErr
+			}); err != nil {
 				return fmt.Errorf("fetching release info: %w", err)
 			}
 
-			dlErrors := downloadAndInstallBinaries(release, missing)
+			var dlErrors []string
+			if err := cliutil.RunWithSpinner("Downloading binaries...", func() error {
+				dlErrors = downloadAndInstallBinaries(release, missing)
+				return nil
+			}); err != nil {
+				return err
+			}
 			if len(dlErrors) > 0 {
 				fmt.Println("\nDownload errors:")
 				for _, e := range dlErrors {

@@ -31,7 +31,7 @@ var inviteCmd = &cobra.Command{
 		ttl, _ := cmd.Flags().GetDuration("ttl")
 
 		// Load the local store directly (works without daemon).
-		st := store.New(dataDir)
+		st := store.New(cfg.Server.DataDir)
 		if err := st.Load(); err != nil {
 			return fmt.Errorf("loading store: %w", err)
 		}
@@ -67,7 +67,7 @@ var inviteCmd = &cobra.Command{
 		token := peer.InviteToken{
 			PeerGroup: pg.Name,
 			Address:   localIP,
-			Port:      port,
+			Port:      cfg.Server.Port,
 			Token:     oneTimeToken,
 			Expires:   expires,
 		}

@@ -310,13 +310,14 @@ func (m *Manager) Deploy(appName string, opts DeployOptions) error {
 	}
 
 	// Run docker compose up
-	fmt.Printf("Starting %s...\n", appName)
-	var composeErr error
-	if meta.RequiresBuild {
-		_, composeErr = m.compose.UpWithBuild(appDir)
-	} else {
-		_, composeErr = m.compose.Up(appDir)
-	}
+	composeErr := cliutil.RunWithSpinner(fmt.Sprintf("Deploying %s...", appName), func() error {
+		if meta.RequiresBuild {
+			_, err := m.compose.UpWithBuild(appDir)
+			return err
+		}
+		_, err := m.compose.Up(appDir)
+		return err
+	})
 	if composeErr != nil {
 		_, _ = m.compose.Down(appDir)
 		_ = os.RemoveAll(appDir)

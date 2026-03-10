@@ -7,6 +7,7 @@ import (
 
 	"github.com/jdillenberger/arastack/internal/aramanager/registry"
 	"github.com/jdillenberger/arastack/internal/aramanager/syscheck"
+	"github.com/jdillenberger/arastack/pkg/cliutil"
 	"github.com/jdillenberger/arastack/pkg/doctor"
 )
 
@@ -47,14 +48,8 @@ var doctorCmd = &cobra.Command{
 
 			var sysFailed []doctor.CheckResult
 			for _, r := range sysResults {
-				if r.Installed {
-					fmt.Printf("  [x] %-30s %s\n", r.Name, r.Version)
-				} else {
-					if r.Version != "" {
-						fmt.Printf("  [ ] %-30s %s\n", r.Name, r.Version)
-					} else {
-						fmt.Printf("  [ ] %-30s missing\n", r.Name)
-					}
+				printCheckResult(r)
+				if !r.Installed {
 					allOK = false
 					sysFailed = append(sysFailed, r)
 				}
@@ -70,6 +65,8 @@ var doctorCmd = &cobra.Command{
 						fmt.Printf("      Fixed.\n")
 					}
 				}
+			} else if !fix {
+				printFixHints(sysFailed)
 			}
 			fmt.Println()
 		}
@@ -89,18 +86,10 @@ var doctorCmd = &cobra.Command{
 
 			var failed []doctor.CheckResult
 			for _, r := range results {
-				if r.Installed {
-					fmt.Printf("  [x] %-30s %s\n", r.Name, r.Version)
-				} else {
-					if r.Version != "" {
-						fmt.Printf("  [ ] %-30s %s\n", r.Name, r.Version)
-					} else {
-						fmt.Printf("  [ ] %-30s missing\n", r.Name)
-					}
-					if !r.Optional {
-						allOK = false
-						failed = append(failed, r)
-					}
+				printCheckResult(r)
+				if !r.Installed && !r.Optional {
+					allOK = false
+					failed = append(failed, r)
 				}
 			}
 
@@ -114,6 +103,8 @@ var doctorCmd = &cobra.Command{
 						fmt.Printf("      Fixed.\n")
 					}
 				}
+			} else if !fix {
+				printFixHints(failed)
 			}
 			fmt.Println()
 		}
@@ -121,10 +112,39 @@ var doctorCmd = &cobra.Command{
 		if allOK {
 			fmt.Println("All checks passed.")
 		} else if !fix {
-			fmt.Println("Some checks failed. Run with --fix to fix automatically.")
+			fmt.Println("Some checks failed. Run 'aramanager doctor --fix' to fix automatically.")
 			return fmt.Errorf("some checks failed")
 		}
 
 		return nil
 	},
+}
+
+// printCheckResult prints a single check result with colored markers.
+func printCheckResult(r doctor.CheckResult) {
+	switch {
+	case r.Installed:
+		fmt.Printf("  %s %-30s %s\n", cliutil.StatusOK("✓"), r.Name, r.Version)
+	case r.Optional:
+		version := r.Version
+		if version == "" {
+			version = "missing (optional)"
+		}
+		fmt.Printf("  %s %-30s %s\n", cliutil.StatusWarn("!"), r.Name, version)
+	default:
+		version := r.Version
+		if version == "" {
+			version = "missing"
+		}
+		fmt.Printf("  %s %-30s %s\n", cliutil.StatusFail("✗"), r.Name, version)
+	}
+}
+
+// printFixHints shows install command hints for failed checks.
+func printFixHints(failed []doctor.CheckResult) {
+	for _, r := range failed {
+		if r.InstallCommand != "" {
+			fmt.Printf("    Fix: sudo %s\n", r.InstallCommand)
+		}
+	}
 }

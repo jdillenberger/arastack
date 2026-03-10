@@ -25,6 +25,7 @@ var tools = []Tool{
 		Description: "arascanner - Homelab peer discovery daemon",
 		ExecArgs:    "run",
 		Port:        7120,
+		ConfigPath:  "/etc/arastack/config/arascanner.yaml",
 		Order:       1,
 		ServiceConfig: systemd.ServiceConfig{
 			BinaryName:  "arascanner",

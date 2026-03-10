@@ -49,7 +49,7 @@ var joinCmd = &cobra.Command{
 		}
 
 		// Load local store to read self info.
-		st := store.New(dataDir)
+		st := store.New(cfg.Server.DataDir)
 		if err := st.Load(); err != nil {
 			return fmt.Errorf("loading store: %w", err)
 		}
@@ -64,9 +64,9 @@ var joinCmd = &cobra.Command{
 			Role     string            `json:"role"`
 			Tags     map[string]string `json:"tags,omitempty"`
 		}{
-			Hostname: hostname,
+			Hostname: cfg.Server.Hostname,
 			Address:  localIP,
-			Port:     port,
+			Port:     cfg.Server.Port,
 			Version:  version.Version,
 			Role:     self.Role,
 			Tags:     self.Tags,
@@ -136,7 +136,7 @@ var joinCmd = &cobra.Command{
 		}
 
 		fmt.Printf("Joined peer group %q via %s.\n", joinResp.PeerGroup.Name, joinResp.Hostname)
-		fmt.Printf("Peer group secret saved to %s/peers.yaml\n", dataDir)
+		fmt.Printf("Peer group secret saved to %s/peers.yaml\n", cfg.Server.DataDir)
 		return nil
 	},
 }

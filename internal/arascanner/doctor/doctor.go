@@ -16,6 +16,7 @@ import (
 func CheckAll(dataDir string) []doctor.CheckResult {
 	results := mdns.CheckAllDependencies()
 	results = append(results, CheckDataDir(dataDir))
+	results = append(results, CheckConfigFile())
 	results = append(results, CheckServiceRunning())
 	return results
 }
@@ -40,6 +41,23 @@ func CheckDataDir(dataDir string) doctor.CheckResult {
 
 	result.Installed = true
 	result.Version = dataDir
+	return result
+}
+
+// CheckConfigFile checks that the arascanner config file exists.
+func CheckConfigFile() doctor.CheckResult {
+	result := doctor.CheckResult{
+		Name:     "config-file",
+		Optional: true,
+	}
+
+	configPath := "/etc/arastack/config/arascanner.yaml"
+	if _, err := os.Stat(configPath); err == nil {
+		result.Installed = true
+		result.Version = configPath
+	} else {
+		result.Version = fmt.Sprintf("%s not found (using defaults)", configPath)
+	}
 	return result
 }
 

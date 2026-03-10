@@ -34,12 +34,12 @@ var peersCmd = &cobra.Command{
 	Short: "List known peers from the running daemon",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Load store to get PSK for authenticated API call.
-		st := store.New(dataDir)
+		st := store.New(cfg.Server.DataDir)
 		if err := st.Load(); err != nil {
 			return fmt.Errorf("loading store: %w", err)
 		}
 
-		url := fmt.Sprintf("http://localhost:%d/api/peers", port)
+		url := fmt.Sprintf("http://localhost:%d/api/peers", cfg.Server.Port)
 		req, err := http.NewRequest("GET", url, http.NoBody)
 		if err != nil {
 			return fmt.Errorf("creating request: %w", err)
@@ -53,7 +53,7 @@ var peersCmd = &cobra.Command{
 		client := &http.Client{Timeout: 5 * time.Second}
 		resp, err := client.Do(req)
 		if err != nil {
-			return fmt.Errorf("could not reach daemon at localhost:%d — is arascanner running? (%w)", port, err)
+			return fmt.Errorf("could not reach daemon at localhost:%d — is arascanner running? (%w)", cfg.Server.Port, err)
 		}
 		defer resp.Body.Close() //nolint:errcheck // read-only body
 

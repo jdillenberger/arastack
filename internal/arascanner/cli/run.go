@@ -34,6 +34,13 @@ var runCmd = &cobra.Command{
 }
 
 func runDaemon() error {
+	port := cfg.Server.Port
+	hostname := cfg.Server.Hostname
+	dataDir := cfg.Server.DataDir
+	discoveryInterval := cfg.GetDiscoveryInterval()
+	heartbeatInterval := cfg.GetHeartbeatInterval()
+	offlineThreshold := cfg.GetOfflineThreshold()
+
 	// 1. Load or initialize store.
 	s := store.New(dataDir)
 	if err := s.Load(); err != nil {
@@ -97,8 +104,8 @@ func runDaemon() error {
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
 	// 6. Background loops.
-	go discoveryLoop(ctx, s, hostname)
-	go heartbeatLoop(ctx, hb, s)
+	go discoveryLoop(ctx, s, hostname, discoveryInterval)
+	go heartbeatLoop(ctx, hb, s, heartbeatInterval, offlineThreshold)
 	go persistLoop(ctx, s)
 
 	// 7. Block until signal.
@@ -123,7 +130,7 @@ func runDaemon() error {
 	return nil
 }
 
-func discoveryLoop(ctx context.Context, s *store.Store, selfHostname string) {
+func discoveryLoop(ctx context.Context, s *store.Store, selfHostname string, discoveryInterval time.Duration) {
 	ticker := time.NewTicker(discoveryInterval)
 	defer ticker.Stop()
 
@@ -160,7 +167,7 @@ func runDiscovery(s *store.Store, selfHostname string) {
 	slog.Debug("mDNS discovery completed", "found", len(peers))
 }
 
-func heartbeatLoop(ctx context.Context, hb *heartbeat.Heartbeater, s *store.Store) {
+func heartbeatLoop(ctx context.Context, hb *heartbeat.Heartbeater, s *store.Store, heartbeatInterval, offlineThreshold time.Duration) {
 	ticker := time.NewTicker(heartbeatInterval)
 	defer ticker.Stop()
 

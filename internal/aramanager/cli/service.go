@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jdillenberger/arastack/internal/aramanager/registry"
+	"github.com/jdillenberger/arastack/pkg/cliutil"
 )
 
 func init() {
@@ -73,19 +74,16 @@ var serviceStatusCmd = &cobra.Command{
 		}
 
 		for _, t := range tools {
-			status := "inactive"
-			if t.ServiceConfig.IsActive() {
-				status = "active"
-			}
+			active := t.ServiceConfig.IsActive()
 			portInfo := ""
 			if t.Port > 0 {
 				portInfo = fmt.Sprintf(" (port %d)", t.Port)
 			}
-			mark := "[ ]"
-			if status == "active" {
-				mark = "[x]"
+			if active {
+				fmt.Printf("  %s %-20s %s%s\n", cliutil.StatusOK("✓"), t.Name, cliutil.StatusOK("active"), portInfo)
+			} else {
+				fmt.Printf("  %s %-20s %s%s\n", cliutil.StatusFail("✗"), t.Name, cliutil.StatusFail("inactive"), portInfo)
 			}
-			fmt.Printf("  %s %-20s %s%s\n", mark, t.Name, status, portInfo)
 		}
 		return nil
 	},

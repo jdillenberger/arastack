@@ -57,5 +57,6 @@ install -m 755 "${TMP_DIR}/aramanager" "${INSTALL_DIR}/aramanager"
 echo ""
 echo "aramanager ${TAG} installed to ${INSTALL_DIR}/aramanager"
 echo ""
-echo "Next step:"
-echo "  sudo aramanager setup"
+
+# Run setup
+aramanager setup

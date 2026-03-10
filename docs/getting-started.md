@@ -19,16 +19,10 @@ sudo usermod -aG docker $USER
 
 ## Step 1: Install arastack
 
-Download and install `aramanager` (the management tool that handles everything else):
+Download and install `aramanager`, then run the full setup automatically:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jdillenberger/arastack/main/install.sh | sudo bash
-```
-
-Then run the full setup:
-
-```bash
-sudo aramanager setup
 ```
 
 This will:

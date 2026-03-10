@@ -4,7 +4,6 @@ A self-hosted homelab management suite. Deploy Docker Compose apps from template
 
 ```
 curl -fsSL https://raw.githubusercontent.com/jdillenberger/arastack/main/install.sh | sudo bash
-sudo aramanager setup
 aradeploy deploy nextcloud
 ```
 

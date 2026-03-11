@@ -1,7 +1,10 @@
 package cli
 
 import (
+	"context"
 	"fmt"
+	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -56,17 +59,30 @@ var updateCmd = &cobra.Command{
 		}
 
 		binaries := append(registry.Names(), "aramanager")
-		errors := downloadAndInstallBinaries(release, binaries)
+		dlErrors := downloadAndInstallBinaries(release, binaries)
 
-		if len(errors) > 0 {
+		if len(dlErrors) > 0 {
 			fmt.Println("\nErrors:")
-			for _, e := range errors {
+			for _, e := range dlErrors {
 				fmt.Printf("  - %s\n", e)
 			}
-			return fmt.Errorf("%d tool(s) failed to update", len(errors))
+			return fmt.Errorf("%d tool(s) failed to update", len(dlErrors))
 		}
 
 		fmt.Printf("\nAll tools updated to version %s.\n", latest)
+
+		// After updating, re-exec so the new aramanager binary can
+		// install any tools that were added to the registry since the
+		// last release (e.g. a newly introduced CLI tool).
+		self, err := os.Executable()
+		if err != nil {
+			return nil
+		}
+		reexecCmd := exec.CommandContext(context.Background(), self, "install-missing") // #nosec G204 -- self-referencing binary
+		reexecCmd.Stdin = os.Stdin
+		reexecCmd.Stdout = os.Stdout
+		reexecCmd.Stderr = os.Stderr
+		_ = reexecCmd.Run() // best-effort; ignore errors
 		return nil
 	},
 }

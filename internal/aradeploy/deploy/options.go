@@ -21,6 +21,7 @@ func ValidateAppName(name string) error {
 // DeployOptions holds parameters for a deploy operation.
 type DeployOptions struct {
 	Values  map[string]string
+	Code    map[string]string // maps "slot[/name]" to source path/URL (optionally with #branch)
 	DryRun  bool
 	Confirm bool // if true, skip confirmation prompt
 }
@@ -38,6 +39,7 @@ type ManagerConfig struct {
 	Hostname string
 	AppsDir  string
 	DataDir  string
+	CodeDir  string
 
 	Network NetworkConfig
 	Docker  DockerConfig
@@ -79,6 +81,11 @@ func (c *ManagerConfig) AppDir(appName string) string {
 // DataPath returns the data directory for an app.
 func (c *ManagerConfig) DataPath(appName string) string {
 	return c.DataDir + "/" + appName
+}
+
+// CodePath returns the code directory for an app.
+func (c *ManagerConfig) CodePath(appName string) string {
+	return c.CodeDir + "/" + appName
 }
 
 // RoutingDomain returns the domain used for routing.

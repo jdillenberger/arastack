@@ -25,8 +25,33 @@ type AppMeta struct {
 	PostDeployInfo *PostDeployInfo `yaml:"post_deploy_info"`
 	Hooks          *HooksMeta      `yaml:"hooks"`
 	Routing        *RoutingMeta    `yaml:"routing"`
+	Code           *CodeMeta       `yaml:"code"`
 	RequiresBuild  bool            `yaml:"requires_build"`
 	LintIgnore     []string        `yaml:"lint_ignore"`
+}
+
+// CodeMeta defines code deployment slots for a template.
+type CodeMeta struct {
+	Slots []CodeSlot `yaml:"slots"`
+}
+
+// CodeSlot describes a location where user code can be mounted or built into a container.
+type CodeSlot struct {
+	Name        string `yaml:"name"`      // e.g. "themes", "src"
+	Container   string `yaml:"container"` // e.g. "/var/www/html/wp-content/themes/{name}"
+	Description string `yaml:"description"`
+	Inject      string `yaml:"inject"`   // "build" or "volume" (default: "volume")
+	Multiple    bool   `yaml:"multiple"` // true = many items (WordPress plugins/themes)
+	Required    bool   `yaml:"required"` // must be provided at deploy time
+	Service     string `yaml:"service"`  // target compose service (optional, defaults to primary)
+}
+
+// InjectMode returns the effective injection mode, defaulting to "volume".
+func (s *CodeSlot) InjectMode() string {
+	if s.Inject == "build" {
+		return "build"
+	}
+	return "volume"
 }
 
 // PortMapping describes a port exposed by the app.

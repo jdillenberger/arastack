@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
+	"github.com/jdillenberger/arastack/internal/aradeploy/code"
 	"github.com/jdillenberger/arastack/internal/aradeploy/compose"
 	"github.com/jdillenberger/arastack/internal/aradeploy/deploy"
 	"github.com/jdillenberger/arastack/internal/aradeploy/repo"
@@ -71,6 +72,7 @@ func init() {
 	rootCmd.AddCommand(inspectCmd)
 	deployCmd.Flags().StringP("values", "f", "", "YAML file with template values")
 	deployCmd.Flags().StringSlice("set", nil, "Set values (key=value)")
+	deployCmd.Flags().StringSlice("code", nil, "Mount code source (slot[/name]=source[#branch])")
 	deployCmd.Flags().Bool("dry-run", false, "Show rendered files without deploying")
 	deployCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 	deployCmd.Flags().Bool("quick", false, "Accept all defaults and auto-generate secrets")
@@ -104,7 +106,9 @@ var deployCmd = &cobra.Command{
   aradeploy deploy nextcloud -f values.yaml
   aradeploy deploy nextcloud --set domain=cloud.example.com --set admin_password=secret
   aradeploy deploy nextcloud --quick --yes
-  aradeploy deploy nextcloud --dry-run`,
+  aradeploy deploy nextcloud --dry-run
+  aradeploy deploy wordpress --code themes/my-theme=./path/to/theme
+  aradeploy deploy vite-app --code src=https://github.com/user/app.git#main`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		mgr, err := newManager()
@@ -137,23 +141,45 @@ var deployCmd = &cobra.Command{
 			values[parts[0]] = parts[1]
 		}
 
+		codeFlags, _ := cmd.Flags().GetStringSlice("code")
+		codeMap := make(map[string]string)
+		for _, kv := range codeFlags {
+			parts := strings.SplitN(kv, "=", 2)
+			if len(parts) != 2 {
+				return fmt.Errorf("invalid --code value: %q (expected slot[/name]=source[#branch])", kv)
+			}
+			codeMap[parts[0]] = parts[1]
+		}
+
 		if quick {
 			return mgr.Deploy(appName, deploy.DeployOptions{
 				Values:  values,
+				Code:    codeMap,
 				DryRun:  dryRun,
 				Confirm: true,
 			})
 		}
 
-		if len(values) == 0 && !dryRun {
+		if !dryRun {
 			if fi, err := os.Stdin.Stat(); err == nil && fi.Mode()&os.ModeCharDevice != 0 {
 				meta, ok := mgr.Registry().Get(appName)
-				if ok && len(meta.Values) > 0 {
-					wizardValues, err := wizard.RunDeployWizard(meta)
-					if err != nil {
-						return err
+				if ok {
+					if len(values) == 0 && len(meta.Values) > 0 {
+						wizardValues, err := wizard.RunDeployWizard(meta)
+						if err != nil {
+							return err
+						}
+						values = wizardValues
 					}
-					values = wizardValues
+					if len(codeMap) == 0 && meta.Code != nil {
+						wizardCode, err := wizard.RunCodeWizard(meta)
+						if err != nil {
+							return err
+						}
+						for k, v := range wizardCode {
+							codeMap[k] = v
+						}
+					}
 				}
 			}
 		}
@@ -161,6 +187,7 @@ var deployCmd = &cobra.Command{
 		yes, _ := cmd.Flags().GetBool("yes")
 		return mgr.Deploy(appName, deploy.DeployOptions{
 			Values:  values,
+			Code:    codeMap,
 			DryRun:  dryRun,
 			Confirm: yes,
 		})
@@ -464,6 +491,7 @@ var inspectCmd = &cobra.Command{
 				Ports      []template.PortMapping   `json:"ports,omitempty"`
 				Volumes    []template.VolumeMapping `json:"volumes,omitempty"`
 				URLs       []string                 `json:"urls,omitempty"`
+				Code       []code.Source            `json:"code,omitempty"`
 			}
 			maskedValues := make(map[string]string)
 			for k, v := range info.Values {
@@ -487,6 +515,7 @@ var inspectCmd = &cobra.Command{
 			if info.Routing != nil && info.Routing.Enabled {
 				out.URLs = info.Routing.Domains
 			}
+			out.Code = info.Code
 			return outputJSON(out)
 		}
 
@@ -513,6 +542,21 @@ var inspectCmd = &cobra.Command{
 			fmt.Println("\nVolumes:")
 			for _, v := range meta.Volumes {
 				fmt.Printf("  %-15s %s  (%s)\n", v.Name, v.Container, v.Description)
+			}
+		}
+
+		if len(info.Code) > 0 {
+			fmt.Println("\nCode sources:")
+			for _, cs := range info.Code {
+				label := cs.Slot
+				if cs.Name != "" {
+					label += "/" + cs.Name
+				}
+				extra := cs.Type
+				if cs.Branch != "" {
+					extra += ", branch: " + cs.Branch
+				}
+				fmt.Printf("  %-25s %s  (%s)\n", label, cs.Source, extra)
 			}
 		}
 

@@ -79,6 +79,7 @@ func MergeValues(cfg *ManagerConfig, appName string, meta *template.AppMeta, use
 	merged["hostname"] = cfg.Hostname
 	merged["domain"] = cfg.Network.Domain
 	merged["data_dir"] = cfg.DataPath(appName)
+	merged["code_dir"] = cfg.CodePath(appName)
 	merged["app_name"] = appName
 	merged["network"] = cfg.Docker.DefaultNetwork
 	if merged["web_port"] == "" {

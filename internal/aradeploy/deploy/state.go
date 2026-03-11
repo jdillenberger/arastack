@@ -3,6 +3,7 @@ package deploy
 import (
 	"time"
 
+	"github.com/jdillenberger/arastack/internal/aradeploy/code"
 	"github.com/jdillenberger/arastack/internal/aradeploy/routing"
 )
 
@@ -14,4 +15,5 @@ type DeployedApp struct {
 	DeployedAt time.Time              `yaml:"deployed_at"`
 	Version    string                 `yaml:"version"`
 	Routing    *routing.DeployedRoute `yaml:"routing,omitempty"`
+	Code       []code.Source          `yaml:"code,omitempty"`
 }

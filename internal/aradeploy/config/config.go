@@ -25,6 +25,7 @@ type Config struct {
 	Hostname     string `yaml:"hostname"`
 	AppsDir      string `yaml:"apps_dir"`
 	DataDir      string `yaml:"data_dir"`
+	CodeDir      string `yaml:"code_dir"`
 	TemplatesDir string `yaml:"templates_dir"`
 
 	Network  NetworkConfig `yaml:"network"`
@@ -72,6 +73,7 @@ func DefaultConfig() *Config {
 		Hostname:     hostname,
 		AppsDir:      "/opt/aradeploy/apps",
 		DataDir:      "/opt/aradeploy/data",
+		CodeDir:      "/opt/aradeploy/code",
 		TemplatesDir: DefaultTemplatesDir(),
 		Network: NetworkConfig{
 			Domain:  "local",
@@ -125,9 +127,9 @@ func LoadWithOverride(overridePath string) (*Config, error) {
 	return cfg, nil
 }
 
-// EnsureDirectories creates the apps and data directories if they don't exist.
+// EnsureDirectories creates the apps, data, and code directories if they don't exist.
 func (c *Config) EnsureDirectories() error {
-	for _, dir := range []string{c.AppsDir, c.DataDir} {
+	for _, dir := range []string{c.AppsDir, c.DataDir, c.CodeDir} {
 		if err := os.MkdirAll(dir, 0o750); err != nil {
 			return fmt.Errorf("creating directory %s: %w", dir, err)
 		}
@@ -147,6 +149,9 @@ func Validate(c *Config) []string {
 	}
 	if c.DataDir == "" {
 		errs = append(errs, "data_dir is empty")
+	}
+	if c.CodeDir == "" {
+		errs = append(errs, "code_dir is empty")
 	}
 	if c.Network.Domain == "" {
 		errs = append(errs, "network.domain is empty")
@@ -208,12 +213,18 @@ func (c *Config) DataPath(appName string) string {
 	return filepath.Join(c.DataDir, appName)
 }
 
+// CodePath returns the code directory for a specific app.
+func (c *Config) CodePath(appName string) string {
+	return filepath.Join(c.CodeDir, appName)
+}
+
 // ToManagerConfig converts a Config to a deploy.ManagerConfig.
 func (c *Config) ToManagerConfig() *deploy.ManagerConfig {
 	return &deploy.ManagerConfig{
 		Hostname: c.Hostname,
 		AppsDir:  c.AppsDir,
 		DataDir:  c.DataDir,
+		CodeDir:  c.CodeDir,
 		Network: deploy.NetworkConfig{
 			Domain:  c.Network.Domain,
 			WebPort: c.Network.WebPort,

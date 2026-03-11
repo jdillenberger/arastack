@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jdillenberger/arastack/internal/aradeploy/code"
 	"github.com/jdillenberger/arastack/internal/aradeploy/compose"
 	"github.com/jdillenberger/arastack/internal/aradeploy/config"
 	"github.com/jdillenberger/arastack/internal/aradeploy/deploy"
@@ -237,6 +238,28 @@ func runUpgrade(cfg *config.Config, mgr *deploy.Manager, appName string, dryRun,
 		return nil
 	}
 
+	// Update code sources
+	if len(info.Code) > 0 {
+		runner := &executil.Runner{}
+		codeMgr := code.NewManager(cfg.CodeDir, runner)
+		fmt.Println("\nUpdating code sources...")
+		if err := codeMgr.Update(appName, info.Code); err != nil {
+			fmt.Printf("  Warning: code update failed: %v\n", err)
+		} else {
+			fmt.Println("  Code sources updated.")
+		}
+	}
+
+	// Re-inject code volumes into rendered templates if template was re-rendered
+	if ok && meta.Code != nil && len(info.Code) > 0 && rendered != nil {
+		if composeContent, haveCompose := rendered["docker-compose.yml"]; haveCompose {
+			modified, err := code.InjectCodeVolumes(composeContent, meta.Code.Slots, info.Code, cfg.CodeDir, appName)
+			if err == nil {
+				rendered["docker-compose.yml"] = modified
+			}
+		}
+	}
+
 	origCompose, err := os.ReadFile(composePath) // #nosec G304 -- path is constructed internally
 	if err != nil {
 		return fmt.Errorf("reading compose file for backup: %w", err)
@@ -271,7 +294,17 @@ func runUpgrade(cfg *config.Config, mgr *deploy.Manager, appName string, dryRun,
 		}
 	}
 
+	// Copy build sources into build context if needed
 	runner := &executil.Runner{}
+	var buildPaths []string
+	if meta != nil && meta.RequiresBuild && meta.Code != nil && len(info.Code) > 0 {
+		var copyErr error
+		buildPaths, copyErr = code.CopyBuildSources(appDir, meta.Code.Slots, info.Code, cfg.CodeDir, appName, runner)
+		if copyErr != nil {
+			return fmt.Errorf("copying build sources: %w", copyErr)
+		}
+	}
+
 	c := compose.New(runner, cfg.Docker.ComposeCommand)
 	composeUpErr := cliutil.RunWithSpinner(fmt.Sprintf("Recreating containers for %s...", appName), func() error {
 		if meta != nil && meta.RequiresBuild {
@@ -281,6 +314,9 @@ func runUpgrade(cfg *config.Config, mgr *deploy.Manager, appName string, dryRun,
 		_, err := c.Up(appDir)
 		return err
 	})
+
+	code.CleanBuildSources(buildPaths)
+
 	if composeUpErr != nil {
 		fmt.Printf("Container recreation failed, rolling back compose file...\n")
 		if rollbackErr := os.WriteFile(composePath, origCompose, 0o600); rollbackErr != nil { // #nosec G703 -- composePath is constructed from config

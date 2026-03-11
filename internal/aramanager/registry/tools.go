@@ -269,4 +269,11 @@ var tools = []Tool{
 		},
 		DoctorFix: aramdnsdoc.Fix,
 	},
+	{
+		Name:        "aratop",
+		BinaryName:  "aratop",
+		Description: "aratop - Terminal dashboard for arastack",
+		Order:       9,
+		SetupFunc:   func() error { return nil }, // CLI-only tool, no service
+	},
 }

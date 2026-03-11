@@ -15,11 +15,18 @@ type Dependency struct {
 	Binary         string
 	VersionArgs    []string
 	InstallCommand string
+	Optional       bool
 }
 
 // DefaultDependencies returns the list of dependencies to check.
 func DefaultDependencies() []Dependency {
 	return []Dependency{
+		{
+			Name:           "git",
+			Binary:         "git",
+			VersionArgs:    []string{"--version"},
+			InstallCommand: "apt install -y git",
+		},
 		{
 			Name:           "docker",
 			Binary:         "docker",
@@ -32,6 +39,13 @@ func DefaultDependencies() []Dependency {
 			VersionArgs:    []string{"compose", "version"},
 			InstallCommand: "apt install -y docker-compose-v2",
 		},
+		{
+			Name:           "rsync",
+			Binary:         "rsync",
+			VersionArgs:    []string{"--version"},
+			InstallCommand: "apt install -y rsync",
+			Optional:       true,
+		},
 	}
 }
 
@@ -40,6 +54,7 @@ func Check(dep Dependency) doctor.CheckResult {
 	result := doctor.CheckResult{
 		Name:           dep.Name,
 		InstallCommand: dep.InstallCommand,
+		Optional:       dep.Optional,
 	}
 
 	path, err := exec.LookPath(dep.Binary)

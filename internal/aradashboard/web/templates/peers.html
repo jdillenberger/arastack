@@ -45,7 +45,7 @@
             {{end}}
             {{range .Peers}}
             <tr>
-                <td>{{.Hostname}}</td>
+                <td>{{if .DashURL}}<a href="{{.DashURL}}" target="_blank" rel="noopener">{{.Hostname}}</a>{{else}}{{.Hostname}}{{end}}</td>
                 <td>{{.Role}}</td>
                 <td>{{if .Address}}{{.Address}}{{else}}-{{end}}</td>
                 <td>{{.Port}}</td>

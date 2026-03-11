@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/jdillenberger/arastack/internal/aradashboard/discovery"
 	"github.com/jdillenberger/arastack/internal/aradashboard/health"
 	"github.com/jdillenberger/arastack/pkg/clients"
+	"github.com/jdillenberger/arastack/pkg/ports"
 )
 
 // PortalApp represents an app displayed on the portal dashboard.
@@ -167,15 +169,11 @@ func (h *Handler) DashboardPeers(c echo.Context) error {
 		if p.Hostname == h.ldc.Hostname || p.Address == "" {
 			continue
 		}
-		port := p.Port
-		if port == 0 {
-			port = 8420
-		}
 		peers = append(peers, DashboardPeer{
 			Hostname: p.Hostname,
 			Address:  p.Address,
-			Port:     port,
-			DashURL:  fmt.Sprintf("http://%s:%d", p.Address, port),
+			Port:     p.Port,
+			DashURL:  peerDashboardURL(p),
 		})
 	}
 
@@ -194,4 +192,26 @@ func (h *Handler) DashboardPeers(c echo.Context) error {
 	buf.WriteString(`<footer><a href="/peers">Peer details &rarr;</a></footer></article>`)
 
 	return c.HTML(http.StatusOK, buf.String())
+}
+
+// peerDashboardURL returns the best URL to reach a peer's dashboard:
+//  1. Explicit dashboard_url tag (real domain, e.g. https://x1.example.com)
+//  2. hostname.local:<dashboard_port> (mDNS resolvable on LAN)
+//  3. <ip>:<dashboard_port> (fallback)
+func peerDashboardURL(p clients.Peer) string {
+	if url, ok := p.Tags["dashboard_url"]; ok && url != "" {
+		return url
+	}
+
+	dashPort := ports.AraDashboard
+	if dp, ok := p.Tags["dashboard_port"]; ok {
+		if parsed, err := strconv.Atoi(dp); err == nil {
+			dashPort = parsed
+		}
+	}
+
+	if p.Hostname != "" {
+		return fmt.Sprintf("http://%s.local:%d", p.Hostname, dashPort)
+	}
+	return fmt.Sprintf("http://%s:%d", p.Address, dashPort)
 }

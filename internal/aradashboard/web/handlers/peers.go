@@ -8,13 +8,19 @@ import (
 	"github.com/jdillenberger/arastack/pkg/clients"
 )
 
+// PeersPagePeer extends a peer with its resolved dashboard URL.
+type PeersPagePeer struct {
+	clients.Peer
+	DashURL string
+}
+
 // PeersPageData holds data for the peers template.
 type PeersPageData struct {
 	BasePage
 	Unavailable   bool
 	PeerGroupName string
 	Self          clients.Peer
-	Peers         []clients.Peer
+	Peers         []PeersPagePeer
 }
 
 // HandlePeersPage serves the peers overview HTML page.
@@ -27,11 +33,19 @@ func (h *Handler) HandlePeersPage(c echo.Context) error {
 		})
 	}
 
+	var peers []PeersPagePeer
+	for _, p := range resp.Peers {
+		peers = append(peers, PeersPagePeer{
+			Peer:    p,
+			DashURL: peerDashboardURL(p),
+		})
+	}
+
 	data := PeersPageData{
 		BasePage:      h.basePage(),
 		PeerGroupName: resp.PeerGroup.Name,
 		Self:          resp.Self,
-		Peers:         resp.Peers,
+		Peers:         peers,
 	}
 
 	return c.Render(http.StatusOK, "peers.html", data)

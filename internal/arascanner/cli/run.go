@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -16,7 +17,9 @@ import (
 	"github.com/jdillenberger/arastack/internal/arascanner/heartbeat"
 	"github.com/jdillenberger/arastack/internal/arascanner/mdns"
 	"github.com/jdillenberger/arastack/internal/arascanner/store"
+	"github.com/jdillenberger/arastack/pkg/aradeployconfig"
 	"github.com/jdillenberger/arastack/pkg/netutil"
+	"github.com/jdillenberger/arastack/pkg/ports"
 	"github.com/jdillenberger/arastack/pkg/version"
 )
 
@@ -69,6 +72,10 @@ func runDaemon() error {
 	}
 	s.SetSelfAddress(netutil.DetectLocalIP())
 	s.SetSelfPort(port)
+
+	// Enrich self tags with dashboard metadata from aradeploy config.
+	enrichDashboardTags(s)
+
 	self = s.Self()
 	slog.Info("starting arascanner",
 		"hostname", hostname,
@@ -194,6 +201,45 @@ func heartbeatLoop(ctx context.Context, hb *heartbeat.Heartbeater, s *store.Stor
 			s.CleanExpiredInvites()
 		}
 	}
+}
+
+// enrichDashboardTags reads the aradeploy config and sets dashboard-related
+// tags on the local peer so that other peers know how to reach this node's
+// dashboard. Tags propagate via mDNS TXT records and heartbeat gossip.
+func enrichDashboardTags(s *store.Store) {
+	self := s.Self()
+	tags := self.Tags
+	if tags == nil {
+		tags = make(map[string]string)
+	}
+
+	tags["dashboard_port"] = fmt.Sprintf("%d", ports.AraDashboard)
+
+	ldc, err := aradeployconfig.Load("")
+	if err != nil {
+		slog.Debug("could not load aradeploy config for dashboard tags", "error", err)
+		s.SetSelfTags(tags)
+		return
+	}
+
+	// Build the dashboard URL from the routing domain if configured.
+	domain := ldc.Network.Domain
+	hostname := ldc.Hostname
+	if hostname == "" {
+		hostname = self.Hostname
+	}
+
+	scheme := "http"
+	if ldc.IsHTTPSEnabled() {
+		scheme = "https"
+	}
+
+	if domain != "" && domain != "local" {
+		// Real domain configured (e.g. "example.com") → hostname.example.com
+		tags["dashboard_url"] = fmt.Sprintf("%s://%s.%s", scheme, hostname, domain)
+	}
+
+	s.SetSelfTags(tags)
 }
 
 func persistLoop(ctx context.Context, s *store.Store) {

@@ -228,12 +228,16 @@ func (h *Handler) DashboardPeers(c echo.Context) error {
 }
 
 // peerDashboardURL returns the best URL to reach a peer's dashboard:
-//  1. Explicit dashboard_url tag (real domain, e.g. https://x1.example.com)
-//  2. hostname.local:<dashboard_port> (mDNS resolvable on LAN)
-//  3. <ip>:<dashboard_port> (fallback)
+//  1. Explicit dashboard_url tag (regular domain, e.g. https://x1.example.com)
+//  2. https://<hostname>.local (mDNS local domain)
+//  3. https://<ip>:<port> (fallback)
 func peerDashboardURL(p clients.Peer) string {
 	if url, ok := p.Tags["dashboard_url"]; ok && url != "" {
 		return url
+	}
+
+	if p.Hostname != "" {
+		return fmt.Sprintf("https://%s.local", p.Hostname)
 	}
 
 	dashPort := ports.AraDashboard
@@ -242,9 +246,5 @@ func peerDashboardURL(p clients.Peer) string {
 			dashPort = parsed
 		}
 	}
-
-	if p.Hostname != "" {
-		return fmt.Sprintf("http://%s.local:%d", p.Hostname, dashPort)
-	}
-	return fmt.Sprintf("http://%s:%d", p.Address, dashPort)
+	return fmt.Sprintf("https://%s:%d", p.Address, dashPort)
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/jdillenberger/arastack/internal/aradashboard/config"
 	"github.com/jdillenberger/arastack/internal/aradashboard/docker"
 	"github.com/jdillenberger/arastack/internal/aradashboard/health"
+	"github.com/jdillenberger/arastack/internal/aradashboard/peersecret"
 	"github.com/jdillenberger/arastack/internal/aradashboard/static"
 	traefikroute "github.com/jdillenberger/arastack/internal/aradashboard/traefik"
 	"github.com/jdillenberger/arastack/internal/aradashboard/web/handlers"
@@ -23,10 +24,11 @@ import (
 
 // Server holds the Echo instance and dependencies.
 type Server struct {
-	Echo         *echo.Echo
-	cfg          *config.Config
-	healthCache  *health.HealthCache
-	routeManager *traefikroute.RouteManager
+	Echo              *echo.Echo
+	cfg               *config.Config
+	healthCache       *health.HealthCache
+	routeManager      *traefikroute.RouteManager
+	peerSecretWatcher *peersecret.Watcher
 }
 
 // NewServer creates and configures a new web server.
@@ -101,15 +103,24 @@ func NewServer(cfg *config.Config, ldc *config.AradeployYAML, version string) (*
 	// Clients
 	peerClient := clients.NewAraScannerClient(cfg.Services.AraScanner.URL, cfg.Services.AraScanner.Secret)
 
+	// Watch arascanner's peers.yaml for the peer group secret,
+	// unless an explicit secret is already configured.
+	var psWatcher *peersecret.Watcher
+	if cfg.Services.AraScanner.Secret == "" && cfg.Services.AraScanner.SecretFile != "" {
+		psWatcher = peersecret.New(cfg.Services.AraScanner.SecretFile, &peerClient.BaseClient)
+		psWatcher.Start()
+	}
+
 	// Register handlers
 	h := handlers.New(cfg, ldc, runner, compose, healthCache, peerClient, version)
 	h.Register(e)
 
 	return &Server{
-		Echo:         e,
-		cfg:          cfg,
-		healthCache:  healthCache,
-		routeManager: routeManager,
+		Echo:              e,
+		cfg:               cfg,
+		healthCache:       healthCache,
+		routeManager:      routeManager,
+		peerSecretWatcher: psWatcher,
 	}, nil
 }
 
@@ -120,6 +131,9 @@ func (s *Server) Start(addr string) error {
 
 // Shutdown gracefully stops background tasks and the HTTP server.
 func (s *Server) Shutdown(ctx context.Context) error {
+	if s.peerSecretWatcher != nil {
+		s.peerSecretWatcher.Stop()
+	}
 	s.routeManager.Stop()
 	s.healthCache.Stop()
 	return s.Echo.Shutdown(ctx)

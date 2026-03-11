@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 )
 
@@ -16,6 +17,7 @@ type BaseClient struct {
 	baseURL string
 	client  *http.Client
 	auth    string // optional Bearer token
+	authMu  sync.RWMutex
 }
 
 // NewBaseClient creates a BaseClient with the given timeout.
@@ -26,14 +28,27 @@ func NewBaseClient(baseURL string, timeout time.Duration) BaseClient {
 	}
 }
 
+// SetAuth updates the Bearer token in a thread-safe manner.
+func (b *BaseClient) SetAuth(secret string) {
+	b.authMu.Lock()
+	b.auth = secret
+	b.authMu.Unlock()
+}
+
+func (b *BaseClient) getAuth() string {
+	b.authMu.RLock()
+	defer b.authMu.RUnlock()
+	return b.auth
+}
+
 // GetJSON sends a GET request and decodes the JSON response into result.
 func (b *BaseClient) GetJSON(ctx context.Context, path string, result any) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, b.baseURL+path, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("creating request: %w", err)
 	}
-	if b.auth != "" {
-		req.Header.Set("Authorization", "Bearer "+b.auth)
+	if auth := b.getAuth(); auth != "" {
+		req.Header.Set("Authorization", "Bearer "+auth)
 	}
 
 	resp, err := b.client.Do(req)
@@ -67,8 +82,8 @@ func (b *BaseClient) PostJSON(ctx context.Context, path string, body any) error 
 		return fmt.Errorf("creating request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if b.auth != "" {
-		req.Header.Set("Authorization", "Bearer "+b.auth)
+	if auth := b.getAuth(); auth != "" {
+		req.Header.Set("Authorization", "Bearer "+auth)
 	}
 
 	resp, err := b.client.Do(req)

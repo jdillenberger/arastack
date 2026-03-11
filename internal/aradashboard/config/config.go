@@ -49,8 +49,9 @@ type AramonitorConfig struct {
 }
 
 type AraScannerConfig struct {
-	URL    string `yaml:"url"`
-	Secret string `yaml:"secret"`
+	URL        string `yaml:"url"`
+	Secret     string `yaml:"secret"`
+	SecretFile string `yaml:"secret_file"`
 }
 
 type AraalertConfig struct {
@@ -78,8 +79,9 @@ func Defaults() Config {
 			Port: ports.AraDashboard,
 		},
 		Services: Services{
-			AraScanner: AraScannerConfig{
-				URL: ports.DefaultURL(ports.AraScanner),
+			AraScanner: AraScannerConfig{ //nolint:gosec // G101: SecretFile is a path, not a credential
+				URL:        ports.DefaultURL(ports.AraScanner),
+				SecretFile: "/var/lib/arascanner/peers.yaml",
 			},
 			Araalert: AraalertConfig{
 				URL: ports.DefaultURL(ports.AraAlert),

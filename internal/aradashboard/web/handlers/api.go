@@ -7,7 +7,6 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/jdillenberger/arastack/internal/aradashboard/discovery"
-	"github.com/jdillenberger/arastack/internal/aradashboard/docker"
 	"github.com/jdillenberger/arastack/internal/aradashboard/health"
 	"github.com/jdillenberger/arastack/internal/aradashboard/stats"
 )
@@ -64,18 +63,4 @@ func (h *Handler) APIApps(c echo.Context) error {
 		"apps":  result,
 		"count": len(result),
 	})
-}
-
-// APIRoutingStatus returns the list of domains currently routed by traefik.
-func (h *Handler) APIRoutingStatus(c echo.Context) error {
-	var domains []string
-	if h.ldc.Routing.Enabled {
-		active, err := docker.DiscoverTraefikDomains(h.runner, h.ldc.Docker.Runtime)
-		if err == nil {
-			for domain := range active {
-				domains = append(domains, domain)
-			}
-		}
-	}
-	return c.JSON(http.StatusOK, map[string]any{"domains": domains})
 }

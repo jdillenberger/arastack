@@ -25,8 +25,10 @@ type PortalApp struct {
 	Version     string
 	DeployedAt  string
 	Health      string
-	AccessURL   string
-	RoutingURL  string
+	PortURL     string // tier 3: https://<host>:<port>
+	LocalURL    string // tier 2: https://<app>-<host>.local
+	DomainURL   string // tier 1: https://<domain>
+	LinkURL     string // best of the three
 	DisplayURL  string
 }
 
@@ -65,27 +67,42 @@ func (h *Handler) Dashboard(c echo.Context) error {
 			Health:     "unknown",
 		}
 
-		// Derive access URL from values (common port patterns)
+		// Tier 3: port-based access.
 		for key, val := range info.Values {
 			if strings.HasSuffix(key, "_port") || strings.HasSuffix(key, "_PORT") || key == "port" || key == "http_port" {
-				pa.AccessURL = fmt.Sprintf("http://%s:%s", requestHost, val)
+				pa.PortURL = fmt.Sprintf("https://%s:%s", requestHost, val)
 				break
 			}
 		}
 
-		// Set routing URL
-		if info.Routing != nil && info.Routing.Enabled && len(info.Routing.Domains) > 0 {
-			scheme := "http"
-			if h.ldc.IsHTTPSEnabled() {
-				scheme = "https"
+		// Tier 1 & 2: routing domains.
+		if info.Routing != nil && info.Routing.Enabled {
+			for _, domain := range info.Routing.Domains {
+				url := fmt.Sprintf("https://%s", domain)
+				if strings.HasSuffix(domain, ".local") {
+					if pa.LocalURL == "" {
+						pa.LocalURL = url
+					}
+				} else {
+					if pa.DomainURL == "" {
+						pa.DomainURL = url
+					}
+				}
 			}
-			pa.RoutingURL = fmt.Sprintf("%s://%s", scheme, info.Routing.Domains[0])
 		}
 
-		if pa.RoutingURL != "" {
-			pa.DisplayURL = strings.TrimPrefix(strings.TrimPrefix(pa.RoutingURL, "https://"), "http://")
-		} else if pa.AccessURL != "" {
-			pa.DisplayURL = strings.TrimPrefix(strings.TrimPrefix(pa.AccessURL, "https://"), "http://")
+		// Pick the best URL: Domain > Local Domain > Port.
+		switch {
+		case pa.DomainURL != "":
+			pa.LinkURL = pa.DomainURL
+		case pa.LocalURL != "":
+			pa.LinkURL = pa.LocalURL
+		case pa.PortURL != "":
+			pa.LinkURL = pa.PortURL
+		}
+
+		if pa.LinkURL != "" {
+			pa.DisplayURL = strings.TrimPrefix(strings.TrimPrefix(pa.LinkURL, "https://"), "http://")
 		}
 
 		portalApps = append(portalApps, pa)

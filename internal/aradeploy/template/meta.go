@@ -70,6 +70,18 @@ type VolumeMapping struct {
 	Description string `yaml:"description"`
 }
 
+// PortValueNameSet returns the set of value names that are referenced by port
+// mappings. This is the authoritative way to identify which values represent ports.
+func (m *AppMeta) PortValueNameSet() map[string]bool {
+	set := make(map[string]bool)
+	for _, p := range m.Ports {
+		if p.ValueName != "" {
+			set[p.ValueName] = true
+		}
+	}
+	return set
+}
+
 // Value describes a configurable value in a template.
 type Value struct {
 	Name        string `yaml:"name"`

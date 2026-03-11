@@ -20,6 +20,7 @@ import (
 	"github.com/jdillenberger/arastack/pkg/clients"
 	"github.com/jdillenberger/arastack/pkg/cliutil"
 	"github.com/jdillenberger/arastack/pkg/executil"
+	"github.com/jdillenberger/arastack/pkg/portcheck"
 )
 
 func newManager() (*deploy.Manager, error) {
@@ -165,7 +166,8 @@ var deployCmd = &cobra.Command{
 				meta, ok := mgr.Registry().Get(appName)
 				if ok {
 					if len(values) == 0 && len(meta.Values) > 0 {
-						wizardValues, err := wizard.RunDeployWizard(meta)
+						usedPorts, _ := portcheck.UsedPorts(mgr.Config().AppsDir)
+						wizardValues, err := wizard.RunDeployWizard(meta, usedPorts)
 						if err != nil {
 							return err
 						}

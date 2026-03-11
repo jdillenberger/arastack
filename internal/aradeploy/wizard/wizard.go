@@ -2,16 +2,21 @@ package wizard
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/charmbracelet/huh"
 
 	"github.com/jdillenberger/arastack/internal/aradeploy/code"
 	"github.com/jdillenberger/arastack/internal/aradeploy/template"
+	"github.com/jdillenberger/arastack/pkg/portcheck"
 )
 
 // RunDeployWizard runs an interactive form for configuring app values.
-func RunDeployWizard(meta *template.AppMeta) (map[string]string, error) {
+// usedPorts maps port numbers to the app that owns them; it is used to
+// compute smart defaults and validate port fields against conflicts.
+func RunDeployWizard(meta *template.AppMeta, usedPorts map[int]string) (map[string]string, error) {
 	values := make(map[string]string)
+	portNames := meta.PortValueNameSet()
 
 	type fieldBinding struct {
 		name  string
@@ -25,23 +30,54 @@ func RunDeployWizard(meta *template.AppMeta) (map[string]string, error) {
 			continue
 		}
 
+		defaultVal := v.Default
+		isPort := portNames[v.Name]
+
+		// Smart default for port values: find a free port if the default conflicts
+		if isPort && defaultVal != "" {
+			if parsed, err := strconv.Atoi(defaultVal); err == nil {
+				free := portcheck.NextFreePort(parsed, usedPorts)
+				if free != parsed {
+					defaultVal = strconv.Itoa(free)
+				}
+			}
+		}
+
 		description := v.Description
 		if v.Required {
 			description += " (required)"
 		}
-		if v.Default != "" {
-			description += fmt.Sprintf(" [default: %s]", v.Default)
+		if isPort && defaultVal != v.Default {
+			description += fmt.Sprintf(" [default: %s, adjusted from %s to avoid conflict]", defaultVal, v.Default)
+		} else if defaultVal != "" {
+			description += fmt.Sprintf(" [default: %s]", defaultVal)
 		}
 		if v.Secret {
 			description += " [secret]"
 		}
 
-		b := &fieldBinding{name: v.Name, value: v.Default}
+		b := &fieldBinding{name: v.Name, value: defaultVal}
 		bindings = append(bindings, b)
-		fields = append(fields, huh.NewInput().
+
+		input := huh.NewInput().
 			Title(v.Name).
 			Description(description).
-			Value(&b.value))
+			Value(&b.value)
+
+		// Add port conflict validation
+		if isPort {
+			capturedUsed := usedPorts
+			capturedApp := meta.Name
+			input = input.Validate(func(val string) error {
+				p, err := strconv.Atoi(val)
+				if err != nil {
+					return fmt.Errorf("must be a number")
+				}
+				return portcheck.ValidatePort(p, capturedUsed, capturedApp)
+			})
+		}
+
+		fields = append(fields, input)
 	}
 
 	if len(fields) == 0 {

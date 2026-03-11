@@ -329,6 +329,7 @@ func (s *Store) UpdateOnlineStatus(threshold time.Duration) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	s.state.Self.Online = true
 	cutoff := time.Now().Add(-threshold)
 	for i := range s.state.Peers {
 		s.state.Peers[i].Online = s.state.Peers[i].LastSeen.After(cutoff)

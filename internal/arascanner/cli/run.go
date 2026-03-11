@@ -8,6 +8,9 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"sort"
+	"strings"
 	"syscall"
 	"time"
 
@@ -193,6 +196,15 @@ func heartbeatLoop(ctx context.Context, hb *heartbeat.Heartbeater, s *store.Stor
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			// Refresh app tags so peers see current deployments.
+			self := s.Self()
+			tags := self.Tags
+			if tags == nil {
+				tags = make(map[string]string)
+			}
+			refreshAppTags(s, tags)
+			s.SetSelfTags(tags)
+
 			s.UpdateOnlineStatus(offlineThreshold)
 			hb.HeartbeatAll(ctx)
 			if cleaned := s.CleanStalePeers(24 * time.Hour); cleaned > 0 {
@@ -239,7 +251,41 @@ func enrichDashboardTags(s *store.Store) {
 		tags["dashboard_url"] = fmt.Sprintf("%s://%s.%s", scheme, hostname, domain)
 	}
 
+	refreshAppTags(s, tags)
 	s.SetSelfTags(tags)
+}
+
+// refreshAppTags scans the aradeploy apps directory and sets the "apps" tag
+// to a comma-separated list of deployed app names. This is called periodically
+// so the tag stays current as apps are deployed or removed.
+func refreshAppTags(s *store.Store, tags map[string]string) {
+	ldc, err := aradeployconfig.Load("")
+	if err != nil {
+		return
+	}
+
+	entries, err := os.ReadDir(ldc.AppsDir)
+	if err != nil {
+		return
+	}
+
+	var apps []string
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		stateFile := filepath.Join(ldc.AppsDir, e.Name(), aradeployconfig.StateFileName)
+		if _, err := os.Stat(stateFile); err == nil {
+			apps = append(apps, e.Name())
+		}
+	}
+	sort.Strings(apps)
+
+	if len(apps) > 0 {
+		tags["apps"] = strings.Join(apps, ",")
+	} else {
+		delete(tags, "apps")
+	}
 }
 
 func persistLoop(ctx context.Context, s *store.Store) {

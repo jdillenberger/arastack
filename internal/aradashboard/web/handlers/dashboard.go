@@ -36,6 +36,7 @@ type DashboardPeer struct {
 	Address  string
 	Port     int
 	DashURL  string
+	Apps     []string
 }
 
 // DashboardData holds data for the dashboard template.
@@ -169,11 +170,16 @@ func (h *Handler) DashboardPeers(c echo.Context) error {
 		if p.Hostname == h.ldc.Hostname || p.Address == "" {
 			continue
 		}
+		var apps []string
+		if appsTag, ok := p.Tags["apps"]; ok && appsTag != "" {
+			apps = strings.Split(appsTag, ",")
+		}
 		peers = append(peers, DashboardPeer{
 			Hostname: p.Hostname,
 			Address:  p.Address,
 			Port:     p.Port,
 			DashURL:  peerDashboardURL(p),
+			Apps:     apps,
 		})
 	}
 
@@ -186,15 +192,18 @@ func (h *Handler) DashboardPeers(c echo.Context) error {
 	buf.WriteString(`<div class="apps-grid">`)
 	for _, p := range peers {
 		fmt.Fprintf(&buf, `<div class="app-card peer-card"><div class="app-card-header">`+
-			`<a class="app-card-name" href="%s" target="_blank" rel="noopener">%s</a>`+
+			`<a class="app-card-name" href="%s" target="_blank" rel="noopener"><span class="peer-dot"></span> %s</a>`+
 			`<span class="badge badge-running">online</span>`+
-			`</div><div class="app-card-meta">`+
-			`<span>%s:%d</span>`+
-			`<a href="%s" target="_blank" rel="noopener" class="app-card-manage">dashboard &rarr;</a>`+
-			`</div></div>`,
-			html.EscapeString(p.DashURL), html.EscapeString(p.Hostname),
-			html.EscapeString(p.Address), p.Port,
-			html.EscapeString(p.DashURL))
+			`</div>`,
+			html.EscapeString(p.DashURL), html.EscapeString(p.Hostname))
+		if len(p.Apps) > 0 {
+			buf.WriteString(`<div class="peer-apps">`)
+			for _, app := range p.Apps {
+				fmt.Fprintf(&buf, `<span class="peer-app-label">%s</span>`, html.EscapeString(app))
+			}
+			buf.WriteString(`</div>`)
+		}
+		buf.WriteString(`</div>`)
 	}
 	buf.WriteString(`</div>`)
 

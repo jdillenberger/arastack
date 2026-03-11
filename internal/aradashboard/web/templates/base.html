@@ -119,7 +119,7 @@
             display: block;
             padding: 1.25rem;
             border-radius: 8px;
-            background: var(--pico-card-background-color, #fff);
+            background: rgba(16, 149, 193, 0.04);
             border: 1px solid var(--pico-muted-border-color, #e0e0e0);
             border-left: 3px solid var(--pico-primary, #1095c1);
             color: inherit;
@@ -128,6 +128,9 @@
         .app-card:hover {
             border-left-color: var(--pico-primary-hover, #08769b);
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        [data-theme="dark"] .app-card {
+            background: rgba(16, 149, 193, 0.06);
         }
         .app-card-header {
             display: flex;
@@ -244,10 +247,43 @@
 
         /* Peer cards */
         .peer-card {
-            border-left-color: var(--pico-muted-color, #888);
+            border-left-color: #2a9d8f;
+            background: rgba(42, 157, 143, 0.04);
         }
         .peer-card:hover {
-            border-left-color: var(--pico-muted-color, #666);
+            border-left-color: #21867a;
+        }
+        [data-theme="dark"] .peer-card {
+            background: rgba(42, 157, 143, 0.06);
+        }
+        .peer-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #28a745;
+            display: inline-block;
+            flex-shrink: 0;
+        }
+        .peer-card .badge {
+            border-radius: 12px;
+        }
+        .peer-apps {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+            margin-top: 0.4rem;
+        }
+        .peer-app-label {
+            display: inline-block;
+            padding: 0.1rem 0.45rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            background: var(--pico-muted-border-color, #e0e0e0);
+            color: var(--pico-muted-color, #555);
+        }
+        [data-theme="dark"] .peer-app-label {
+            background: rgba(255,255,255,0.08);
+            color: #aaa;
         }
 
         /* Section divider */

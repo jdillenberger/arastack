@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"os/exec"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -110,6 +111,14 @@ func fetchServiceHealth(cfg Config) tea.Cmd {
 			c := clients.NewBaseClient(url, 3*time.Second)
 			results[name] = c.Health(ctx) == nil
 		}
+
+		// aramdns has no HTTP API; check its systemd service status.
+		if err := exec.CommandContext(ctx, "systemctl", "is-active", "--quiet", "aramdns").Run(); err == nil {
+			results["aramdns"] = true
+		} else {
+			results["aramdns"] = false
+		}
+
 		return serviceHealthMsg{results: results}
 	}
 }

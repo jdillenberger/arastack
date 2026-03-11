@@ -95,6 +95,7 @@ func renderServicesContent(m *Model, w int) string {
 	services := []string{
 		"aramonitor", "araalert", "arabackup",
 		"aranotify", "arascanner", "aradashboard",
+		"aramdns",
 	}
 
 	var b strings.Builder

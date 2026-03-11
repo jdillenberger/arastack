@@ -182,14 +182,21 @@ func (h *Handler) DashboardPeers(c echo.Context) error {
 	}
 
 	var buf strings.Builder
-	buf.WriteString(`<article><header><strong>Peers</strong></header><div class="peers-compact">`)
+	buf.WriteString(`<div class="section-divider"><span>Peers</span></div>`)
+	buf.WriteString(`<div class="apps-grid">`)
 	for _, p := range peers {
-		fmt.Fprintf(&buf, `<a href="%s" target="_blank" rel="noopener" class="peer-chip"><span class="peer-dot"></span>%s`,
-			html.EscapeString(p.DashURL), html.EscapeString(p.Hostname))
-		buf.WriteString(`</a>`)
+		fmt.Fprintf(&buf, `<div class="app-card peer-card"><div class="app-card-header">`+
+			`<a class="app-card-name" href="%s" target="_blank" rel="noopener">%s</a>`+
+			`<span class="badge badge-running">online</span>`+
+			`</div><div class="app-card-meta">`+
+			`<span>%s:%d</span>`+
+			`<a href="%s" target="_blank" rel="noopener" class="app-card-manage">dashboard &rarr;</a>`+
+			`</div></div>`,
+			html.EscapeString(p.DashURL), html.EscapeString(p.Hostname),
+			html.EscapeString(p.Address), p.Port,
+			html.EscapeString(p.DashURL))
 	}
 	buf.WriteString(`</div>`)
-	buf.WriteString(`<footer><a href="/peers">Peer details &rarr;</a></footer></article>`)
 
 	return c.HTML(http.StatusOK, buf.String())
 }

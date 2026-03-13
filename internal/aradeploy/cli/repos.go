@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -107,16 +108,37 @@ var reposUpdateCmd = &cobra.Command{
 		runner := &executil.Runner{}
 		mgr := repo.NewManager(cfg.ReposDir(), cfg.ManifestPath(), runner)
 
+		var results []repo.UpdateResult
 		if len(args) > 0 {
-			if err := mgr.Update(args[0]); err != nil {
+			res, err := mgr.Update(args[0])
+			if err != nil {
 				return err
 			}
-			fmt.Printf("Updated repo %s\n", args[0])
+			results = append(results, *res)
 		} else {
-			if err := mgr.UpdateAll(); err != nil {
+			var err error
+			results, err = mgr.UpdateAll()
+			if err != nil {
 				return err
 			}
-			fmt.Println("All repos updated.")
+		}
+
+		if jsonOutput {
+			return outputJSON(results)
+		}
+
+		for _, r := range results {
+			fmt.Printf("Updating %s...\n", r.Name)
+			fmt.Printf("  Path:  %s\n", r.Path)
+			if r.UpToDate {
+				fmt.Println("  Already up to date.")
+			} else {
+				fmt.Printf("  Updated:    %s → %s\n", r.OldCommit, r.NewCommit)
+				if len(r.Changed) > 0 {
+					fmt.Printf("  Templates:  %s\n", strings.Join(r.Changed, ", "))
+				}
+			}
+			fmt.Println()
 		}
 		return nil
 	},

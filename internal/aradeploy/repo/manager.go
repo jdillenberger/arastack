@@ -5,6 +5,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -12,6 +13,16 @@ import (
 
 	"github.com/jdillenberger/arastack/pkg/executil"
 )
+
+// UpdateResult holds information about a repo update operation.
+type UpdateResult struct {
+	Name      string   `json:"name"`
+	Path      string   `json:"path"`
+	OldCommit string   `json:"old_commit"`
+	NewCommit string   `json:"new_commit"`
+	Changed   []string `json:"changed,omitempty"` // template names that changed
+	UpToDate  bool     `json:"up_to_date"`
+}
 
 // Repo represents a git repository added as a template source.
 type Repo struct {
@@ -151,10 +162,10 @@ func (m *Manager) Remove(name string) error {
 }
 
 // Update pulls the latest changes for a single repo.
-func (m *Manager) Update(name string) error {
+func (m *Manager) Update(name string) (*UpdateResult, error) {
 	manifest, err := m.Load()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	idx := -1
@@ -165,30 +176,88 @@ func (m *Manager) Update(name string) error {
 		}
 	}
 	if idx < 0 {
-		return fmt.Errorf("repo %q not found", name)
+		return nil, fmt.Errorf("repo %q not found", name)
 	}
 
 	dest := filepath.Join(m.reposDir, name)
+
+	// Capture commit before pull.
+	oldRes, err := m.runner.Run("git", "-C", dest, "rev-parse", "--short", "HEAD")
+	if err != nil {
+		return nil, fmt.Errorf("git rev-parse: %w", err)
+	}
+	oldCommit := strings.TrimSpace(oldRes.Stdout)
+
 	if _, err := m.runner.Run("git", "-C", dest, "pull"); err != nil {
-		return fmt.Errorf("git pull: %w", err)
+		return nil, fmt.Errorf("git pull: %w", err)
+	}
+
+	// Capture commit after pull.
+	newRes, err := m.runner.Run("git", "-C", dest, "rev-parse", "--short", "HEAD")
+	if err != nil {
+		return nil, fmt.Errorf("git rev-parse: %w", err)
+	}
+	newCommit := strings.TrimSpace(newRes.Stdout)
+
+	result := &UpdateResult{
+		Name:      name,
+		Path:      dest,
+		OldCommit: oldCommit,
+		NewCommit: newCommit,
+		UpToDate:  oldCommit == newCommit,
+	}
+
+	// Find which templates were affected.
+	if !result.UpToDate {
+		diffRes, err := m.runner.Run("git", "-C", dest, "diff", "--name-only", oldCommit+".."+newCommit)
+		if err == nil {
+			result.Changed = changedTemplates(diffRes.Stdout)
+		}
 	}
 
 	manifest.Repos[idx].UpdatedAt = time.Now().UTC().Truncate(time.Second)
-	return m.Save(manifest)
+	return result, m.Save(manifest)
 }
 
 // UpdateAll pulls the latest changes for all repos.
-func (m *Manager) UpdateAll() error {
+func (m *Manager) UpdateAll() ([]UpdateResult, error) {
 	manifest, err := m.Load()
 	if err != nil {
-		return err
+		return nil, err
 	}
+	var results []UpdateResult
 	for _, r := range manifest.Repos {
-		if err := m.Update(r.Name); err != nil {
-			return err
+		res, err := m.Update(r.Name)
+		if err != nil {
+			return results, err
 		}
+		results = append(results, *res)
 	}
-	return nil
+	return results, nil
+}
+
+// changedTemplates extracts unique top-level directory names from a
+// newline-separated list of changed file paths (git diff --name-only output).
+func changedTemplates(diffOutput string) []string {
+	seen := make(map[string]bool)
+	for _, line := range strings.Split(strings.TrimSpace(diffOutput), "\n") {
+		if line == "" {
+			continue
+		}
+		// Top-level directory is the template name.
+		dir := strings.SplitN(line, "/", 2)[0]
+		// Skip dotfiles (e.g. .github, .gitignore).
+		if strings.HasPrefix(dir, ".") {
+			continue
+		}
+		seen[dir] = true
+	}
+	names := make([]string, 0, len(seen))
+	for name := range seen {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 // List returns all tracked repos.

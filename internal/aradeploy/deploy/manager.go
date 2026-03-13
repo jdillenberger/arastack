@@ -341,7 +341,7 @@ func (m *Manager) Deploy(appName string, opts DeployOptions) error {
 		if err := os.MkdirAll(filepath.Dir(outPath), 0o750); err != nil {
 			return fmt.Errorf("creating directory for %s: %w", name, err)
 		}
-		if err := os.WriteFile(outPath, data, 0o600); err != nil {
+		if err := os.WriteFile(outPath, data, 0o644); err != nil { // #nosec G306 -- static files are bind-mounted into containers running as non-root
 			return fmt.Errorf("writing %s: %w", name, err)
 		}
 	}

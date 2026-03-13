@@ -2,9 +2,12 @@ package doctor
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/jdillenberger/arastack/internal/arabackup/borg"
@@ -77,6 +80,12 @@ func Fix(result doctor.CheckResult) error {
 	case "arabackup-running":
 		fmt.Println("    Run: aramanager setup arabackup")
 		return nil
+	case "borg-passphrase-file":
+		return fixPassphraseFile()
+	case "borg-base-dir":
+		return fixBorgBaseDir()
+	case "dump-dir":
+		return fixDumpDir()
 	}
 
 	return fmt.Errorf("no auto-fix available for %s", result.Name)
@@ -240,6 +249,77 @@ func checkBorgRepos(runner *iexec.Runner, cfg *config.Config) []doctor.CheckResu
 	}
 
 	return results
+}
+
+func fixPassphraseFile() error {
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("loading config: %w", err)
+	}
+
+	path := cfg.Borg.PassphraseFile
+	dir := filepath.Dir(path)
+
+	mkdirCmd := exec.CommandContext(context.Background(), "sudo", "mkdir", "-p", dir) // #nosec G204 -- args from config
+	mkdirCmd.Stderr = os.Stderr
+	if err := mkdirCmd.Run(); err != nil {
+		return fmt.Errorf("creating %s: %w", dir, err)
+	}
+
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return fmt.Errorf("generating passphrase: %w", err)
+	}
+	passphrase := hex.EncodeToString(b)
+
+	teeCmd := exec.CommandContext(context.Background(), "sudo", "tee", path) // #nosec G204 -- args from config
+	teeCmd.Stdin = strings.NewReader(passphrase)
+	teeCmd.Stderr = os.Stderr
+	teeCmd.Stdout = nil
+	if err := teeCmd.Run(); err != nil {
+		return fmt.Errorf("writing %s: %w", path, err)
+	}
+
+	chmodCmd := exec.CommandContext(context.Background(), "sudo", "chmod", "600", path) // #nosec G204 -- args from config
+	chmodCmd.Stderr = os.Stderr
+	if err := chmodCmd.Run(); err != nil {
+		return fmt.Errorf("chmod %s: %w", path, err)
+	}
+
+	fmt.Printf("    Created %s\n", path)
+	return nil
+}
+
+func fixBorgBaseDir() error {
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("loading config: %w", err)
+	}
+
+	path := cfg.Borg.BaseDir
+	cmd := exec.CommandContext(context.Background(), "sudo", "mkdir", "-p", path) // #nosec G204 -- args from config
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("creating %s: %w", path, err)
+	}
+	fmt.Printf("    Created %s\n", path)
+	return nil
+}
+
+func fixDumpDir() error {
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("loading config: %w", err)
+	}
+
+	path := cfg.Dumps.Dir
+	cmd := exec.CommandContext(context.Background(), "sudo", "mkdir", "-p", path) // #nosec G204 -- args from config
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("creating %s: %w", path, err)
+	}
+	fmt.Printf("    Created %s\n", path)
+	return nil
 }
 
 func checkServiceRunning() doctor.CheckResult {

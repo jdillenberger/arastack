@@ -93,6 +93,12 @@ func Fix(r doctor.CheckResult) error {
 		if err := sudoRun("chmod", fmt.Sprintf("%o", mode), path); err != nil {
 			return err
 		}
+		// Ensure acl package is installed for setfacl.
+		if _, err := exec.LookPath("setfacl"); err != nil {
+			if err := sudoRun("apt", "install", "-y", "acl"); err != nil {
+				return err
+			}
+		}
 		// Set default ACL so new files inherit group read/write regardless of umask.
 		return sudoRun("setfacl", "-d", "-m", "g::rw", path)
 	}

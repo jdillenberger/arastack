@@ -74,7 +74,7 @@ func Defaults() *Config {
 			Port: ports.AraBackup,
 		},
 		Borg: BorgConfig{
-			BaseDir:        "/mnt/backup/borg",
+			BaseDir:        "/opt/arabackup/borg",
 			PassphraseFile: "/etc/arastack/borg-passphrase", // #nosec G101 -- this is a config path, not a credential
 
 			Encryption: "repokey",
@@ -207,7 +207,7 @@ server:
   port: %d
 
 borg:
-  base_dir: /mnt/backup/borg
+  base_dir: /opt/arabackup/borg
   passphrase_file: /etc/arastack/borg-passphrase
   encryption: repokey
   retention:

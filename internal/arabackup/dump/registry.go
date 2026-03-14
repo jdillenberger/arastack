@@ -24,4 +24,5 @@ func init() {
 	Register(&MariaDBDriver{})
 	Register(&MongoDBDriver{})
 	Register(&SQLiteDriver{})
+	Register(&CouchDBDriver{})
 }

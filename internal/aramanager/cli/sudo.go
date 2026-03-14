@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -17,7 +18,7 @@ func requireSudo(cmd *cobra.Command, _ []string) error {
 		return nil
 	}
 
-	validate := exec.Command("sudo", "-v") // #nosec G204 -- fixed command
+	validate := exec.CommandContext(context.Background(), "sudo", "-v") // #nosec G204 -- fixed command
 	validate.Stdin = os.Stdin
 	validate.Stdout = os.Stdout
 	validate.Stderr = os.Stderr

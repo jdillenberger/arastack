@@ -70,6 +70,8 @@ var StandardValues = map[string]string{
 	"routing_base_domain": "lint-host.example.com",
 	"routing_domain":      "lint-app.example.com",
 	"routing_url":         "https://lint-app.example.com",
+	"https_enabled":       "true",
+	"ca_cert_path":        "/etc/ssl/certs/ca.crt",
 }
 
 func (l *Linter) lintAppYAML(name string, meta *template.AppMeta) []Finding {
@@ -385,8 +387,9 @@ func (l *Linter) templateHasFile(templateName, fileName string) bool {
 	return err == nil
 }
 
-// templateRefRe matches Go template references: {{.key}} and {{index . "key"}}
-var templateRefRe = regexp.MustCompile(`\{\{\s*(?:\.(\w+)|index\s+\.\s+"(\w+)")\s*\}\}`)
+// templateRefRe matches Go template references: {{.key}}, {{index . "key"}},
+// and these patterns inside expressions like {{if eq (index . "key") "val"}}.
+var templateRefRe = regexp.MustCompile(`(?:\{\{-?[^}]*?\.(\w+)|index\s+\.\s+"(\w+)")`)
 
 func (l *Linter) lintValueUsage(name string, meta *template.AppMeta) []Finding {
 	var findings []Finding

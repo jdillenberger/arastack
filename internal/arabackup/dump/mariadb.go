@@ -36,10 +36,17 @@ func (d *MariaDBDriver) RestoreCommand(opts RestoreOptions) []string {
 	}
 
 	if opts.PasswordEnv != "" {
+		if opts.Database != "" && opts.Database != "all" {
+			return []string{"sh", "-c", "exec mariadb -u \"$1\" -p\"$" + opts.PasswordEnv + "\" \"$2\"", "--", user, opts.Database}
+		}
 		return []string{"sh", "-c", "exec mariadb -u \"$1\" -p\"$" + opts.PasswordEnv + "\"", "--", user}
 	}
 
-	return []string{"mariadb", "-u", user}
+	args := []string{"mariadb", "-u", user}
+	if opts.Database != "" && opts.Database != "all" {
+		args = append(args, opts.Database)
+	}
+	return args
 }
 
 func (d *MariaDBDriver) ReadyCommand(opts DumpOptions) []string {

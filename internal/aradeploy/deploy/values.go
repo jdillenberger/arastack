@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -50,9 +53,9 @@ func MergeValues(cfg *ManagerConfig, appName string, meta *template.AppMeta, use
 		}
 	}
 
-	// Ensure timezone has a default
+	// Ensure timezone has a default (detect host timezone)
 	if merged["timezone"] == "" {
-		merged["timezone"] = "UTC"
+		merged["timezone"] = hostTimezone()
 	}
 
 	// Validate required values
@@ -112,6 +115,41 @@ func validateValue(name, value, validation string) error {
 	return nil
 }
 
+// hostTimezone attempts to detect the host's IANA timezone.
+// It checks the TZ environment variable, then /etc/timezone (Debian/Ubuntu),
+// then resolves the /etc/localtime symlink (RHEL/Arch/Alpine), and falls back to "UTC".
+func hostTimezone() string {
+	// Method 1: TZ environment variable (POSIX standard)
+	if tz := os.Getenv("TZ"); tz != "" && !strings.EqualFold(tz, "local") && tz[0] != ':' && tz[0] != '/' {
+		if _, err := time.LoadLocation(tz); err == nil {
+			return tz
+		}
+	}
+
+	// Method 2: /etc/timezone (Debian/Ubuntu)
+	if data, err := os.ReadFile("/etc/timezone"); err == nil {
+		tz := strings.TrimSpace(string(data))
+		if _, err := time.LoadLocation(tz); err == nil {
+			return tz
+		}
+	}
+
+	// Method 3: /etc/localtime symlink -> /usr/share/zoneinfo/<tz>
+	if target, err := filepath.EvalSymlinks("/etc/localtime"); err == nil {
+		const prefix = "/usr/share/zoneinfo/"
+		if strings.HasPrefix(target, prefix) {
+			tz := strings.TrimPrefix(target, prefix)
+			tz = strings.TrimPrefix(tz, "posix/")
+			tz = strings.TrimPrefix(tz, "right/")
+			if _, err := time.LoadLocation(tz); err == nil {
+				return tz
+			}
+		}
+	}
+
+	return "UTC"
+}
+
 func runValidator(name, value, validator string) error {
 	switch validator {
 	case "nonempty":
@@ -145,6 +183,11 @@ func runValidator(name, value, validator string) error {
 	case "ip":
 		if net.ParseIP(value) == nil {
 			return fmt.Errorf("value %q (%s): must be a valid IP address", name, value)
+		}
+	case "timezone":
+		_, err := time.LoadLocation(value)
+		if err != nil || strings.EqualFold(value, "local") {
+			return fmt.Errorf("value %q (%s): must be a valid IANA timezone (e.g. Europe/Berlin, America/New_York, UTC)", name, value)
 		}
 	default:
 		return fmt.Errorf("value %q: unknown validator %q", name, validator)

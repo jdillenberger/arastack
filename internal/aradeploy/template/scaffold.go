@@ -48,6 +48,9 @@ values:
     description: "Web UI port"
     default: "8080"
     required: true
+  - name: timezone
+    description: "Timezone"
+    validation: timezone
 
 health_check:
   url: "http://localhost:{{.web_port}}"

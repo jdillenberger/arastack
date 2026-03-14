@@ -82,12 +82,17 @@ func (r *Renderer) CopyStaticFiles(appName string) (map[string][]byte, error) {
 			return nil
 		}
 
+		relPath := strings.TrimPrefix(path, tmplDir+"/")
+
+		// Skip README.md at the template root (but allow .md files in subdirectories).
+		if relPath == "README.md" {
+			return nil
+		}
+
 		data, err := fs.ReadFile(r.registry.FS(), path)
 		if err != nil {
 			return fmt.Errorf("reading %s: %w", path, err)
 		}
-
-		relPath := strings.TrimPrefix(path, tmplDir+"/")
 		result[relPath] = data
 		return nil
 	})

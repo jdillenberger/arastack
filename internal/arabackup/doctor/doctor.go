@@ -68,14 +68,10 @@ func Fix(result doctor.CheckResult) error {
 	}
 
 	switch result.Name {
-	case "borg":
-		fmt.Println("    Install borg: sudo apt install -y borgbackup")
-		return nil
+	case "borg", "docker-compose":
+		return doctor.Fix(result)
 	case "docker":
 		fmt.Println("    Install Docker: https://docs.docker.com/engine/install/")
-		return nil
-	case "docker-compose":
-		fmt.Println("    Install docker compose: sudo apt install -y docker-compose-v2")
 		return nil
 	case "arabackup-running":
 		fmt.Println("    Run: aramanager setup arabackup")
@@ -92,7 +88,7 @@ func Fix(result doctor.CheckResult) error {
 }
 
 func checkBorg(runner *iexec.Runner) doctor.CheckResult {
-	result := doctor.CheckResult{Name: "borg"}
+	result := doctor.CheckResult{Name: "borg", InstallCommand: "apt install -y borgbackup"}
 
 	if _, err := exec.LookPath("borg"); err != nil {
 		result.Version = "not installed"
@@ -132,7 +128,7 @@ func checkDocker(runner *iexec.Runner) doctor.CheckResult {
 }
 
 func checkDockerCompose(runner *iexec.Runner) doctor.CheckResult {
-	result := doctor.CheckResult{Name: "docker-compose"}
+	result := doctor.CheckResult{Name: "docker-compose", InstallCommand: "apt install -y docker-compose-v2"}
 
 	r, err := runner.Run("docker", "compose", "version", "--short")
 	if err != nil {

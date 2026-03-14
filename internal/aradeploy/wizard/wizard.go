@@ -64,6 +64,10 @@ func RunDeployWizard(meta *template.AppMeta, usedPorts map[int]string) (map[stri
 			Description(description).
 			Value(&b.value)
 
+		if v.Secret {
+			input = input.EchoMode(huh.EchoModePassword)
+		}
+
 		// Add port conflict validation
 		if isPort {
 			capturedUsed := usedPorts

@@ -21,6 +21,7 @@ func Get(name string) (Driver, error) {
 func init() {
 	Register(&PostgresDriver{})
 	Register(&MySQLDriver{})
+	Register(&MariaDBDriver{})
 	Register(&MongoDBDriver{})
 	Register(&SQLiteDriver{})
 }

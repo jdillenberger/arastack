@@ -34,6 +34,10 @@ var updateCmd = &cobra.Command{
 	Use:   "update",
 	Short: "Update all arastack binaries from the latest GitHub release",
 	Long:  "Downloads and installs the latest release of all arastack tools from GitHub.",
+	PreRunE: requireSudoIf(func(cmd *cobra.Command) bool {
+		check, _ := cmd.Flags().GetBool("check")
+		return !check
+	}),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		checkOnly, _ := cmd.Flags().GetBool("check")
 

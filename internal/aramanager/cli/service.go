@@ -32,9 +32,10 @@ var serviceCmd = &cobra.Command{
 }
 
 var serviceInstallCmd = &cobra.Command{
-	Use:   "install [tool]",
-	Short: "Install and start systemd service(s)",
-	Args:  cobra.MaximumNArgs(1),
+	Use:     "install [tool]",
+	Short:   "Install and start systemd service(s)",
+	Args:    cobra.MaximumNArgs(1),
+	PreRunE: requireSudo,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return forEachTool(args, func(t registry.Tool) error {
 			fmt.Printf("Installing %s service...\n", t.Name)
@@ -44,9 +45,10 @@ var serviceInstallCmd = &cobra.Command{
 }
 
 var serviceUninstallCmd = &cobra.Command{
-	Use:   "uninstall [tool]",
-	Short: "Stop and remove systemd service(s)",
-	Args:  cobra.MaximumNArgs(1),
+	Use:     "uninstall [tool]",
+	Short:   "Stop and remove systemd service(s)",
+	Args:    cobra.MaximumNArgs(1),
+	PreRunE: requireSudo,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return forEachTool(args, func(t registry.Tool) error {
 			fmt.Printf("Uninstalling %s service...\n", t.Name)
@@ -90,9 +92,10 @@ var serviceStatusCmd = &cobra.Command{
 }
 
 var serviceStartCmd = &cobra.Command{
-	Use:   "start [tool]",
-	Short: "Start systemd service(s)",
-	Args:  cobra.MaximumNArgs(1),
+	Use:     "start [tool]",
+	Short:   "Start systemd service(s)",
+	Args:    cobra.MaximumNArgs(1),
+	PreRunE: requireSudo,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return forEachTool(args, func(t registry.Tool) error {
 			fmt.Printf("Starting %s...\n", t.Name)
@@ -102,9 +105,10 @@ var serviceStartCmd = &cobra.Command{
 }
 
 var serviceStopCmd = &cobra.Command{
-	Use:   "stop [tool]",
-	Short: "Stop systemd service(s)",
-	Args:  cobra.MaximumNArgs(1),
+	Use:     "stop [tool]",
+	Short:   "Stop systemd service(s)",
+	Args:    cobra.MaximumNArgs(1),
+	PreRunE: requireSudo,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return forEachTool(args, func(t registry.Tool) error {
 			fmt.Printf("Stopping %s...\n", t.Name)
@@ -114,9 +118,10 @@ var serviceStopCmd = &cobra.Command{
 }
 
 var serviceRestartCmd = &cobra.Command{
-	Use:   "restart [tool]",
-	Short: "Restart systemd service(s)",
-	Args:  cobra.MaximumNArgs(1),
+	Use:     "restart [tool]",
+	Short:   "Restart systemd service(s)",
+	Args:    cobra.MaximumNArgs(1),
+	PreRunE: requireSudo,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return forEachTool(args, func(t registry.Tool) error {
 			fmt.Printf("Restarting %s...\n", t.Name)

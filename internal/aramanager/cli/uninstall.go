@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -20,9 +21,10 @@ func init() {
 }
 
 var uninstallCmd = &cobra.Command{
-	Use:   "uninstall",
-	Short: "Uninstall arastack tools, services, and optionally config/deployments",
-	Long:  "Interactive wizard to uninstall arastack components. Stops services, removes binaries, and optionally removes configuration files, deployments, and aramanager itself.",
+	Use:     "uninstall",
+	Short:   "Uninstall arastack tools, services, and optionally config/deployments",
+	Long:    "Interactive wizard to uninstall arastack components. Stops services, removes binaries, and optionally removes configuration files, deployments, and aramanager itself.",
+	PreRunE: requireSudo,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		removeConfig := false
 		removeDeployments := false
@@ -128,7 +130,7 @@ var uninstallCmd = &cobra.Command{
 				binPath = "/usr/local/bin/" + tool.BinaryName
 			}
 			fmt.Printf("  Removing %s...\n", binPath)
-			if err := os.Remove(binPath); err != nil && !os.IsNotExist(err) {
+			if err := removeFileWithSudo(binPath); err != nil {
 				errs = append(errs, fmt.Sprintf("%s binary: %v", tool.Name, err))
 			}
 		}
@@ -142,7 +144,7 @@ var uninstallCmd = &cobra.Command{
 			}
 			for _, dir := range configDirs {
 				fmt.Printf("  Removing %s...\n", dir)
-				if err := os.RemoveAll(dir); err != nil {
+				if err := removeAllWithSudo(dir); err != nil {
 					errs = append(errs, fmt.Sprintf("config %s: %v", dir, err))
 				}
 			}
@@ -152,7 +154,7 @@ var uninstallCmd = &cobra.Command{
 		if removeDeployments {
 			appsDir := "/opt/aradeploy/apps"
 			fmt.Printf("Removing deployments (%s)...\n", appsDir)
-			if err := os.RemoveAll(appsDir); err != nil {
+			if err := removeAllWithSudo(appsDir); err != nil {
 				errs = append(errs, fmt.Sprintf("deployments: %v", err))
 			}
 		}
@@ -168,7 +170,7 @@ var uninstallCmd = &cobra.Command{
 					resolved = exe
 				}
 				fmt.Printf("Removing aramanager (%s)...\n", resolved)
-				if err := os.Remove(resolved); err != nil && !os.IsNotExist(err) {
+				if err := removeFileWithSudo(resolved); err != nil {
 					errs = append(errs, fmt.Sprintf("aramanager binary: %v", err))
 				}
 			}
@@ -185,4 +187,42 @@ var uninstallCmd = &cobra.Command{
 		fmt.Println("\nUninstall complete.")
 		return nil
 	},
+}
+
+// removeAllWithSudo tries os.RemoveAll first and falls back to sudo rm -rf on permission error.
+func removeAllWithSudo(path string) error {
+	err := os.RemoveAll(path)
+	if err == nil {
+		return nil
+	}
+	if !isPermissionError(err) {
+		return err
+	}
+	cmd := exec.CommandContext(context.Background(), "sudo", "rm", "-rf", path) // #nosec G204 -- path is from internal uninstall logic
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("sudo rm -rf %s: %w", path, err)
+	}
+	return nil
+}
+
+// removeFileWithSudo tries os.Remove first and falls back to sudo rm on permission error.
+func removeFileWithSudo(path string) error {
+	err := os.Remove(path)
+	if err == nil || os.IsNotExist(err) {
+		return nil
+	}
+	if !isPermissionError(err) {
+		return err
+	}
+	cmd := exec.CommandContext(context.Background(), "sudo", "rm", path) // #nosec G204 -- path is from internal uninstall logic
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("sudo rm %s: %w", path, err)
+	}
+	return nil
 }

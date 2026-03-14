@@ -16,9 +16,10 @@ func init() {
 }
 
 var installMissingCmd = &cobra.Command{
-	Use:    "install-missing",
-	Short:  "Install any registered tools not yet on this system",
-	Hidden: true, // called automatically after update
+	Use:     "install-missing",
+	Short:   "Install any registered tools not yet on this system",
+	Hidden:  true, // called automatically after update
+	PreRunE: requireSudo,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var missing []string
 		for _, name := range registry.Names() {

@@ -26,6 +26,10 @@ var doctorCmd = &cobra.Command{
   aramanager doctor --fix
   aramanager doctor aramonitor --fix`,
 	Args: cobra.MaximumNArgs(1),
+	PreRunE: requireSudoIf(func(cmd *cobra.Command) bool {
+		fix, _ := cmd.Flags().GetBool("fix")
+		return fix
+	}),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fix, _ := cmd.Flags().GetBool("fix")
 

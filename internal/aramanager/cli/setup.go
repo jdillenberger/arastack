@@ -20,9 +20,10 @@ func init() {
 }
 
 var setupCmd = &cobra.Command{
-	Use:   "setup",
-	Short: "Full setup of all arastack tools in dependency order",
-	Long:  "Runs doctor --fix and installs systemd services for each tool in the correct dependency order.",
+	Use:     "setup",
+	Short:   "Full setup of all arastack tools in dependency order",
+	Long:    "Runs doctor --fix and installs systemd services for each tool in the correct dependency order.",
+	PreRunE: requireSudo,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		skipStr, _ := cmd.Flags().GetString("skip")
 		skipSet := make(map[string]bool)

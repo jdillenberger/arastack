@@ -197,6 +197,9 @@ func (m *Manager) Deploy(appName string, opts DeployOptions) error {
 			mergedValues["routing_domain"] = deployedRouting.Domains[0]
 			mergedValues["routing_url"] = fmt.Sprintf("%s://%s", scheme, deployedRouting.Domains[0])
 		}
+		if mergedValues["forward_auth"] == "true" {
+			deployedRouting.ForwardAuth = true
+		}
 	}
 
 	// Fallback routing values
@@ -477,6 +480,29 @@ func (m *Manager) Remove(appName string, keepData bool) error {
 			}
 			if len(dependents) > 0 {
 				return fmt.Errorf("cannot remove traefik: the following apps depend on it for routing: %s\nRemove them first, or disable routing in the config",
+					strings.Join(dependents, ", "))
+			}
+		}
+	}
+
+	// Prevent removing authelia while other apps depend on it for forward auth
+	if appName == "authelia" {
+		if deployed, err := m.ListDeployed(); err == nil {
+			var dependents []string
+			for _, name := range deployed {
+				if name == "authelia" {
+					continue
+				}
+				info, err := m.GetDeployedInfo(name)
+				if err != nil {
+					continue
+				}
+				if info.Routing != nil && info.Routing.ForwardAuth {
+					dependents = append(dependents, name)
+				}
+			}
+			if len(dependents) > 0 {
+				return fmt.Errorf("cannot remove authelia: the following apps depend on it for forward auth: %s\nRemove them first",
 					strings.Join(dependents, ", "))
 			}
 		}
@@ -791,12 +817,22 @@ func stateFilePath(appDir string) string {
 
 // isTraefikDeployed checks if traefik is currently deployed.
 func (m *Manager) isTraefikDeployed() bool {
+	return m.isAppDeployed("traefik")
+}
+
+// IsAutheliaDeployed checks if authelia is currently deployed.
+func (m *Manager) IsAutheliaDeployed() bool {
+	return m.isAppDeployed("authelia")
+}
+
+// isAppDeployed checks if a given app is currently deployed.
+func (m *Manager) isAppDeployed(appName string) bool {
 	deployed, err := m.ListDeployed()
 	if err != nil {
 		return false
 	}
 	for _, d := range deployed {
-		if d == "traefik" {
+		if d == appName {
 			return true
 		}
 	}

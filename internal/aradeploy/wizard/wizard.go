@@ -165,6 +165,18 @@ func RunCodeWizard(meta *template.AppMeta) (map[string]string, error) {
 	return result, nil
 }
 
+// AskForwardAuth asks the user whether to protect an app with Authelia login.
+func AskForwardAuth(appName string) (bool, error) {
+	var enable bool
+	confirm := huh.NewConfirm().
+		Title(fmt.Sprintf("Protect %s with Authelia login?", appName)).
+		Value(&enable)
+	if err := confirm.Run(); err != nil {
+		return false, fmt.Errorf("wizard cancelled: %w", err)
+	}
+	return enable, nil
+}
+
 func promptCodeSlot(slot template.CodeSlot, result map[string]string) error {
 	var name, source string
 

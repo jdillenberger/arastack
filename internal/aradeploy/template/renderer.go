@@ -3,6 +3,7 @@ package template
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"io/fs"
@@ -10,6 +11,7 @@ import (
 	"text/template"
 
 	"github.com/google/uuid"
+	"golang.org/x/crypto/argon2"
 )
 
 // Renderer renders Go templates from app templates.
@@ -106,6 +108,7 @@ func (r *Renderer) renderString(tmplStr string, values map[string]string) (strin
 		"upper":       strings.ToUpper,
 		"lower":       strings.ToLower,
 		"replace":     strings.ReplaceAll,
+		"argon2Hash":  Argon2Hash,
 	}
 
 	tmpl, err := template.New("").Option("missingkey=error").Funcs(funcMap).Parse(tmplStr)
@@ -132,4 +135,28 @@ func genRandomHex(nBytes int) (string, error) {
 		return "", fmt.Errorf("crypto/rand failed: %w", err)
 	}
 	return hex.EncodeToString(b), nil
+}
+
+// Argon2Hash produces an argon2id hash string compatible with Authelia's user database format.
+func Argon2Hash(password string) (string, error) {
+	salt := make([]byte, 16)
+	if _, err := rand.Read(salt); err != nil {
+		return "", fmt.Errorf("generating salt: %w", err)
+	}
+
+	// Authelia defaults: memory=65536 KiB, iterations=3, parallelism=4, keyLen=32
+	const (
+		memory      = 65536
+		iterations  = 3
+		parallelism = 4
+		keyLen      = 32
+	)
+
+	hash := argon2.IDKey([]byte(password), salt, iterations, memory, parallelism, keyLen)
+
+	return fmt.Sprintf("$argon2id$v=19$m=%d,t=%d,p=%d$%s$%s",
+		memory, iterations, parallelism,
+		base64.RawStdEncoding.EncodeToString(salt),
+		base64.RawStdEncoding.EncodeToString(hash),
+	), nil
 }

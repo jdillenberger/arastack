@@ -83,6 +83,7 @@ func MergeValues(cfg *ManagerConfig, appName string, meta *template.AppMeta, use
 	merged["code_dir"] = cfg.CodePath(appName)
 	merged["app_name"] = appName
 	merged["network"] = cfg.Docker.DefaultNetwork
+	merged["routing_base_domain"] = cfg.RoutingDomain()
 	if merged["web_port"] == "" {
 		usedPorts, _ := portcheck.UsedPorts(cfg.AppsDir)
 		free := portcheck.NextFreePort(cfg.Network.WebPort, usedPorts)

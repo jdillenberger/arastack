@@ -8,6 +8,15 @@ type RoutingMeta struct {
 	ContainerPort int    `yaml:"container_port"`
 	Websocket     bool   `yaml:"websocket"`
 	KeepPorts     *bool  `yaml:"keep_ports"`
+	Auth          string `yaml:"auth"` // "none" (default), "optional", "required"
+}
+
+// AuthMode returns the effective auth mode, defaulting to "none".
+func (r *RoutingMeta) AuthMode() string {
+	if r == nil || r.Auth == "" {
+		return "none"
+	}
+	return r.Auth
 }
 
 // AppMeta holds metadata from a template's app.yaml.

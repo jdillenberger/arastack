@@ -152,7 +152,17 @@ var deployCmd = &cobra.Command{
 			codeMap[parts[0]] = parts[1]
 		}
 
+		// Resolve forward auth before deploy
+		meta, hasMeta := mgr.Registry().Get(appName)
+		autheliaDeployed := mgr.IsAutheliaDeployed()
+
 		if quick {
+			if hasMeta && autheliaDeployed {
+				authMode := meta.Routing.AuthMode()
+				if authMode == "required" {
+					values["forward_auth"] = "true"
+				}
+			}
 			return mgr.Deploy(appName, deploy.DeployOptions{
 				Values:  values,
 				Code:    codeMap,
@@ -163,8 +173,7 @@ var deployCmd = &cobra.Command{
 
 		if !dryRun {
 			if fi, err := os.Stdin.Stat(); err == nil && fi.Mode()&os.ModeCharDevice != 0 {
-				meta, ok := mgr.Registry().Get(appName)
-				if ok {
+				if hasMeta {
 					if len(values) == 0 && len(meta.Values) > 0 {
 						usedPorts, _ := portcheck.UsedPorts(mgr.Config().AppsDir)
 						wizardValues, err := wizard.RunDeployWizard(meta, usedPorts)
@@ -181,6 +190,27 @@ var deployCmd = &cobra.Command{
 						for k, v := range wizardCode {
 							codeMap[k] = v
 						}
+					}
+				}
+			}
+		}
+
+		// Forward auth logic
+		if hasMeta {
+			authMode := meta.Routing.AuthMode()
+			switch {
+			case authMode == "required" && autheliaDeployed:
+				values["forward_auth"] = "true"
+			case authMode == "required" && !autheliaDeployed:
+				fmt.Println("Warning: this app requires forward auth but authelia is not deployed. Deploy authelia first to enable authentication.")
+			case authMode == "optional" && autheliaDeployed && !dryRun:
+				if fi, err := os.Stdin.Stat(); err == nil && fi.Mode()&os.ModeCharDevice != 0 {
+					enable, err := wizard.AskForwardAuth(appName)
+					if err != nil {
+						return err
+					}
+					if enable {
+						values["forward_auth"] = "true"
 					}
 				}
 			}

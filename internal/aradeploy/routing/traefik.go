@@ -7,6 +7,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const forwardAuthMiddleware = "authelia@docker"
+
 // TraefikProvider injects Traefik labels into docker-compose YAML.
 type TraefikProvider struct {
 	Domain       string
@@ -109,6 +111,9 @@ func (l *TraefikProvider) buildLabels(appName string, routing *DeployedRoute) ma
 	labels[fmt.Sprintf("traefik.http.routers.%s.rule", routerName)] = allRule
 
 	if !l.HTTPSEnabled {
+		if routing.ForwardAuth {
+			labels[fmt.Sprintf("traefik.http.routers.%s.middlewares", routerName)] = forwardAuthMiddleware
+		}
 		return labels
 	}
 
@@ -127,35 +132,38 @@ func (l *TraefikProvider) buildLabels(appName string, routing *DeployedRoute) ma
 
 	switch {
 	case len(externalDomains) == 0:
-		l.addSecureRouter(labels, routerName, routerName+"-secure", allRule, false)
+		l.addSecureRouter(labels, routerName, routerName+"-secure", allRule, false, routing.ForwardAuth)
 	case len(localDomains) == 0:
-		l.addSecureRouter(labels, routerName, routerName+"-secure", allRule, l.AcmeEmail != "")
+		l.addSecureRouter(labels, routerName, routerName+"-secure", allRule, l.AcmeEmail != "", routing.ForwardAuth)
 	default:
 		var localParts []string
 		for _, d := range localDomains {
 			localParts = append(localParts, fmt.Sprintf("Host(`%s`)", d))
 		}
 		localRule := strings.Join(localParts, " || ")
-		l.addSecureRouter(labels, routerName, routerName+"-local-secure", localRule, false)
+		l.addSecureRouter(labels, routerName, routerName+"-local-secure", localRule, false, routing.ForwardAuth)
 
 		var extParts []string
 		for _, d := range externalDomains {
 			extParts = append(extParts, fmt.Sprintf("Host(`%s`)", d))
 		}
 		extRule := strings.Join(extParts, " || ")
-		l.addSecureRouter(labels, routerName, routerName+"-ext-secure", extRule, l.AcmeEmail != "")
+		l.addSecureRouter(labels, routerName, routerName+"-ext-secure", extRule, l.AcmeEmail != "", routing.ForwardAuth)
 	}
 
 	return labels
 }
 
-func (l *TraefikProvider) addSecureRouter(labels map[string]string, serviceName, routerName, rule string, useACME bool) {
+func (l *TraefikProvider) addSecureRouter(labels map[string]string, serviceName, routerName, rule string, useACME, forwardAuth bool) {
 	labels[fmt.Sprintf("traefik.http.routers.%s.entrypoints", routerName)] = "websecure"
 	labels[fmt.Sprintf("traefik.http.routers.%s.rule", routerName)] = rule
 	labels[fmt.Sprintf("traefik.http.routers.%s.tls", routerName)] = "true"
 	labels[fmt.Sprintf("traefik.http.routers.%s.service", routerName)] = serviceName
 	if useACME {
 		labels[fmt.Sprintf("traefik.http.routers.%s.tls.certresolver", routerName)] = "letsencrypt"
+	}
+	if forwardAuth {
+		labels[fmt.Sprintf("traefik.http.routers.%s.middlewares", routerName)] = forwardAuthMiddleware
 	}
 }
 

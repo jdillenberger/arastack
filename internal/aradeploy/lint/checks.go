@@ -61,12 +61,15 @@ type composeNetwork struct {
 
 // StandardValues are injected at deploy time for linting purposes.
 var StandardValues = map[string]string{
-	"hostname": "lint-host",
-	"domain":   "example.com",
-	"data_dir": "/data/lint-app",
-	"app_name": "lint-app",
-	"network":  "aradeploy-net",
-	"timezone": "UTC",
+	"hostname":            "lint-host",
+	"domain":              "example.com",
+	"data_dir":            "/data/lint-app",
+	"app_name":            "lint-app",
+	"network":             "aradeploy-net",
+	"timezone":            "UTC",
+	"routing_base_domain": "lint-host.example.com",
+	"routing_domain":      "lint-app.example.com",
+	"routing_url":         "https://lint-app.example.com",
 }
 
 func (l *Linter) lintAppYAML(name string, meta *template.AppMeta) []Finding {

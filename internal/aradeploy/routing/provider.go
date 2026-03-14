@@ -10,6 +10,7 @@ type DeployedRoute struct {
 	Domains       []string `yaml:"domains"`
 	ContainerPort int      `yaml:"container_port"`
 	KeepPorts     bool     `yaml:"keep_ports"`
+	ForwardAuth   bool     `yaml:"forward_auth,omitempty"`
 }
 
 // Provider is the interface for routing label injection.

@@ -189,14 +189,11 @@ var uninstallCmd = &cobra.Command{
 	},
 }
 
-// removeAllWithSudo tries os.RemoveAll first and falls back to sudo rm -rf on permission error.
+// removeAllWithSudo removes a directory tree, using sudo when not root
+// (sudo credentials are already validated by PreRunE).
 func removeAllWithSudo(path string) error {
-	err := os.RemoveAll(path)
-	if err == nil {
-		return nil
-	}
-	if !isPermissionError(err) {
-		return err
+	if os.Geteuid() == 0 {
+		return os.RemoveAll(path)
 	}
 	cmd := exec.CommandContext(context.Background(), "sudo", "rm", "-rf", path) // #nosec G204 -- path is from internal uninstall logic
 	cmd.Stdin = os.Stdin
@@ -208,16 +205,17 @@ func removeAllWithSudo(path string) error {
 	return nil
 }
 
-// removeFileWithSudo tries os.Remove first and falls back to sudo rm on permission error.
+// removeFileWithSudo removes a file, using sudo when not root
+// (sudo credentials are already validated by PreRunE).
 func removeFileWithSudo(path string) error {
-	err := os.Remove(path)
-	if err == nil || os.IsNotExist(err) {
-		return nil
-	}
-	if !isPermissionError(err) {
+	if os.Geteuid() == 0 {
+		err := os.Remove(path)
+		if os.IsNotExist(err) {
+			return nil
+		}
 		return err
 	}
-	cmd := exec.CommandContext(context.Background(), "sudo", "rm", path) // #nosec G204 -- path is from internal uninstall logic
+	cmd := exec.CommandContext(context.Background(), "sudo", "rm", "-f", path) // #nosec G204 -- path is from internal uninstall logic
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

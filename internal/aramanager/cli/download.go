@@ -3,13 +3,12 @@ package cli
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
-	"syscall"
 
 	goruntime "runtime"
 
@@ -106,16 +105,19 @@ func downloadAndInstallBinaries(release *githubRelease, binaries []string) []str
 		if err != nil {
 			destPath = "/usr/local/bin/" + binName
 		}
-		if err := selfupdate.ReplaceBinary(tmpFile.Name(), destPath); err != nil {
-			if isPermissionError(err) {
-				if sudoErr := installWithSudo(tmpFile.Name(), destPath); sudoErr != nil {
-					_ = os.Remove(tmpFile.Name())
-					errs = append(errs, fmt.Sprintf("%s: sudo install failed: %v", binName, sudoErr))
-					continue
-				}
-			} else {
+
+		// When running as root, install directly; otherwise use sudo
+		// (sudo credentials are already validated by PreRunE).
+		if os.Geteuid() == 0 {
+			if err := selfupdate.ReplaceBinary(tmpFile.Name(), destPath); err != nil {
 				_ = os.Remove(tmpFile.Name())
 				errs = append(errs, fmt.Sprintf("%s: replace failed: %v", binName, err))
+				continue
+			}
+		} else {
+			if err := installWithSudo(tmpFile.Name(), destPath); err != nil {
+				_ = os.Remove(tmpFile.Name())
+				errs = append(errs, fmt.Sprintf("%s: sudo install failed: %v", binName, err))
 				continue
 			}
 		}
@@ -127,34 +129,45 @@ func downloadAndInstallBinaries(release *githubRelease, binaries []string) []str
 	return errs
 }
 
-// isPermissionError checks whether an error (or any wrapped error) is a permission denied error.
-func isPermissionError(err error) bool {
-	if errors.Is(err, os.ErrPermission) {
-		return true
-	}
-	var pathErr *os.PathError
-	if errors.As(err, &pathErr) {
-		return errors.Is(pathErr.Err, syscall.EACCES)
-	}
-	return false
-}
-
-// installWithSudo installs a binary using sudo, prompting the user for their password if needed.
+// installWithSudo installs a binary using sudo with atomic rename to avoid
+// "Text file busy" errors when replacing a running executable.
 func installWithSudo(src, dst string) error {
-	fmt.Printf("  Permission denied, retrying with sudo...\n")
-	cmd := exec.CommandContext(context.Background(), "sudo", "cp", src, dst) // #nosec G204 -- paths are from internal update logic
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
+	dstDir := filepath.Dir(dst)
+	tmpDst := filepath.Join(dstDir, "."+filepath.Base(dst)+".update-tmp")
+
+	// Copy to a temp file in the destination directory.
+	cp := exec.CommandContext(context.Background(), "sudo", "cp", src, tmpDst) // #nosec G204 -- paths are from internal update logic
+	cp.Stdin = os.Stdin
+	cp.Stdout = os.Stdout
+	cp.Stderr = os.Stderr
+	if err := cp.Run(); err != nil {
 		return fmt.Errorf("sudo cp: %w", err)
 	}
-	chmod := exec.CommandContext(context.Background(), "sudo", "chmod", "755", dst) // #nosec G204 -- path is from internal update logic
+
+	chmod := exec.CommandContext(context.Background(), "sudo", "chmod", "755", tmpDst) // #nosec G204 -- path is from internal update logic
 	chmod.Stdin = os.Stdin
 	chmod.Stdout = os.Stdout
 	chmod.Stderr = os.Stderr
 	if err := chmod.Run(); err != nil {
+		_ = sudoRemove(tmpDst)
 		return fmt.Errorf("sudo chmod: %w", err)
 	}
+
+	// Atomic rename replaces the directory entry without writing to the
+	// running binary's inode, avoiding ETXTBSY.
+	mv := exec.CommandContext(context.Background(), "sudo", "mv", tmpDst, dst) // #nosec G204 -- paths are from internal update logic
+	mv.Stdin = os.Stdin
+	mv.Stdout = os.Stdout
+	mv.Stderr = os.Stderr
+	if err := mv.Run(); err != nil {
+		_ = sudoRemove(tmpDst)
+		return fmt.Errorf("sudo mv: %w", err)
+	}
 	return nil
+}
+
+// sudoRemove removes a file using sudo (best-effort cleanup).
+func sudoRemove(path string) error {
+	cmd := exec.CommandContext(context.Background(), "sudo", "rm", "-f", path) // #nosec G204 -- path is from internal update logic
+	return cmd.Run()
 }

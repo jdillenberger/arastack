@@ -228,7 +228,7 @@ func writePEM(path, typ string, key *ecdsa.PrivateKey) error {
 }
 
 func writeCertPEM(path string, der []byte) error {
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600) // #nosec G304 -- path is constructed internally
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644) // #nosec G304 -- path is constructed internally; certs are public
 	if err != nil {
 		return err
 	}

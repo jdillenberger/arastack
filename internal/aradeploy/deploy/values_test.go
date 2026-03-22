@@ -47,18 +47,13 @@ func TestHostTimezone(t *testing.T) {
 func TestSaveAndLoadSecrets(t *testing.T) {
 	dir := t.TempDir()
 
-	values := map[string]string{
-		"db_password":   "secret123",
+	secrets := map[string]string{
+		"db_password":    "secret123",
 		"admin_password": "admin456",
-		"web_port":      "8080",
-	}
-	autoGen := map[string]bool{
-		"db_password":   true,
-		"admin_password": true,
 	}
 
-	if err := SaveSecrets(dir, values, autoGen); err != nil {
-		t.Fatalf("SaveSecrets() error = %v", err)
+	if err := saveSecrets(dir, secrets); err != nil {
+		t.Fatalf("saveSecrets() error = %v", err)
 	}
 
 	// Verify file exists with correct permissions
@@ -80,8 +75,15 @@ func TestSaveAndLoadSecrets(t *testing.T) {
 	if loaded["admin_password"] != "admin456" {
 		t.Errorf("admin_password = %q, want %q", loaded["admin_password"], "admin456")
 	}
-	if _, ok := loaded["web_port"]; ok {
-		t.Error("web_port should not be saved (not auto-generated)")
+}
+
+func TestSaveSecrets_Empty(t *testing.T) {
+	dir := t.TempDir()
+	if err := saveSecrets(dir, nil); err != nil {
+		t.Fatalf("saveSecrets(nil) error = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, SecretsFileName)); !os.IsNotExist(err) {
+		t.Error("secrets file should not be created for empty secrets")
 	}
 }
 
@@ -93,7 +95,49 @@ func TestLoadSavedSecrets_Missing(t *testing.T) {
 	}
 }
 
-func TestSaveSecretsFromState(t *testing.T) {
+func TestCollectAutoGenSecrets(t *testing.T) {
+	meta := &template.AppMeta{
+		Values: []template.Value{
+			{Name: "db_password", AutoGen: "password"},
+			{Name: "api_key", AutoGen: "uuid"},
+			{Name: "web_port"},
+		},
+	}
+	values := map[string]string{
+		"db_password": "fromstate",
+		"api_key":     "some-uuid",
+		"web_port":    "8080",
+	}
+
+	secrets := collectAutoGenSecrets(meta, values)
+	if secrets["db_password"] != "fromstate" {
+		t.Errorf("db_password = %q, want %q", secrets["db_password"], "fromstate")
+	}
+	if secrets["api_key"] != "some-uuid" {
+		t.Errorf("api_key = %q, want %q", secrets["api_key"], "some-uuid")
+	}
+	if _, ok := secrets["web_port"]; ok {
+		t.Error("web_port should not be collected (no auto_gen)")
+	}
+}
+
+func TestCollectAutoGenSecrets_SkipsEmpty(t *testing.T) {
+	meta := &template.AppMeta{
+		Values: []template.Value{
+			{Name: "db_password", AutoGen: "password"},
+		},
+	}
+	values := map[string]string{
+		"db_password": "",
+	}
+
+	secrets := collectAutoGenSecrets(meta, values)
+	if _, ok := secrets["db_password"]; ok {
+		t.Error("empty secret values should not be collected")
+	}
+}
+
+func TestSaveAndLoadRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 
 	meta := &template.AppMeta{
@@ -102,22 +146,21 @@ func TestSaveSecretsFromState(t *testing.T) {
 			{Name: "web_port"},
 		},
 	}
-	info := &DeployedApp{
-		Values: map[string]string{
-			"db_password": "fromstate",
-			"web_port":    "8080",
-		},
+	values := map[string]string{
+		"db_password": "roundtrip-secret",
+		"web_port":    "8080",
 	}
 
-	if err := SaveSecretsFromState(dir, info, meta); err != nil {
-		t.Fatalf("SaveSecretsFromState() error = %v", err)
+	secrets := collectAutoGenSecrets(meta, values)
+	if err := saveSecrets(dir, secrets); err != nil {
+		t.Fatalf("saveSecrets() error = %v", err)
 	}
 
 	loaded := loadSavedSecrets(dir)
-	if loaded["db_password"] != "fromstate" {
-		t.Errorf("db_password = %q, want %q", loaded["db_password"], "fromstate")
+	if loaded["db_password"] != "roundtrip-secret" {
+		t.Errorf("db_password = %q, want %q", loaded["db_password"], "roundtrip-secret")
 	}
 	if _, ok := loaded["web_port"]; ok {
-		t.Error("web_port should not be saved (no auto_gen)")
+		t.Error("web_port should not survive round-trip")
 	}
 }

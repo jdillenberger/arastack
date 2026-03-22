@@ -32,6 +32,13 @@
     </table>
 </article>
 
+{{if .ReadmeHTML}}
+<article>
+    <header><strong>About</strong></header>
+    <div class="readme-content">{{.ReadmeHTML}}</div>
+</article>
+{{end}}
+
 <article>
     <header><strong>Install</strong></header>
     <p>Deploy this template with:</p>

@@ -1,12 +1,16 @@
 package handlers
 
 import (
+	"bytes"
 	"fmt"
+	"html/template"
+	"io/fs"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	"github.com/yuin/goldmark"
 
-	"github.com/jdillenberger/arastack/internal/aradeploy/template"
+	apptmpl "github.com/jdillenberger/arastack/internal/aradeploy/template"
 )
 
 // TemplateSummary holds the fields shown in the templates list.
@@ -26,9 +30,10 @@ type TemplatesListData struct {
 // TemplateDetailData holds data for the template detail template.
 type TemplateDetailData struct {
 	BasePage
-	Template  *template.AppMeta
-	Values    []template.Value // non-secret values only
+	Template  *apptmpl.AppMeta
+	Values    []apptmpl.Value // non-secret values only
 	HasValues bool
+	ReadmeHTML template.HTML
 }
 
 // TemplatesList renders the available templates page.
@@ -64,7 +69,7 @@ func (h *Handler) TemplateDetail(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, fmt.Sprintf("template %s not found", name))
 	}
 
-	var publicValues []template.Value
+	var publicValues []apptmpl.Value
 	for _, v := range meta.Values {
 		if !v.Secret {
 			publicValues = append(publicValues, v)
@@ -76,6 +81,15 @@ func (h *Handler) TemplateDetail(c echo.Context) error {
 		Template:  meta,
 		Values:    publicValues,
 		HasValues: len(publicValues) > 0,
+	}
+
+	if h.registry.FS() != nil {
+		if md, err := fs.ReadFile(h.registry.FS(), name+"/README.md"); err == nil {
+			var buf bytes.Buffer
+			if err := goldmark.Convert(md, &buf); err == nil {
+				data.ReadmeHTML = template.HTML(buf.Bytes()) // #nosec G203 -- rendered from trusted template README
+			}
+		}
 	}
 
 	return c.Render(http.StatusOK, "template_detail.html", data)

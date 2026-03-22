@@ -525,8 +525,10 @@ func (m *Manager) Remove(appName string, keepData bool) error {
 		}
 	}
 
-	// Persist secrets to data directory before removing app directory (backwards compatibility)
-	if keepData && ok {
+	// Persist secrets to data directory before removing app directory.
+	// This ensures secrets survive remove/deploy cycles when data is kept,
+	// including for deployments created before secret persistence was added.
+	if keepData && ok { // ok: template metadata available from registry.Get above
 		if info, err := m.GetDeployedInfo(appName); err == nil {
 			dataDir := m.cfg.DataPath(appName)
 			if err := saveSecrets(dataDir, collectAutoGenSecrets(meta, info.Values)); err != nil {

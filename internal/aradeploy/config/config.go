@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/robfig/cron/v3"
+
 	pkgconfig "github.com/jdillenberger/arastack/pkg/config"
 	"github.com/jdillenberger/arastack/pkg/ports"
 
@@ -31,6 +33,7 @@ type Config struct {
 	Network  NetworkConfig `yaml:"network"`
 	Docker   DockerConfig  `yaml:"docker"`
 	Routing  RoutingConfig `yaml:"routing"`
+	Service  ServiceConfig `yaml:"service"`
 	Araalert AraalertRef   `yaml:"araalert"`
 }
 
@@ -66,6 +69,11 @@ type HTTPSConfig struct {
 	AcmeEmail string `yaml:"acme_email"`
 }
 
+// ServiceConfig holds configuration for the aradeploy background service.
+type ServiceConfig struct {
+	CertRenewSchedule string `yaml:"cert_renew_schedule"`
+}
+
 // DefaultConfig returns the configuration with sensible defaults.
 func DefaultConfig() *Config {
 	hostname, _ := os.Hostname()
@@ -91,6 +99,9 @@ func DefaultConfig() *Config {
 			HTTPS: HTTPSConfig{
 				Enabled: true,
 			},
+		},
+		Service: ServiceConfig{
+			CertRenewSchedule: "0 3 * * *", // daily at 03:00
 		},
 		Araalert: AraalertRef{
 			URL: ports.DefaultURL(ports.AraAlert),
@@ -171,6 +182,11 @@ func Validate(c *Config) []string {
 	if c.Routing.Enabled {
 		if c.Routing.Provider != "traefik" {
 			errs = append(errs, "routing.provider must be \"traefik\"")
+		}
+	}
+	if c.Service.CertRenewSchedule != "" {
+		if _, err := cron.ParseStandard(c.Service.CertRenewSchedule); err != nil {
+			errs = append(errs, fmt.Sprintf("service.cert_renew_schedule is invalid: %v", err))
 		}
 	}
 

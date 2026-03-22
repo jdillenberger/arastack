@@ -91,6 +91,23 @@ func (cm *Manager) EnsureCerts(domains []string) error {
 	return nil
 }
 
+// EnsureCertsIfNeeded checks whether certs need regeneration (missing,
+// expiring, or domain mismatch) and calls EnsureCerts if so. It returns
+// whether certificates were actually regenerated.
+func (cm *Manager) EnsureCertsIfNeeded(domains []string) (renewed bool, err error) {
+	certCrtPath := filepath.Join(cm.certsDir, "wildcard.crt")
+	needsRegen := !fileExists(certCrtPath) ||
+		cm.isCertExpired(certCrtPath) ||
+		cm.certDomainsMismatch(certCrtPath, domains)
+	if !needsRegen {
+		return false, nil
+	}
+	if err := cm.EnsureCerts(domains); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func (cm *Manager) generateCA(keyPath, crtPath string) error {
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {

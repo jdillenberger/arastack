@@ -899,6 +899,52 @@ func (m *Manager) collectAllRoutingDomains(currentApp string, mergedValues map[s
 	return domains
 }
 
+// RenewCerts checks whether the local TLS certificates are expiring and
+// regenerates them if needed. When certificates are renewed it restarts
+// traefik and regenerates the CA bundle for every deployed app.
+func (m *Manager) RenewCerts() error {
+	if !m.cfg.Routing.HTTPS.Enabled {
+		return nil
+	}
+
+	cm := certs.NewManager(m.cfg.DataPath("traefik"))
+	certDomains := m.collectAllRoutingDomains("", nil)
+	if len(certDomains) == 0 {
+		return nil
+	}
+
+	renewed, err := cm.EnsureCertsIfNeeded(certDomains)
+	if err != nil {
+		return fmt.Errorf("renewing certificates: %w", err)
+	}
+	if !renewed {
+		return nil
+	}
+
+	slog.Info("Certificates renewed, restarting traefik")
+	if m.isTraefikDeployed() {
+		if err := m.Restart("traefik"); err != nil {
+			slog.Error("Failed to restart traefik after cert renewal", "error", err)
+		}
+	}
+
+	// Regenerate CA bundles for all deployed apps.
+	caCertPath := cm.CACertPath()
+	deployed, err := m.ListDeployed()
+	if err != nil {
+		return fmt.Errorf("listing deployed apps: %w", err)
+	}
+	for _, appName := range deployed {
+		dataDir := m.cfg.DataPath(appName)
+		if err := generateCABundle(caCertPath, dataDir); err != nil {
+			slog.Warn("Failed to regenerate CA bundle", "app", appName, "error", err)
+		}
+	}
+
+	slog.Info("CA bundles regenerated for all deployed apps")
+	return nil
+}
+
 // generateCABundle creates a CA certificate bundle.
 // If the local CA cert is not available (e.g. traefik not yet deployed),
 // it falls back to using just the system CA bundle so the mount still works.

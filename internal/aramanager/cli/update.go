@@ -87,6 +87,19 @@ var updateCmd = &cobra.Command{
 		reexecCmd.Stdout = os.Stdout
 		reexecCmd.Stderr = os.Stderr
 		_ = reexecCmd.Run() // best-effort; ignore errors
+
+		// Restart all active services so they pick up the new binaries.
+		fmt.Println("\nRestarting active services...")
+		for _, t := range registry.All() {
+			if t.ServiceName == "" || !t.ServiceConfig.IsActive() {
+				continue
+			}
+			fmt.Printf("  Restarting %s...\n", t.Name)
+			if err := t.ServiceConfig.Restart(); err != nil {
+				fmt.Printf("  Warning: failed to restart %s: %v\n", t.Name, err)
+			}
+		}
+
 		return nil
 	},
 }

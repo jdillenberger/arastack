@@ -76,6 +76,9 @@ var serviceStatusCmd = &cobra.Command{
 		}
 
 		for _, t := range tools {
+			if t.ServiceName == "" {
+				continue
+			}
 			active := t.ServiceConfig.IsActive()
 			portInfo := ""
 			if t.Port > 0 {
@@ -141,6 +144,9 @@ func forEachTool(args []string, fn func(registry.Tool) error) error {
 
 	var errs []string
 	for _, t := range registry.All() {
+		if t.ServiceName == "" {
+			continue
+		}
 		if err := fn(t); err != nil {
 			errs = append(errs, fmt.Sprintf("%s: %v", t.Name, err))
 		}

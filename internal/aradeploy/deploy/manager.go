@@ -920,7 +920,7 @@ func generateCABundle(caCertPath, dataDir string) error {
 	}
 
 	bundlePath := filepath.Join(dataDir, "ca-bundle.crt")
-	return os.WriteFile(bundlePath, bundle, 0o644) // #nosec G703 -- bundlePath is constructed internally; world-readable is fine for CA certs
+	return os.WriteFile(bundlePath, bundle, 0o644) // #nosec G306 -- CA bundle is public; path is constructed internally
 }
 
 // printDeploySummary shows what will be deployed before asking for confirmation.

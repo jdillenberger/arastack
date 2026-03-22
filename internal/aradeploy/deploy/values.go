@@ -20,7 +20,7 @@ import (
 )
 
 // SecretsFileName is the name of the persisted secrets file stored in the data directory.
-const SecretsFileName = ".aradeploy-secrets.yaml"
+const SecretsFileName = ".aradeploy-secrets.yaml" // #nosec G101 -- not a credential, just a filename
 
 // MergeValues builds the final values map by merging defaults, user-supplied values,
 // auto-generated secrets, and system values.

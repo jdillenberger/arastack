@@ -285,15 +285,20 @@ func (m *Manager) TemplateDirs() ([]string, error) {
 	return dirs, nil
 }
 
-// RepoNames returns the repo names in manifest order (for source labelling).
+// RepoNames returns the names of repos that exist on disk, in the same order
+// as TemplateDirs. This ensures the index alignment that MergedFS and
+// ResolveSource depend on.
 func (m *Manager) RepoNames() ([]string, error) {
 	manifest, err := m.Load()
 	if err != nil {
 		return nil, err
 	}
-	names := make([]string, len(manifest.Repos))
-	for i, r := range manifest.Repos {
-		names[i] = r.Name
+	names := make([]string, 0, len(manifest.Repos))
+	for _, r := range manifest.Repos {
+		dir := filepath.Join(m.reposDir, r.Name)
+		if info, err := os.Stat(dir); err == nil && info.IsDir() {
+			names = append(names, r.Name)
+		}
 	}
 	return names, nil
 }

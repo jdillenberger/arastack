@@ -118,6 +118,11 @@ func (o *OverlayFS) mergedRootEntries() ([]fs.DirEntry, error) {
 	return merged, nil
 }
 
+// Lower returns the lower (base) filesystem layer.
+func (o *OverlayFS) Lower() fs.FS {
+	return o.lower
+}
+
 // Source returns where a template comes from: "repo:<name>", "local", "override".
 func (o *OverlayFS) Source(templateName string) string {
 	inUpper := o.upper != nil && o.upperDirs[templateName]
@@ -321,11 +326,7 @@ func ResolveSource(fsys fs.FS, templateName string, repoNames []string) string {
 	inner := outer.lower
 
 	if merged, ok := inner.(*MergedFS); ok {
-		inRepos := merged.dirs[templateName] >= 0
-		_, hasKey := merged.dirs[templateName]
-		if hasKey {
-			inRepos = true
-		}
+		_, inRepos := merged.dirs[templateName]
 
 		var repoSource string
 		if inRepos {

@@ -57,8 +57,9 @@ type TemplateDetailData struct {
 	Images       []DockerImage
 	Deployed     bool
 	DeployedApps []DeployedAppRef
-	Source       string // e.g. "repo:arastack-templates", "local", "override"
-	SourcePath   string // filesystem path to the template directory
+	Source           string // e.g. "repo:arastack-templates", "local", "override"
+	SourcePath       string // filesystem path to the template directory
+	OverrideBasePath string // for overrides: the repo path being overridden
 }
 
 // deployedByTemplate returns a map from template name to list of deployed app names.
@@ -77,14 +78,29 @@ func (h *Handler) resolveTemplatePath(templateName, source string) string {
 	case source == "local":
 		return filepath.Join(h.ldc.TemplatesDir, templateName)
 	case source == "override":
+		// Override means local dir takes precedence — show that path.
 		return filepath.Join(h.ldc.TemplatesDir, templateName)
 	case strings.HasPrefix(source, "repo:"):
 		repoName := strings.TrimPrefix(source, "repo:")
 		return filepath.Join(h.ldc.ReposDir, repoName, templateName)
-	case source == "repo":
-		// Generic repo without name — try first repo dir
-		if h.ldc.ReposDir != "" {
-			return filepath.Join(h.ldc.ReposDir, templateName)
+	}
+	return ""
+}
+
+// resolveOverrideBasePath returns the underlying repo path for an overridden template.
+func (h *Handler) resolveOverrideBasePath(templateName string) string {
+	if h.registry == nil || h.registry.FS() == nil {
+		return ""
+	}
+	// For an override, the lower layer is a repo. Find which one.
+	outer, ok := h.registry.FS().(*apptmpl.OverlayFS)
+	if !ok {
+		return ""
+	}
+	if merged, ok := outer.Lower().(*apptmpl.MergedFS); ok {
+		idx := merged.RepoIndex(templateName)
+		if idx >= 0 && idx < len(h.repoNames) {
+			return filepath.Join(h.ldc.ReposDir, h.repoNames[idx], templateName)
 		}
 	}
 	return ""
@@ -139,15 +155,22 @@ func (h *Handler) TemplateDetail(c echo.Context) error {
 
 	source := apptmpl.ResolveSource(h.registry.FS(), name, h.repoNames)
 
+	sourcePath := h.resolveTemplatePath(name, source)
+	var overrideBase string
+	if source == "override" {
+		overrideBase = h.resolveOverrideBasePath(name)
+	}
+
 	data := TemplateDetailData{
-		BasePage:     h.basePage(),
-		Template:     meta,
-		Values:       publicValues,
-		HasValues:    len(publicValues) > 0,
-		Deployed:     len(apps) > 0,
-		DeployedApps: apps,
-		Source:       source,
-		SourcePath:   h.resolveTemplatePath(name, source),
+		BasePage:         h.basePage(),
+		Template:         meta,
+		Values:           publicValues,
+		HasValues:        len(publicValues) > 0,
+		Deployed:         len(apps) > 0,
+		DeployedApps:     apps,
+		Source:           source,
+		SourcePath:       sourcePath,
+		OverrideBasePath: overrideBase,
 	}
 
 	if h.registry.FS() != nil {

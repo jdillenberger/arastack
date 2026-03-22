@@ -38,7 +38,7 @@
         {{if .SourcePath}}
         <tr>
             <td><strong>Path</strong></td>
-            <td><code>{{.SourcePath}}</code></td>
+            <td><code>{{.SourcePath}}</code>{{if .OverrideBasePath}}<br><small>overrides <code>{{.OverrideBasePath}}</code></small>{{end}}</td>
         </tr>
         {{end}}
     </table>

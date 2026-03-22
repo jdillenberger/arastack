@@ -29,6 +29,18 @@
             <td><strong>Version</strong></td>
             <td>{{if .Template.Version}}{{.Template.Version}}{{else}}—{{end}}</td>
         </tr>
+        {{if .Source}}
+        <tr>
+            <td><strong>Source</strong></td>
+            <td>{{.Source}}</td>
+        </tr>
+        {{end}}
+        {{if .SourcePath}}
+        <tr>
+            <td><strong>Path</strong></td>
+            <td><code>{{.SourcePath}}</code></td>
+        </tr>
+        {{end}}
     </table>
 </article>
 
@@ -42,7 +54,7 @@
 <article>
     <header><strong>Install</strong></header>
     {{if .Deployed}}
-    <p><span class="badge badge-running">installed</span> This template is deployed as <a href="/apps/{{.AppName}}">{{.AppName}}</a>.</p>
+    <p><span class="badge badge-running">installed</span> Deployed as: {{range $i, $a := .DeployedApps}}{{if $i}}, {{end}}<a href="/apps/{{$a.Name}}">{{$a.Name}}</a>{{end}}</p>
     {{end}}
     <p>Deploy this template with:</p>
     <pre><code>aradeploy deploy {{.Template.Name}}</code></pre>

@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"io/fs"
 	"net/http"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -22,8 +23,13 @@ type TemplateSummary struct {
 	Description string
 	Category    string
 	Version     string
-	Deployed    bool   // true if an app using this template is deployed
-	AppName     string // name of the deployed app (for linking)
+	Deployed    bool
+	DeployedApps []DeployedAppRef
+}
+
+// DeployedAppRef is a minimal reference to a deployed app.
+type DeployedAppRef struct {
+	Name string
 }
 
 // TemplatesListData holds data for the templates list template.
@@ -44,23 +50,44 @@ type DockerImage struct {
 // TemplateDetailData holds data for the template detail template.
 type TemplateDetailData struct {
 	BasePage
-	Template   *apptmpl.AppMeta
-	Values     []apptmpl.Value // non-secret values only
-	HasValues  bool
-	ReadmeHTML template.HTML
-	Images     []DockerImage
-	Deployed   bool   // true if an app using this template is deployed
-	AppName    string // name of the deployed app (for linking)
+	Template     *apptmpl.AppMeta
+	Values       []apptmpl.Value // non-secret values only
+	HasValues    bool
+	ReadmeHTML   template.HTML
+	Images       []DockerImage
+	Deployed     bool
+	DeployedApps []DeployedAppRef
+	Source       string // e.g. "repo:arastack-templates", "local", "override"
+	SourcePath   string // filesystem path to the template directory
 }
 
-// deployedTemplates returns a map from template name to deployed app name.
-func (h *Handler) deployedTemplates() map[string]string {
+// deployedByTemplate returns a map from template name to list of deployed app names.
+func (h *Handler) deployedByTemplate() map[string][]DeployedAppRef {
 	apps, _ := discovery.GetAllApps(h.ldc.AppsDir)
-	m := make(map[string]string, len(apps))
+	m := make(map[string][]DeployedAppRef, len(apps))
 	for _, app := range apps {
-		m[app.Template] = app.Name
+		m[app.Template] = append(m[app.Template], DeployedAppRef{Name: app.Name})
 	}
 	return m
+}
+
+// resolveTemplatePath returns the filesystem path for a template based on its source.
+func (h *Handler) resolveTemplatePath(templateName, source string) string {
+	switch {
+	case source == "local":
+		return filepath.Join(h.ldc.TemplatesDir, templateName)
+	case source == "override":
+		return filepath.Join(h.ldc.TemplatesDir, templateName)
+	case strings.HasPrefix(source, "repo:"):
+		repoName := strings.TrimPrefix(source, "repo:")
+		return filepath.Join(h.ldc.ReposDir, repoName, templateName)
+	case source == "repo":
+		// Generic repo without name — try first repo dir
+		if h.ldc.ReposDir != "" {
+			return filepath.Join(h.ldc.ReposDir, templateName)
+		}
+	}
+	return ""
 }
 
 // TemplatesList renders the available templates page.
@@ -70,16 +97,16 @@ func (h *Handler) TemplatesList(c echo.Context) error {
 	}
 
 	if h.registry != nil {
-		deployed := h.deployedTemplates()
+		deployed := h.deployedByTemplate()
 		for _, meta := range h.registry.All() {
-			appName := deployed[meta.Name]
+			apps := deployed[meta.Name]
 			data.Templates = append(data.Templates, TemplateSummary{
-				Name:        meta.Name,
-				Description: meta.Description,
-				Category:    meta.Category,
-				Version:     meta.Version,
-				Deployed:    appName != "",
-				AppName:     appName,
+				Name:         meta.Name,
+				Description:  meta.Description,
+				Category:     meta.Category,
+				Version:      meta.Version,
+				Deployed:     len(apps) > 0,
+				DeployedApps: apps,
 			})
 		}
 	}
@@ -107,16 +134,20 @@ func (h *Handler) TemplateDetail(c echo.Context) error {
 		}
 	}
 
-	deployed := h.deployedTemplates()
-	appName := deployed[meta.Name]
+	deployed := h.deployedByTemplate()
+	apps := deployed[meta.Name]
+
+	source := apptmpl.ResolveSource(h.registry.FS(), name, h.repoNames)
 
 	data := TemplateDetailData{
-		BasePage:  h.basePage(),
-		Template:  meta,
-		Values:    publicValues,
-		HasValues: len(publicValues) > 0,
-		Deployed:  appName != "",
-		AppName:   appName,
+		BasePage:     h.basePage(),
+		Template:     meta,
+		Values:       publicValues,
+		HasValues:    len(publicValues) > 0,
+		Deployed:     len(apps) > 0,
+		DeployedApps: apps,
+		Source:       source,
+		SourcePath:   h.resolveTemplatePath(name, source),
 	}
 
 	if h.registry.FS() != nil {
@@ -178,12 +209,10 @@ func parseDockerImage(raw string) DockerImage {
 	switch {
 	case strings.HasPrefix(ref, "ghcr.io/"):
 		img.Registry = "GHCR"
-		// ghcr.io/org/name → https://ghcr.io/org/name
 		img.URL = "https://" + ref
 
 	case strings.HasPrefix(ref, "lscr.io/"):
 		img.Registry = "LinuxServer"
-		// lscr.io/linuxserver/name → https://fleet.linuxserver.io/image?name=linuxserver/name
 		parts := strings.SplitN(ref, "/", 3)
 		if len(parts) == 3 {
 			img.URL = "https://fleet.linuxserver.io/image?name=" + parts[1] + "/" + parts[2]
@@ -191,7 +220,6 @@ func parseDockerImage(raw string) DockerImage {
 
 	case strings.HasPrefix(ref, "quay.io/"):
 		img.Registry = "Quay"
-		// quay.io/org/name → https://quay.io/repository/org/name
 		path := strings.TrimPrefix(ref, "quay.io/")
 		img.URL = "https://quay.io/repository/" + path
 
@@ -205,12 +233,10 @@ func parseDockerImage(raw string) DockerImage {
 		img.URL = "https://" + ref
 
 	case !strings.Contains(ref, "."):
-		// No dots in the reference means Docker Hub (official or org).
 		img.Registry = "Docker Hub"
 		img.URL = dockerHubURL(ref)
 
 	default:
-		// Custom registry — no link, just show the registry hostname.
 		if i := strings.Index(ref, "/"); i > 0 {
 			img.Registry = ref[:i]
 		}
@@ -220,7 +246,6 @@ func parseDockerImage(raw string) DockerImage {
 }
 
 // dockerHubURL returns the Docker Hub URL for an image path.
-// Official images (no slash) use /_, org images use /r/.
 func dockerHubURL(path string) string {
 	if strings.Contains(path, "/") {
 		return "https://hub.docker.com/r/" + path

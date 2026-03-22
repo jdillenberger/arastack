@@ -44,10 +44,11 @@ type AppsListData struct {
 // AppDetailData holds data for the app detail template.
 type AppDetailData struct {
 	BasePage
-	App        *discovery.DeployedApp
-	Containers []ContainerStatus
-	Addresses  []AppAddress
-	StatusRaw  string
+	App            *discovery.DeployedApp
+	Containers     []ContainerStatus
+	Addresses      []AppAddress
+	StatusRaw      string
+	TemplateExists bool
 }
 
 // AppsList renders the apps list page.
@@ -74,10 +75,16 @@ func (h *Handler) AppDetail(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, fmt.Sprintf("app %s not found", name))
 	}
 
+	var tmplExists bool
+	if h.registry != nil {
+		_, tmplExists = h.registry.Get(info.Template)
+	}
+
 	data := AppDetailData{
-		BasePage:  h.basePage(),
-		App:       info,
-		Addresses: h.buildAppAddresses(info),
+		BasePage:       h.basePage(),
+		App:            info,
+		Addresses:      h.buildAppAddresses(info),
+		TemplateExists: tmplExists,
 	}
 
 	appDir := h.ldc.AppsDir + "/" + name

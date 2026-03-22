@@ -33,7 +33,8 @@ type Handler struct {
 	healthCache *health.HealthCache
 	peerClient  *clients.AraScannerClient
 	apiHealth   *pkghealth.Handler
-	registry    *template.Registry
+	registry  *template.Registry
+	repoNames []string
 }
 
 // New creates a new Handler with all dependencies.
@@ -48,15 +49,15 @@ func New(cfg *config.Config, ldc *config.AradeployYAML, runner *executil.Runner,
 		apiHealth:   pkghealth.NewHandler(version),
 	}
 
-	h.registry = buildRegistry(ldc, runner)
+	h.registry, h.repoNames = buildRegistry(ldc, runner)
 	return h
 }
 
 // buildRegistry creates a template registry from the aradeploy config.
 // Returns nil if templates cannot be loaded (graceful degradation).
-func buildRegistry(ldc *config.AradeployYAML, runner *executil.Runner) *template.Registry {
+func buildRegistry(ldc *config.AradeployYAML, runner *executil.Runner) (*template.Registry, []string) {
 	if ldc.ReposDir == "" {
-		return nil
+		return nil, nil
 	}
 
 	manifestPath := filepath.Join(filepath.Dir(ldc.ReposDir), "repos.yaml")
@@ -67,14 +68,15 @@ func buildRegistry(ldc *config.AradeployYAML, runner *executil.Runner) *template
 	}
 
 	repoDirs, _ := repoMgr.TemplateDirs()
+	repoNames, _ := repoMgr.RepoNames()
 	tmplFS := template.BuildTemplateFS(repoDirs, ldc.TemplatesDir)
 
 	reg, err := template.NewRegistry(tmplFS)
 	if err != nil {
 		slog.Warn("failed to load template registry", "error", err)
-		return nil
+		return nil, nil
 	}
-	return reg
+	return reg, repoNames
 }
 
 func (h *Handler) basePage() BasePage {

@@ -18,7 +18,7 @@
         <header><strong>Details</strong></header>
         <table>
             <tr><td><strong>Name</strong></td><td>{{.App.Name}}</td></tr>
-            <tr><td><strong>Template</strong></td><td>{{.App.Template}}</td></tr>
+            <tr><td><strong>Template</strong></td><td>{{if .TemplateExists}}<a href="/templates/{{.App.Template}}">{{.App.Template}}</a>{{else}}{{.App.Template}}{{end}}</td></tr>
             <tr><td><strong>Version</strong></td><td>{{.App.Version}}</td></tr>
             <tr><td><strong>Deployed</strong></td><td>{{.App.DeployedAt.Format "2006-01-02 15:04:05"}}</td></tr>
         </table>

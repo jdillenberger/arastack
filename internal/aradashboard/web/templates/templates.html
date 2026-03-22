@@ -37,7 +37,7 @@
                 <td><a href="/templates/{{.Name}}">{{.Name}}</a></td>
                 <td>{{if .Category}}{{.Category}}{{else}}—{{end}}</td>
                 <td>{{if .Version}}{{.Version}}{{else}}—{{end}}</td>
-                <td>{{if .Deployed}}<a href="/apps/{{.AppName}}"><span class="badge badge-running">installed</span></a>{{else}}—{{end}}</td>
+                <td>{{if .Deployed}}{{range $i, $a := .DeployedApps}}{{if $i}} {{end}}<a href="/apps/{{$a.Name}}"><span class="badge badge-running">{{$a.Name}}</span></a>{{end}}{{else}}—{{end}}</td>
                 <td>{{if .Description}}{{.Description}}{{else}}<em>No description</em>{{end}}</td>
                 <td>
                     <div class="actions" style="margin-top:0;">

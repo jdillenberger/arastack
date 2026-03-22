@@ -8,6 +8,9 @@ import (
 
 	"github.com/robfig/cron/v3"
 	"github.com/spf13/cobra"
+
+	"github.com/jdillenberger/arastack/internal/aradeploy/deploy"
+	"github.com/jdillenberger/arastack/pkg/executil"
 )
 
 func init() {
@@ -23,6 +26,10 @@ var runCmd = &cobra.Command{
 	},
 }
 
+func newServiceManager() *deploy.Manager {
+	return deploy.NewServiceManager(cfg.ToManagerConfig(), &executil.Runner{})
+}
+
 func runDaemon() error {
 	schedule := cfg.Service.CertRenewSchedule
 
@@ -31,11 +38,7 @@ func runDaemon() error {
 	c := cron.New()
 	_, err := c.AddFunc(schedule, func() {
 		slog.Info("running scheduled certificate renewal check")
-		mgr, err := newManager()
-		if err != nil {
-			slog.Error("failed to create manager for cert renewal", "error", err)
-			return
-		}
+		mgr := newServiceManager()
 		if err := mgr.RenewCerts(); err != nil {
 			slog.Error("certificate renewal failed", "error", err)
 		}
@@ -43,12 +46,11 @@ func runDaemon() error {
 	if err != nil {
 		return err
 	}
+
 	// Run an initial check before starting the scheduler.
 	slog.Info("running initial certificate renewal check")
-	mgr, initErr := newManager()
-	if initErr != nil {
-		slog.Error("failed to create manager for cert renewal", "error", initErr)
-	} else if err := mgr.RenewCerts(); err != nil {
+	mgr := newServiceManager()
+	if err := mgr.RenewCerts(); err != nil {
 		slog.Error("certificate renewal failed", "error", err)
 	}
 

@@ -38,6 +38,17 @@ type Manager struct {
 	OnRemove func(appName string)
 }
 
+// NewServiceManager creates a lightweight manager for background service
+// operations (e.g. certificate renewal) that don't require template
+// rendering.
+func NewServiceManager(cfg *ManagerConfig, runner *executil.Runner) *Manager {
+	return &Manager{
+		cfg:     cfg,
+		compose: compose.New(runner, cfg.Docker.ComposeCommand),
+		runner:  runner,
+	}
+}
+
 // NewManager creates a new app manager.
 func NewManager(cfg *ManagerConfig, runner *executil.Runner, tmplFS fs.FS) (*Manager, error) {
 	registry, err := template.NewRegistry(tmplFS)

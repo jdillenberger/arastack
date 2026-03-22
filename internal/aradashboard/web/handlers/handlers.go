@@ -35,6 +35,7 @@ type Handler struct {
 	apiHealth   *pkghealth.Handler
 	registry  *template.Registry
 	repoNames []string
+	repoURLs  map[string]string // repo name → git URL
 }
 
 // New creates a new Handler with all dependencies.
@@ -49,15 +50,15 @@ func New(cfg *config.Config, ldc *config.AradeployYAML, runner *executil.Runner,
 		apiHealth:   pkghealth.NewHandler(version),
 	}
 
-	h.registry, h.repoNames = buildRegistry(ldc, runner)
+	h.registry, h.repoNames, h.repoURLs = buildRegistry(ldc, runner)
 	return h
 }
 
 // buildRegistry creates a template registry from the aradeploy config.
 // Returns nil if templates cannot be loaded (graceful degradation).
-func buildRegistry(ldc *config.AradeployYAML, runner *executil.Runner) (*template.Registry, []string) {
+func buildRegistry(ldc *config.AradeployYAML, runner *executil.Runner) (*template.Registry, []string, map[string]string) {
 	if ldc.ReposDir == "" {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	manifestPath := filepath.Join(filepath.Dir(ldc.ReposDir), "repos.yaml")
@@ -69,14 +70,23 @@ func buildRegistry(ldc *config.AradeployYAML, runner *executil.Runner) (*templat
 
 	repoDirs, _ := repoMgr.TemplateDirs()
 	repoNames, _ := repoMgr.RepoNames()
+
+	// Build repo name → URL map from the manifest.
+	repoURLs := make(map[string]string)
+	if repos, err := repoMgr.List(); err == nil {
+		for _, r := range repos {
+			repoURLs[r.Name] = r.URL
+		}
+	}
+
 	tmplFS := template.BuildTemplateFS(repoDirs, ldc.TemplatesDir)
 
 	reg, err := template.NewRegistry(tmplFS)
 	if err != nil {
 		slog.Warn("failed to load template registry", "error", err)
-		return nil, nil
+		return nil, nil, nil
 	}
-	return reg, repoNames
+	return reg, repoNames, repoURLs
 }
 
 func (h *Handler) basePage() BasePage {

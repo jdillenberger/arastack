@@ -32,7 +32,7 @@
         {{if .Source}}
         <tr>
             <td><strong>Source</strong></td>
-            <td>{{.Source}}</td>
+            <td>{{if .SourceURL}}<a href="{{.SourceURL}}" target="_blank" rel="noopener">{{.Source}}</a>{{else}}{{.Source}}{{end}}</td>
         </tr>
         {{end}}
         {{if .SourcePath}}

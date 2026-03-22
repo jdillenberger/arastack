@@ -58,6 +58,7 @@ type TemplateDetailData struct {
 	Deployed     bool
 	DeployedApps []DeployedAppRef
 	Source           string // e.g. "repo:arastack-templates", "local", "override"
+	SourceURL        string // link to the repo (e.g. GitHub), empty for local
 	SourcePath       string // filesystem path to the template directory
 	OverrideBasePath string // for overrides: the repo path being overridden
 }
@@ -104,6 +105,50 @@ func (h *Handler) resolveOverrideBasePath(templateName string) string {
 		}
 	}
 	return ""
+}
+
+// resolveSourceURL returns a web URL for the repo that owns a template.
+// For GitHub and Codeberg repos it deep-links into the template subdirectory.
+func (h *Handler) resolveSourceURL(templateName, source string) string {
+	if !strings.HasPrefix(source, "repo:") {
+		return ""
+	}
+	repoName := strings.TrimPrefix(source, "repo:")
+	gitURL, ok := h.repoURLs[repoName]
+	if !ok || gitURL == "" {
+		return ""
+	}
+	return repoWebURL(gitURL, templateName)
+}
+
+// repoWebURL converts a git clone URL to a browseable web URL pointing at a
+// subdirectory. Supports GitHub and Codeberg HTTPS and SSH URLs.
+func repoWebURL(gitURL, subdir string) string {
+	u := strings.TrimSuffix(gitURL, ".git")
+
+	// SSH: git@github.com:user/repo → https://github.com/user/repo
+	if strings.HasPrefix(u, "git@") {
+		u = strings.TrimPrefix(u, "git@")
+		if i := strings.Index(u, ":"); i > 0 {
+			u = "https://" + u[:i] + "/" + u[i+1:]
+		}
+	}
+
+	// Only generate deep links for known forges.
+	if !strings.HasPrefix(u, "https://") {
+		return ""
+	}
+
+	switch {
+	case strings.Contains(u, "github.com"),
+		strings.Contains(u, "codeberg.org"):
+		return u + "/tree/main/" + subdir
+	case strings.Contains(u, "gitlab.com"):
+		return u + "/-/tree/main/" + subdir
+	default:
+		// Unknown forge — link to repo root.
+		return u
+	}
 }
 
 // TemplatesList renders the available templates page.
@@ -169,6 +214,7 @@ func (h *Handler) TemplateDetail(c echo.Context) error {
 		Deployed:         len(apps) > 0,
 		DeployedApps:     apps,
 		Source:           source,
+		SourceURL:        h.resolveSourceURL(name, source),
 		SourcePath:       sourcePath,
 		OverrideBasePath: overrideBase,
 	}

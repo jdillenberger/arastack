@@ -49,6 +49,32 @@
     {{end}}
 </article>
 
+{{if .Images}}
+<article>
+    <header><strong>Docker Images</strong></header>
+    <div class="overflow-auto">
+    <table>
+        <thead>
+            <tr>
+                <th>Image</th>
+                <th>Tag</th>
+                <th>Registry</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Images}}
+            <tr>
+                <td>{{if .URL}}<a href="{{.URL}}" target="_blank" rel="noopener">{{.Name}}</a>{{else}}{{.Name}}{{end}}</td>
+                <td>{{if .Tag}}<code>{{.Tag}}</code>{{else}}—{{end}}</td>
+                <td>{{.Registry}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    </div>
+</article>
+{{end}}
+
 {{if .Template.Ports}}
 <article>
     <header><strong>Ports</strong></header>

@@ -63,6 +63,10 @@ func buildRegistry(ldc *config.AradeployYAML, runner *executil.Runner) *template
 	manifestPath := filepath.Join(filepath.Dir(reposDir), "repos.yaml")
 	repoMgr := repo.NewManager(reposDir, manifestPath, runner)
 
+	if err := repoMgr.EnsureDefaults(); err != nil {
+		slog.Warn("failed to ensure default template repo", "error", err)
+	}
+
 	repoDirs, _ := repoMgr.TemplateDirs()
 	tmplFS := template.BuildTemplateFS(repoDirs, ldc.TemplatesDir)
 

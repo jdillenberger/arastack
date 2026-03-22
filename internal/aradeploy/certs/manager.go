@@ -102,10 +102,15 @@ func (cm *Manager) generateCA(keyPath, crtPath string) error {
 		return err
 	}
 
+	hostname, err := os.Hostname()
+	if err != nil {
+		hostname = "unknown"
+	}
+
 	tmpl := &x509.Certificate{
 		SerialNumber: serial,
 		Subject: pkix.Name{
-			CommonName:   "aradeploy Local CA",
+			CommonName:   hostname + ".local CA",
 			Organization: []string{"aradeploy"},
 		},
 		NotBefore:             time.Now(),

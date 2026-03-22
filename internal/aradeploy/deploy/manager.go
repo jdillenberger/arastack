@@ -534,6 +534,8 @@ func (m *Manager) Remove(appName string, keepData bool) error {
 			if err := saveSecrets(dataDir, collectAutoGenSecrets(meta, info.Values)); err != nil {
 				slog.Warn("Failed to save secrets on remove", "app", appName, "error", err)
 			}
+		} else {
+			slog.Warn("Failed to read deploy state for secret persistence", "app", appName, "error", err)
 		}
 	}
 

@@ -3,7 +3,10 @@
 {{define "title"}}Apps - aradashboard{{end}}
 
 {{define "content"}}
-<h2>Apps</h2>
+<div style="display:flex;align-items:center;justify-content:space-between;">
+    <h2 style="margin-bottom:0;">Apps</h2>
+    <a href="/templates" role="button" class="outline" style="font-size:0.9rem;">Install</a>
+</div>
 
 <div class="app-search">
     <input type="search" id="app-filter" placeholder="Filter apps..." oninput="filterApps(this.value)" autocomplete="off">

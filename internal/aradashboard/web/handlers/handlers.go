@@ -1,11 +1,16 @@
 package handlers
 
 import (
+	"log/slog"
+	"path/filepath"
+
 	"github.com/labstack/echo/v4"
 
 	"github.com/jdillenberger/arastack/internal/aradashboard/config"
 	"github.com/jdillenberger/arastack/internal/aradashboard/docker"
 	"github.com/jdillenberger/arastack/internal/aradashboard/health"
+	"github.com/jdillenberger/arastack/internal/aradeploy/repo"
+	"github.com/jdillenberger/arastack/internal/aradeploy/template"
 	"github.com/jdillenberger/arastack/pkg/clients"
 	"github.com/jdillenberger/arastack/pkg/executil"
 	pkghealth "github.com/jdillenberger/arastack/pkg/health"
@@ -28,11 +33,12 @@ type Handler struct {
 	healthCache *health.HealthCache
 	peerClient  *clients.AraScannerClient
 	apiHealth   *pkghealth.Handler
+	registry    *template.Registry
 }
 
 // New creates a new Handler with all dependencies.
 func New(cfg *config.Config, ldc *config.AradeployYAML, runner *executil.Runner, compose *docker.Compose, healthCache *health.HealthCache, peerClient *clients.AraScannerClient, version string) *Handler {
-	return &Handler{
+	h := &Handler{
 		cfg:         cfg,
 		ldc:         ldc,
 		runner:      runner,
@@ -41,6 +47,31 @@ func New(cfg *config.Config, ldc *config.AradeployYAML, runner *executil.Runner,
 		peerClient:  peerClient,
 		apiHealth:   pkghealth.NewHandler(version),
 	}
+
+	h.registry = buildRegistry(ldc, runner)
+	return h
+}
+
+// buildRegistry creates a template registry from the aradeploy config.
+// Returns nil if templates cannot be loaded (graceful degradation).
+func buildRegistry(ldc *config.AradeployYAML, runner *executil.Runner) *template.Registry {
+	reposDir := ldc.ReposDir()
+	if reposDir == "" {
+		return nil
+	}
+
+	manifestPath := filepath.Join(filepath.Dir(reposDir), "repos.yaml")
+	repoMgr := repo.NewManager(reposDir, manifestPath, runner)
+
+	repoDirs, _ := repoMgr.TemplateDirs()
+	tmplFS := template.BuildTemplateFS(repoDirs, ldc.TemplatesDir)
+
+	reg, err := template.NewRegistry(tmplFS)
+	if err != nil {
+		slog.Warn("failed to load template registry", "error", err)
+		return nil
+	}
+	return reg
 }
 
 func (h *Handler) basePage() BasePage {
@@ -69,6 +100,10 @@ func (h *Handler) Register(e *echo.Echo) {
 	e.GET("/apps/:name", h.AppDetail)
 	e.GET("/apps/:name/logs", h.AppLogs)
 	e.GET("/apps/:name/logs/stream", h.AppLogsStream)
+
+	// Templates
+	e.GET("/templates", h.TemplatesList)
+	e.GET("/templates/:name", h.TemplateDetail)
 
 	// Peers
 	e.GET("/peers", h.HandlePeersPage)

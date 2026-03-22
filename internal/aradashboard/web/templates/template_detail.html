@@ -1,0 +1,202 @@
+{{template "base.html" .}}
+
+{{define "title"}}{{.Template.Name}} - aradashboard{{end}}
+
+{{define "content"}}
+<nav aria-label="breadcrumb">
+    <ul>
+        <li><a href="/">Portal</a></li>
+        <li><a href="/apps">Apps</a></li>
+        <li><a href="/templates">Templates</a></li>
+        <li>{{.Template.Name}}</li>
+    </ul>
+</nav>
+
+<h2>{{.Template.Name}}</h2>
+
+<article>
+    <header><strong>Overview</strong></header>
+    <table>
+        <tr>
+            <td><strong>Description</strong></td>
+            <td>{{if .Template.Description}}{{.Template.Description}}{{else}}<em>No description available.</em>{{end}}</td>
+        </tr>
+        <tr>
+            <td><strong>Category</strong></td>
+            <td>{{if .Template.Category}}{{.Template.Category}}{{else}}Uncategorized{{end}}</td>
+        </tr>
+        <tr>
+            <td><strong>Version</strong></td>
+            <td>{{if .Template.Version}}{{.Template.Version}}{{else}}—{{end}}</td>
+        </tr>
+    </table>
+</article>
+
+<article>
+    <header><strong>Install</strong></header>
+    <p>Deploy this template with:</p>
+    <pre><code>aradeploy deploy {{.Template.Name}}</code></pre>
+    {{if .Template.Dependencies}}
+    <p><strong>Dependencies:</strong> {{range $i, $d := .Template.Dependencies}}{{if $i}}, {{end}}{{$d}}{{end}}</p>
+    <p><small>Deploy dependencies first before installing this template.</small></p>
+    {{end}}
+</article>
+
+{{if .Template.Ports}}
+<article>
+    <header><strong>Ports</strong></header>
+    <div class="overflow-auto">
+    <table>
+        <thead>
+            <tr>
+                <th>Host</th>
+                <th>Container</th>
+                <th>Protocol</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Template.Ports}}
+            <tr>
+                <td>{{.Host}}</td>
+                <td>{{.Container}}</td>
+                <td>{{if .Protocol}}{{.Protocol}}{{else}}tcp{{end}}</td>
+                <td>{{if .Description}}{{.Description}}{{else}}—{{end}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    </div>
+</article>
+{{end}}
+
+{{if .Template.Volumes}}
+<article>
+    <header><strong>Volumes</strong></header>
+    <div class="overflow-auto">
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Mount Path</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Template.Volumes}}
+            <tr>
+                <td>{{.Name}}</td>
+                <td><code>{{.Container}}</code></td>
+                <td>{{if .Description}}{{.Description}}{{else}}—{{end}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    </div>
+</article>
+{{end}}
+
+{{if .HasValues}}
+<article>
+    <header><strong>Configuration</strong></header>
+    <div class="overflow-auto">
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Default</th>
+                <th>Required</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Values}}
+            <tr>
+                <td><code>{{.Name}}</code></td>
+                <td>{{if .Description}}{{.Description}}{{else}}—{{end}}</td>
+                <td>{{if .Default}}<code>{{.Default}}</code>{{else}}—{{end}}</td>
+                <td>{{if .Required}}yes{{else}}no{{end}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    </div>
+</article>
+{{end}}
+
+{{if .Template.Requirements}}
+<article>
+    <header><strong>Requirements</strong></header>
+    <table>
+        {{if .Template.Requirements.MinRAM}}
+        <tr><td><strong>Minimum RAM</strong></td><td>{{.Template.Requirements.MinRAM}}</td></tr>
+        {{end}}
+        {{if .Template.Requirements.MinDisk}}
+        <tr><td><strong>Minimum Disk</strong></td><td>{{.Template.Requirements.MinDisk}}</td></tr>
+        {{end}}
+        {{if .Template.Requirements.Arch}}
+        <tr><td><strong>Architectures</strong></td><td>{{range $i, $a := .Template.Requirements.Arch}}{{if $i}}, {{end}}{{$a}}{{end}}</td></tr>
+        {{end}}
+    </table>
+</article>
+{{end}}
+
+{{if .Template.Routing}}
+<article>
+    <header><strong>Routing</strong></header>
+    <table>
+        <tr><td><strong>Reverse Proxy</strong></td><td>Supported</td></tr>
+        {{if .Template.Routing.Subdomain}}
+        <tr><td><strong>Subdomain</strong></td><td>{{.Template.Routing.Subdomain}}</td></tr>
+        {{end}}
+        <tr><td><strong>Auth Mode</strong></td><td>{{.Template.Routing.AuthMode}}</td></tr>
+        {{if .Template.Routing.Websocket}}
+        <tr><td><strong>WebSocket</strong></td><td>yes</td></tr>
+        {{end}}
+    </table>
+</article>
+{{end}}
+
+{{if .Template.Backup}}
+<article>
+    <header><strong>Backup</strong></header>
+    <p>Backup is configured for this template.</p>
+    {{if .Template.Backup.Paths}}
+    <p><strong>Paths:</strong></p>
+    <ul>
+        {{range .Template.Backup.Paths}}
+        <li><code>{{.}}</code></li>
+        {{end}}
+    </ul>
+    {{end}}
+</article>
+{{end}}
+
+{{if .Template.Code}}{{if .Template.Code.Slots}}
+<article>
+    <header><strong>Code Slots</strong></header>
+    <div class="overflow-auto">
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Inject</th>
+                <th>Required</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Template.Code.Slots}}
+            <tr>
+                <td>{{.Name}}</td>
+                <td>{{if .Description}}{{.Description}}{{else}}—{{end}}</td>
+                <td>{{.InjectMode}}</td>
+                <td>{{if .Required}}yes{{else}}no{{end}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    </div>
+</article>
+{{end}}{{end}}
+{{end}}

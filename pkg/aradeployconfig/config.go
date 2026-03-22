@@ -21,10 +21,11 @@ const ComposeFileName = "docker-compose.yml"
 
 // Config holds the fields from aradeploy's config that other services need.
 type Config struct {
-	Hostname string `yaml:"hostname"`
-	AppsDir  string `yaml:"apps_dir"`
-	DataDir  string `yaml:"data_dir"`
-	Network  struct {
+	Hostname     string `yaml:"hostname"`
+	AppsDir      string `yaml:"apps_dir"`
+	DataDir      string `yaml:"data_dir"`
+	TemplatesDir string `yaml:"templates_dir"`
+	Network      struct {
 		Domain  string `yaml:"domain"`
 		WebPort int    `yaml:"web_port"`
 	} `yaml:"network"`
@@ -38,6 +39,15 @@ type Config struct {
 			Enabled *bool `yaml:"enabled"`
 		} `yaml:"https"`
 	} `yaml:"routing"`
+}
+
+// ReposDir returns the directory where template repos are cloned.
+func (c *Config) ReposDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".aradeploy", "repos")
 }
 
 // IsHTTPSEnabled returns whether HTTPS routing is enabled (defaults to true).
@@ -111,6 +121,11 @@ func applyDefaults(cfg *Config) {
 	}
 	if cfg.DataDir == "" {
 		cfg.DataDir = "/opt/aradeploy/data"
+	}
+	if cfg.TemplatesDir == "" {
+		if home, err := os.UserHomeDir(); err == nil {
+			cfg.TemplatesDir = filepath.Join(home, ".aradeploy", "templates")
+		}
 	}
 	if cfg.Network.Domain == "" {
 		cfg.Network.Domain = "local"

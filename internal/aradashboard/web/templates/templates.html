@@ -1,0 +1,68 @@
+{{template "base.html" .}}
+
+{{define "title"}}Templates - aradashboard{{end}}
+
+{{define "content"}}
+<nav aria-label="breadcrumb">
+    <ul>
+        <li><a href="/">Portal</a></li>
+        <li><a href="/apps">Apps</a></li>
+        <li>Templates</li>
+    </ul>
+</nav>
+
+<h2>Available Templates</h2>
+
+<div class="app-search">
+    <input type="search" id="template-filter" placeholder="Filter templates..." oninput="filterTemplates(this.value)" autocomplete="off">
+</div>
+
+<article>
+    {{if .Templates}}
+    <div class="overflow-auto">
+    <table id="templates-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Version</th>
+                <th>Description</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Templates}}
+            <tr>
+                <td><a href="/templates/{{.Name}}">{{.Name}}</a></td>
+                <td>{{if .Category}}{{.Category}}{{else}}—{{end}}</td>
+                <td>{{if .Version}}{{.Version}}{{else}}—{{end}}</td>
+                <td>{{if .Description}}{{.Description}}{{else}}<em>No description</em>{{end}}</td>
+                <td>
+                    <div class="actions" style="margin-top:0;">
+                        <a href="/templates/{{.Name}}" role="button" class="outline secondary" style="font-size:0.8rem;padding:0.25rem 0.5rem;">Details</a>
+                    </div>
+                </td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    </div>
+    {{else}}
+    <div class="empty-state">
+        <strong>No templates available</strong>
+        <p>Configure template repositories with <code>aradeploy repos add &lt;url&gt;</code></p>
+    </div>
+    {{end}}
+</article>
+
+<script>
+function filterTemplates(query) {
+    query = query.toLowerCase().trim();
+    var rows = document.querySelectorAll('#templates-table tbody tr');
+    rows.forEach(function(row) {
+        var text = row.textContent.toLowerCase();
+        row.style.display = (!query || text.includes(query)) ? '' : 'none';
+    });
+}
+</script>
+{{end}}

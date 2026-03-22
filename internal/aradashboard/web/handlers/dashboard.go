@@ -118,11 +118,12 @@ func (h *Handler) Dashboard(c echo.Context) error {
 		if err == nil {
 			var history []struct {
 				Timestamp time.Time `json:"timestamp"`
+				Severity  string    `json:"severity"`
 			}
 			if json.Unmarshal(historyRaw, &history) == nil {
 				cutoff := time.Now().Add(-24 * time.Hour)
 				for _, a := range history {
-					if a.Timestamp.After(cutoff) {
+					if a.Timestamp.After(cutoff) && (a.Severity == "critical" || a.Severity == "error") {
 						alertCount++
 					}
 				}

@@ -67,7 +67,7 @@
             {{range .History}}
             <tr>
                 <td>{{.Timestamp.Format "2006-01-02 15:04:05"}}</td>
-                <td><span class="badge badge-{{if eq (print .Severity) "critical"}}stopped{{else if eq (print .Severity) "warning"}}available{{else}}deployed{{end}}">{{.Severity}}</span></td>
+                <td><span class="badge badge-{{if eq (print .Severity) "critical"}}stopped{{else if eq (print .Severity) "error"}}stopped{{else if eq (print .Severity) "warning"}}available{{else if eq (print .Severity) "info"}}deployed{{else}}available{{end}}">{{.Severity}}</span></td>
                 <td>{{.Type}}</td>
                 <td>{{.Message}}</td>
             </tr>

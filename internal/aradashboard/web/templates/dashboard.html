@@ -5,7 +5,7 @@
 {{define "content"}}
 {{if gt .ActiveAlertCount 0}}
 <div class="alert-banner">
-    <span>{{.ActiveAlertCount}} alert{{if gt .ActiveAlertCount 1}}s{{end}} in the last 24h</span>
+    <span>{{.ActiveAlertCount}} critical alert{{if gt .ActiveAlertCount 1}}s{{end}} in the last 24h</span>
     <a href="/alerts">View &rarr;</a>
 </div>
 {{end}}

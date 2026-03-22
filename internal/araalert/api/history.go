@@ -25,9 +25,12 @@ func (srv *Server) handleHistory(w http.ResponseWriter, r *http.Request) {
 		history = []alert.Alert{}
 	}
 
-	// Return most recent entries.
+	// Return most recent entries, newest first.
 	if len(history) > limit {
 		history = history[len(history)-limit:]
+	}
+	for i, j := 0, len(history)-1; i < j; i, j = i+1, j-1 {
+		history[i], history[j] = history[j], history[i]
 	}
 
 	writeJSON(w, http.StatusOK, history)

@@ -159,7 +159,7 @@ func Fix(r doctor.CheckResult, cfg config.Config) error {
 // user's home (resolved via SUDO_USER since setup runs with sudo).
 func fixAradeployConfig(cfg config.Config) error {
 	dir := filepath.Dir(cfg.Aradeploy.Config)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil { // #nosec G301 -- config directory
 		return fmt.Errorf("creating %s: %w", dir, err)
 	}
 

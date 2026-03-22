@@ -33,9 +33,9 @@ type Handler struct {
 	healthCache *health.HealthCache
 	peerClient  *clients.AraScannerClient
 	apiHealth   *pkghealth.Handler
-	registry  *template.Registry
-	repoNames []string
-	repoURLs  map[string]string // repo name → git URL
+	registry    *template.Registry
+	repoNames   []string
+	repoURLs    map[string]string // repo name → git URL
 }
 
 // New creates a new Handler with all dependencies.
@@ -56,7 +56,7 @@ func New(cfg *config.Config, ldc *config.AradeployYAML, runner *executil.Runner,
 
 // buildRegistry creates a template registry from the aradeploy config.
 // Returns nil if templates cannot be loaded (graceful degradation).
-func buildRegistry(ldc *config.AradeployYAML, runner *executil.Runner) (*template.Registry, []string, map[string]string) {
+func buildRegistry(ldc *config.AradeployYAML, runner *executil.Runner) (reg *template.Registry, names []string, urls map[string]string) {
 	if ldc.ReposDir == "" {
 		return nil, nil, nil
 	}

@@ -19,11 +19,11 @@ import (
 
 // TemplateSummary holds the fields shown in the templates list.
 type TemplateSummary struct {
-	Name        string
-	Description string
-	Category    string
-	Version     string
-	Deployed    bool
+	Name         string
+	Description  string
+	Category     string
+	Version      string
+	Deployed     bool
 	DeployedApps []DeployedAppRef
 }
 
@@ -50,13 +50,13 @@ type DockerImage struct {
 // TemplateDetailData holds data for the template detail template.
 type TemplateDetailData struct {
 	BasePage
-	Template     *apptmpl.AppMeta
-	Values       []apptmpl.Value // non-secret values only
-	HasValues    bool
-	ReadmeHTML   template.HTML
-	Images       []DockerImage
-	Deployed     bool
-	DeployedApps []DeployedAppRef
+	Template         *apptmpl.AppMeta
+	Values           []apptmpl.Value // non-secret values only
+	HasValues        bool
+	ReadmeHTML       template.HTML
+	Images           []DockerImage
+	Deployed         bool
+	DeployedApps     []DeployedAppRef
 	Source           string // e.g. "repo:arastack-templates", "local", "override"
 	SourceURL        string // link to the repo (e.g. GitHub), empty for local
 	SourcePath       string // filesystem path to the template directory

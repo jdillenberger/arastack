@@ -78,7 +78,10 @@ var backupCmd = &cobra.Command{
 		for _, app := range apps {
 			if err := backupApp(cfg, runner, &app, backupType); err != nil {
 				slog.Error("Backup failed", "app", app.Name, "error", err)
+				pushAlertEvent(cfg, app.Name, err)
 				failed = append(failed, app.Name)
+			} else {
+				pushSuccessEvent(cfg, app.Name)
 			}
 		}
 

@@ -25,6 +25,7 @@ type Config struct {
 	AppsDir      string `yaml:"apps_dir"`
 	DataDir      string `yaml:"data_dir"`
 	TemplatesDir string `yaml:"templates_dir"`
+	ReposDir     string `yaml:"repos_dir"`
 	Network      struct {
 		Domain  string `yaml:"domain"`
 		WebPort int    `yaml:"web_port"`
@@ -39,15 +40,6 @@ type Config struct {
 			Enabled *bool `yaml:"enabled"`
 		} `yaml:"https"`
 	} `yaml:"routing"`
-}
-
-// ReposDir returns the directory where template repos are cloned.
-func (c *Config) ReposDir() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ""
-	}
-	return filepath.Join(home, ".aradeploy", "repos")
 }
 
 // IsHTTPSEnabled returns whether HTTPS routing is enabled (defaults to true).
@@ -125,6 +117,11 @@ func applyDefaults(cfg *Config) {
 	if cfg.TemplatesDir == "" {
 		if home, err := os.UserHomeDir(); err == nil {
 			cfg.TemplatesDir = filepath.Join(home, ".aradeploy", "templates")
+		}
+	}
+	if cfg.ReposDir == "" {
+		if home, err := os.UserHomeDir(); err == nil {
+			cfg.ReposDir = filepath.Join(home, ".aradeploy", "repos")
 		}
 	}
 	if cfg.Network.Domain == "" {

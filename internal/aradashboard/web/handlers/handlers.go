@@ -55,13 +55,12 @@ func New(cfg *config.Config, ldc *config.AradeployYAML, runner *executil.Runner,
 // buildRegistry creates a template registry from the aradeploy config.
 // Returns nil if templates cannot be loaded (graceful degradation).
 func buildRegistry(ldc *config.AradeployYAML, runner *executil.Runner) *template.Registry {
-	reposDir := ldc.ReposDir()
-	if reposDir == "" {
+	if ldc.ReposDir == "" {
 		return nil
 	}
 
-	manifestPath := filepath.Join(filepath.Dir(reposDir), "repos.yaml")
-	repoMgr := repo.NewManager(reposDir, manifestPath, runner)
+	manifestPath := filepath.Join(filepath.Dir(ldc.ReposDir), "repos.yaml")
+	repoMgr := repo.NewManager(ldc.ReposDir, manifestPath, runner)
 
 	if err := repoMgr.EnsureDefaults(); err != nil {
 		slog.Warn("failed to ensure default template repo", "error", err)

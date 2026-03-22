@@ -12,6 +12,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/yuin/goldmark"
 
+	"github.com/jdillenberger/arastack/internal/aradashboard/discovery"
 	apptmpl "github.com/jdillenberger/arastack/internal/aradeploy/template"
 )
 
@@ -21,6 +22,8 @@ type TemplateSummary struct {
 	Description string
 	Category    string
 	Version     string
+	Deployed    bool   // true if an app using this template is deployed
+	AppName     string // name of the deployed app (for linking)
 }
 
 // TemplatesListData holds data for the templates list template.
@@ -46,6 +49,18 @@ type TemplateDetailData struct {
 	HasValues  bool
 	ReadmeHTML template.HTML
 	Images     []DockerImage
+	Deployed   bool   // true if an app using this template is deployed
+	AppName    string // name of the deployed app (for linking)
+}
+
+// deployedTemplates returns a map from template name to deployed app name.
+func (h *Handler) deployedTemplates() map[string]string {
+	apps, _ := discovery.GetAllApps(h.ldc.AppsDir)
+	m := make(map[string]string, len(apps))
+	for _, app := range apps {
+		m[app.Template] = app.Name
+	}
+	return m
 }
 
 // TemplatesList renders the available templates page.
@@ -55,12 +70,16 @@ func (h *Handler) TemplatesList(c echo.Context) error {
 	}
 
 	if h.registry != nil {
+		deployed := h.deployedTemplates()
 		for _, meta := range h.registry.All() {
+			appName := deployed[meta.Name]
 			data.Templates = append(data.Templates, TemplateSummary{
 				Name:        meta.Name,
 				Description: meta.Description,
 				Category:    meta.Category,
 				Version:     meta.Version,
+				Deployed:    appName != "",
+				AppName:     appName,
 			})
 		}
 	}
@@ -88,11 +107,16 @@ func (h *Handler) TemplateDetail(c echo.Context) error {
 		}
 	}
 
+	deployed := h.deployedTemplates()
+	appName := deployed[meta.Name]
+
 	data := TemplateDetailData{
 		BasePage:  h.basePage(),
 		Template:  meta,
 		Values:    publicValues,
 		HasValues: len(publicValues) > 0,
+		Deployed:  appName != "",
+		AppName:   appName,
 	}
 
 	if h.registry.FS() != nil {

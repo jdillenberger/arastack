@@ -41,6 +41,9 @@
 
 <article>
     <header><strong>Install</strong></header>
+    {{if .Deployed}}
+    <p><span class="badge badge-running">installed</span> This template is deployed as <a href="/apps/{{.AppName}}">{{.AppName}}</a>.</p>
+    {{end}}
     <p>Deploy this template with:</p>
     <pre><code>aradeploy deploy {{.Template.Name}}</code></pre>
     {{if .Template.Dependencies}}

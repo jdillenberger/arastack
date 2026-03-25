@@ -98,6 +98,8 @@ func CheckAllDependencies() []doctor.CheckResult {
 	results = append(results, CheckAvahiInterfaces())
 	results = append(results, CheckResolvedMDNS())
 	results = append(results, CheckAvahiHostnameConflict())
+	results = append(results, CheckAvahiReflector())
+	results = append(results, CheckAvahiVPNInterfaces())
 	return results
 }
 
@@ -196,7 +198,7 @@ func CheckAvahiInterfaces() doctor.CheckResult {
 		}
 	}
 
-	ifaces, _ := PhysicalInterfaceNames()
+	ifaces, _ := AllowedInterfaceNames()
 	result.Version = fmt.Sprintf("allow-interfaces not set — Docker interfaces may hijack .local resolution (run doctor --fix to set allow-interfaces=%s)", strings.Join(ifaces, ","))
 	return result
 }
@@ -267,6 +269,101 @@ func CheckAvahiHostnameConflict() doctor.CheckResult {
 	return result
 }
 
+// CheckAvahiReflector checks if the Avahi reflector is enabled when VPN interfaces exist.
+func CheckAvahiReflector() doctor.CheckResult {
+	result := doctor.CheckResult{Name: "avahi-reflector"}
+
+	vpnIfaces, _ := VPNInterfaceNames()
+	if len(vpnIfaces) == 0 {
+		result.Installed = true
+		result.Version = "no VPN interfaces, reflector not needed"
+		return result
+	}
+
+	if _, err := exec.LookPath("avahi-daemon"); err != nil {
+		result.Installed = true
+		result.Version = "avahi-daemon not installed, skipped"
+		return result
+	}
+
+	data, err := os.ReadFile("/etc/avahi/avahi-daemon.conf") // #nosec G304 -- fixed system config path
+	if err != nil {
+		result.Version = "cannot read /etc/avahi/avahi-daemon.conf"
+		return result
+	}
+
+	for _, line := range strings.Split(string(data), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "enable-reflector=yes" {
+			result.Installed = true
+			result.Version = fmt.Sprintf("reflector enabled (VPN: %s)", strings.Join(vpnIfaces, ","))
+			return result
+		}
+	}
+
+	result.Version = fmt.Sprintf("VPN interfaces detected (%s) but reflector not enabled (run doctor --fix)", strings.Join(vpnIfaces, ","))
+	return result
+}
+
+// CheckAvahiVPNInterfaces verifies that VPN interfaces are included in avahi allow-interfaces.
+func CheckAvahiVPNInterfaces() doctor.CheckResult {
+	result := doctor.CheckResult{Name: "avahi-vpn-interfaces"}
+
+	vpnIfaces, _ := VPNInterfaceNames()
+	if len(vpnIfaces) == 0 {
+		result.Installed = true
+		result.Version = "no VPN interfaces present"
+		return result
+	}
+
+	if _, err := exec.LookPath("avahi-daemon"); err != nil {
+		result.Installed = true
+		result.Version = "avahi-daemon not installed, skipped"
+		return result
+	}
+
+	data, err := os.ReadFile("/etc/avahi/avahi-daemon.conf") // #nosec G304 -- fixed system config path
+	if err != nil {
+		result.Version = "cannot read /etc/avahi/avahi-daemon.conf"
+		return result
+	}
+
+	for _, line := range strings.Split(string(data), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "allow-interfaces=") {
+			allowed := strings.TrimPrefix(trimmed, "allow-interfaces=")
+			allowedSet := make(map[string]bool)
+			for _, name := range strings.Split(allowed, ",") {
+				allowedSet[strings.TrimSpace(name)] = true
+			}
+
+			var missing []string
+			for _, vpn := range vpnIfaces {
+				if !allowedSet[vpn] {
+					missing = append(missing, vpn)
+				}
+			}
+
+			if len(missing) > 0 {
+				result.Version = fmt.Sprintf("VPN interfaces not in allow-interfaces: %s (run doctor --fix)", strings.Join(missing, ","))
+				return result
+			}
+
+			result.Installed = true
+			result.Version = fmt.Sprintf("VPN interfaces included: %s", strings.Join(vpnIfaces, ","))
+			return result
+		}
+	}
+
+	result.Version = fmt.Sprintf("allow-interfaces not set — VPN interfaces (%s) not allowed (run doctor --fix)", strings.Join(vpnIfaces, ","))
+	return result
+}
+
+// FixAvahiReflector enables the Avahi reflector and adds VPN interfaces to allow-interfaces.
+func FixAvahiReflector() error {
+	return fixAvahiConfig(true)
+}
+
 // FixNSSwitchMDNS fixes the nsswitch.conf and mdns.allow configuration.
 func FixNSSwitchMDNS() error {
 	data, err := os.ReadFile("/etc/nsswitch.conf") // #nosec G304 -- fixed system config path
@@ -334,11 +431,35 @@ func FixNSSwitchMDNS() error {
 	return nil
 }
 
-// FixAvahiInterfaces sets allow-interfaces in avahi-daemon.conf to physical interfaces only.
+// FixAvahiInterfaces sets allow-interfaces in avahi-daemon.conf to allowed interfaces (physical + VPN).
+// It preserves the existing reflector state.
 func FixAvahiInterfaces() error {
-	ifaces, err := PhysicalInterfaceNames()
-	if err != nil || len(ifaces) == 0 {
-		return fmt.Errorf("detecting physical interfaces: %w", err)
+	return fixAvahiConfig(currentReflectorEnabled())
+}
+
+// currentReflectorEnabled reads the current avahi config and returns whether the reflector is enabled.
+func currentReflectorEnabled() bool {
+	data, err := os.ReadFile("/etc/avahi/avahi-daemon.conf") // #nosec G304 -- fixed system config path
+	if err != nil {
+		return false
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "enable-reflector=yes" {
+			return true
+		}
+	}
+	return false
+}
+
+// fixAvahiConfig updates avahi-daemon.conf with allowed interfaces and optionally enables the reflector.
+func fixAvahiConfig(enableReflector bool) error {
+	ifaces, err := AllowedInterfaceNames()
+	if err != nil {
+		return fmt.Errorf("detecting allowed interfaces: %w", err)
+	}
+	if len(ifaces) == 0 {
+		return fmt.Errorf("no allowed interfaces detected")
 	}
 
 	data, err := os.ReadFile("/etc/avahi/avahi-daemon.conf") // #nosec G304 -- fixed system config path
@@ -346,15 +467,7 @@ func FixAvahiInterfaces() error {
 		return fmt.Errorf("reading /etc/avahi/avahi-daemon.conf: %w", err)
 	}
 
-	content := string(data)
-	ifaceList := strings.Join(ifaces, ",")
-	directive := "allow-interfaces=" + ifaceList
-
-	if strings.Contains(content, "#allow-interfaces=") {
-		content = strings.Replace(content, "#allow-interfaces=eth0", directive, 1)
-	} else {
-		content = strings.Replace(content, "[server]\n", "[server]\n"+directive+"\n", 1)
-	}
+	content := BuildAvahiConfig(string(data), ifaces, enableReflector)
 
 	tmpFile, err := os.CreateTemp("", "avahi-daemon.conf.arastack.*")
 	if err != nil {
@@ -373,7 +486,12 @@ func FixAvahiInterfaces() error {
 		return fmt.Errorf("updating /etc/avahi/avahi-daemon.conf: %w\n%s", err, string(out))
 	}
 
-	fmt.Printf("    Set %s in /etc/avahi/avahi-daemon.conf\n", directive)
+	ifaceList := strings.Join(ifaces, ",")
+	if enableReflector {
+		fmt.Printf("    Set allow-interfaces=%s and enable-reflector=yes in /etc/avahi/avahi-daemon.conf\n", ifaceList)
+	} else {
+		fmt.Printf("    Set allow-interfaces=%s in /etc/avahi/avahi-daemon.conf\n", ifaceList)
+	}
 
 	cmd = exec.CommandContext(context.Background(), "sudo", "systemctl", "restart", "avahi-daemon") // #nosec G204 -- args are not user-controlled
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -444,6 +562,10 @@ func FixDependency(result doctor.CheckResult) error {
 		return FixResolvedMDNS()
 	case "avahi-hostname-conflict":
 		return FixAvahiHostnameConflict()
+	case "avahi-reflector":
+		return FixAvahiReflector()
+	case "avahi-vpn-interfaces":
+		return FixAvahiInterfaces()
 	}
 
 	if result.InstallCommand == "" {

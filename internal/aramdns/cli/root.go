@@ -11,12 +11,13 @@ import (
 )
 
 var (
-	configPath string
-	verbose    bool
-	quiet      bool
-	jsonOutput bool
-	runtime    string
-	cfg        config.Config
+	configPath   string
+	verbose      bool
+	quiet        bool
+	jsonOutput   bool
+	runtime      string
+	vpnReflector bool
+	cfg          config.Config
 )
 
 var rootCmd = &cobra.Command{
@@ -40,6 +41,10 @@ var rootCmd = &cobra.Command{
 			cfg.Runtime = docker.DetectRuntime()
 		}
 		runtime = cfg.Runtime
+
+		if cmd.Flags().Changed("vpn-reflector") {
+			cfg.VPNReflector = &vpnReflector
+		}
 	},
 	SilenceUsage: true,
 }
@@ -52,6 +57,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "suppress non-essential output")
 	rootCmd.PersistentFlags().BoolVar(&jsonOutput, "json", false, "output as JSON")
 	rootCmd.PersistentFlags().StringVar(&runtime, "runtime", "", "container runtime (default: auto-detect docker/podman, env: ARAMDNS_RUNTIME)")
+	rootCmd.PersistentFlags().BoolVar(&vpnReflector, "vpn-reflector", true, "enable mDNS reflection over VPN interfaces (env: ARAMDNS_VPN_REFLECTOR)")
 }
 
 func initConfig() {

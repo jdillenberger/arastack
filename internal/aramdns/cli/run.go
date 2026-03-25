@@ -37,9 +37,9 @@ var runCmd = &cobra.Command{
 		}
 		pollInterval := resolveInterval()
 
-		// Ensure avahi-daemon is configured to use physical interfaces only,
-		// preventing Docker bridges from hijacking .local resolution.
-		avahi.EnsureAvahiConfig()
+		// Ensure avahi-daemon is configured with allowed interfaces (physical + VPN)
+		// and optionally enable reflector for mDNS over VPN tunnels.
+		avahi.EnsureAvahiConfig(cfg.GetVPNReflector())
 
 		publisher := avahi.NewPublisher()
 		publisher.CleanStaleProcesses()
@@ -49,6 +49,9 @@ var runCmd = &cobra.Command{
 		reconcile := func() {
 			reconcileMu.Lock()
 			defer reconcileMu.Unlock()
+
+			// Re-check avahi config each cycle to handle VPN interfaces appearing/disappearing.
+			avahi.EnsureAvahiConfig(cfg.GetVPNReflector())
 
 			desired, err := docker.DiscoverTraefikDomains(runtime)
 			if err != nil {

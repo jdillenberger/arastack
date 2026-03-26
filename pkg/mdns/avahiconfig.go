@@ -6,8 +6,9 @@ import (
 )
 
 var (
-	allowIfacesRe     = regexp.MustCompile(`(?m)^#?\s*allow-interfaces\s*=.*$`)
-	enableReflectorRe = regexp.MustCompile(`(?m)^#?\s*enable-reflector\s*=.*$`)
+	allowIfacesRe      = regexp.MustCompile(`(?m)^#?\s*allow-interfaces\s*=.*$`)
+	allowP2PRe         = regexp.MustCompile(`(?m)^#?\s*allow-point-to-point\s*=.*$`)
+	enableReflectorRe  = regexp.MustCompile(`(?m)^#?\s*enable-reflector\s*=.*$`)
 )
 
 // BuildAvahiConfig applies the desired interface list and reflector setting to
@@ -21,6 +22,18 @@ func BuildAvahiConfig(content string, ifaces []string, enableReflector bool) str
 		content = allowIfacesRe.ReplaceAllString(content, directive)
 	} else if strings.Contains(content, "[server]") {
 		content = strings.Replace(content, "[server]\n", "[server]\n"+directive+"\n", 1)
+	}
+
+	// Enable point-to-point support when reflector is active (VPN interfaces like
+	// wg0 are POINTOPOINT and Avahi ignores them without this setting).
+	p2pDirective := "allow-point-to-point=yes"
+	if !enableReflector {
+		p2pDirective = "#allow-point-to-point=no"
+	}
+	if allowP2PRe.MatchString(content) {
+		content = allowP2PRe.ReplaceAllString(content, p2pDirective)
+	} else if strings.Contains(content, "[server]") {
+		content = strings.Replace(content, directive+"\n", directive+"\n"+p2pDirective+"\n", 1)
 	}
 
 	// Handle reflector section.

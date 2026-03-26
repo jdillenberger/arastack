@@ -8,8 +8,12 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/jdillenberger/arastack/internal/aramdns/config"
+	"github.com/jdillenberger/arastack/internal/aramdns/dns"
 	"github.com/jdillenberger/arastack/internal/aramdns/docker"
+	"github.com/jdillenberger/arastack/internal/aramdns/peer"
 	"github.com/jdillenberger/arastack/pkg/doctor"
 	"github.com/jdillenberger/arastack/pkg/mdns"
 	"github.com/jdillenberger/arastack/pkg/netutil"
@@ -21,6 +25,9 @@ func CheckAll() []doctor.CheckResult {
 	results = append(results, checkDomainResolution()...)
 	results = append(results, checkDuplicateInstances())
 	results = append(results, checkStalePublishProcesses())
+	results = append(results, checkPeerTools())
+	results = append(results, checkDNSProviders()...)
+	results = append(results, checkPeerDiscovery())
 	return results
 }
 
@@ -91,7 +98,9 @@ func checkDomainResolution() []doctor.CheckResult {
 func checkSingleDomain(domain, expectedIP string) doctor.CheckResult {
 	result := doctor.CheckResult{Name: "domain-resolution:" + domain}
 
-	cmd := exec.CommandContext(context.Background(), "avahi-resolve", "-n", domain) // #nosec G204 -- domain from internal discovery
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "avahi-resolve", "-n", domain) // #nosec G204 -- domain from internal discovery
 	out, err := cmd.Output()
 	if err != nil || strings.TrimSpace(string(out)) == "" {
 		result.Version = "not resolvable via mDNS"
@@ -137,6 +146,87 @@ func checkDuplicateInstances() doctor.CheckResult {
 		}
 	default:
 		result.Version = fmt.Sprintf("%d instances running (expected at most 1)", count)
+	}
+	return result
+}
+
+// checkPeerTools verifies that avahi-publish-service and avahi-browse are available.
+func checkPeerTools() doctor.CheckResult {
+	result := doctor.CheckResult{
+		Name:           "peer-tools",
+		Optional:       true,
+		InstallCommand: "apt install -y avahi-utils",
+	}
+	_, errPublish := exec.LookPath("avahi-publish-service")
+	_, errBrowse := exec.LookPath("avahi-browse")
+	switch {
+	case errPublish == nil && errBrowse == nil:
+		result.Installed = true
+		result.Version = "avahi-publish-service and avahi-browse available"
+	case errPublish != nil && errBrowse != nil:
+		result.Version = "avahi-publish-service and avahi-browse missing (peer discovery disabled)"
+	case errPublish != nil:
+		result.Version = "avahi-publish-service missing (peer advertising disabled)"
+	default:
+		result.Version = "avahi-browse missing (peer discovery disabled)"
+	}
+	return result
+}
+
+// checkDNSProviders verifies that configured/discovered DNS providers are reachable.
+func checkDNSProviders() []doctor.CheckResult {
+	cfg, err := config.Load("")
+	if err != nil {
+		return nil
+	}
+
+	providerConfigs := dns.MergeProviders(cfg.DNSProviders, dns.DiscoverProviders())
+	if len(providerConfigs) == 0 {
+		return nil
+	}
+
+	providers := dns.BuildProviders(providerConfigs)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var results []doctor.CheckResult
+	for _, p := range providers {
+		r := doctor.CheckResult{Name: "dns-provider:" + p.Name(), Optional: true}
+		_, err := p.ListEntries(ctx)
+		if err != nil {
+			r.Version = fmt.Sprintf("unreachable: %v — check that the service is running and credentials are correct", err)
+		} else {
+			r.Installed = true
+			r.Version = "connected"
+		}
+		results = append(results, r)
+	}
+	return results
+}
+
+// checkPeerDiscovery verifies that peer mDNS browsing works.
+func checkPeerDiscovery() doctor.CheckResult {
+	result := doctor.CheckResult{Name: "peer-discovery", Optional: true}
+
+	localIP := netutil.DetectLocalIP()
+	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
+	defer cancel()
+
+	entries, err := peer.Browse(ctx, localIP)
+	switch {
+	case err != nil:
+		result.Version = fmt.Sprintf("unavailable: %v", err)
+	case len(entries) == 0:
+		result.Installed = true
+		result.Version = "working (no peers found)"
+	default:
+		result.Installed = true
+		// Count unique peer IPs.
+		ips := make(map[string]bool)
+		for _, e := range entries {
+			ips[e.IP] = true
+		}
+		result.Version = fmt.Sprintf("%d domains from %d peers", len(entries), len(ips))
 	}
 	return result
 }

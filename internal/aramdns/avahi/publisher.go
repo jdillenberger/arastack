@@ -7,11 +7,12 @@ import (
 	"os"
 	"os/exec"
 	"sync"
+	"time"
 
 	"github.com/jdillenberger/arastack/pkg/netutil"
 )
 
-// Publisher manages avahi-publish processes for .local domains.
+// Publisher manages avahi-publish processes for domain address records.
 type Publisher struct {
 	mu        sync.Mutex
 	processes map[string]*os.Process // domain -> running process
@@ -51,11 +52,16 @@ func (p *Publisher) Publish(domain string) error {
 
 	p.processes[domain] = cmd.Process
 
-	// Reap the process in the background so it doesn't become a zombie
+	// Reap the process in the background so it doesn't become a zombie.
+	// Only remove from map if the entry still points to this process
+	// (avoids deleting a newer process after rapid unpublish/republish).
+	proc := cmd.Process
 	go func() {
 		_ = cmd.Wait()
 		p.mu.Lock()
-		delete(p.processes, domain)
+		if p.processes[domain] == proc {
+			delete(p.processes, domain)
+		}
 		p.mu.Unlock()
 	}()
 
@@ -96,7 +102,9 @@ func (p *Publisher) ListPublished() map[string]bool {
 // CleanStaleProcesses kills any orphaned avahi-publish address processes
 // left over from a previous run.
 func (p *Publisher) CleanStaleProcesses() {
-	cmd := exec.CommandContext(context.Background(), "pkill", "-f", "avahi-publish -a -R")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "pkill", "-f", "avahi-publish -a -R")
 	_ = cmd.Run() // ignore error: exit 1 means no matching processes
 	slog.Debug("cleaned stale avahi-publish processes")
 }

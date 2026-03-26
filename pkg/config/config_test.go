@@ -11,12 +11,20 @@ type testServerCfg struct {
 	Port int    `yaml:"port"`
 }
 
+type testProviderCfg struct {
+	Type     string `yaml:"type"`
+	URL      string `yaml:"url"`
+	Password string `yaml:"password"`
+}
+
 type testCfg struct {
-	Name    string        `yaml:"name"`
-	Debug   bool          `yaml:"debug"`
-	Tags    []string      `yaml:"tags"`
-	Server  testServerCfg `yaml:"server"`
-	Timeout int           `yaml:"timeout"`
+	Name      string            `yaml:"name"`
+	Debug     bool              `yaml:"debug"`
+	Tags      []string          `yaml:"tags"`
+	Server    testServerCfg     `yaml:"server"`
+	Timeout   int               `yaml:"timeout"`
+	Enabled   *bool             `yaml:"enabled"`
+	Providers []testProviderCfg `yaml:"providers"`
 }
 
 func TestApplyEnvOverrides_String(t *testing.T) {
@@ -68,6 +76,61 @@ func TestApplyEnvOverrides_NestedStruct(t *testing.T) {
 	}
 	if cfg.Server.Port != 9090 {
 		t.Errorf("Server.Port = %d, want %d", cfg.Server.Port, 9090)
+	}
+}
+
+func TestApplyEnvOverrides_PtrBool(t *testing.T) {
+	cfg := &testCfg{} // Enabled is nil
+	t.Setenv("TEST_ENABLED", "false")
+	applyEnvOverrides(cfg, "TEST")
+	if cfg.Enabled == nil {
+		t.Fatal("Enabled is nil, want *false")
+	}
+	if *cfg.Enabled {
+		t.Error("Enabled = true, want false")
+	}
+}
+
+func TestApplyEnvOverrides_PtrBoolTrue(t *testing.T) {
+	f := false
+	cfg := &testCfg{Enabled: &f}
+	t.Setenv("TEST_ENABLED", "true")
+	applyEnvOverrides(cfg, "TEST")
+	if cfg.Enabled == nil {
+		t.Fatal("Enabled is nil, want *true")
+	}
+	if !*cfg.Enabled {
+		t.Error("Enabled = false, want true")
+	}
+}
+
+func TestApplyEnvOverrides_SliceOfStructs(t *testing.T) {
+	cfg := &testCfg{}
+	t.Setenv("TEST_PROVIDERS_0_TYPE", "adguard")
+	t.Setenv("TEST_PROVIDERS_0_URL", "http://192.168.1.2:3000")
+	t.Setenv("TEST_PROVIDERS_0_PASSWORD", "secret")
+	t.Setenv("TEST_PROVIDERS_1_TYPE", "pihole")
+	t.Setenv("TEST_PROVIDERS_1_URL", "http://192.168.1.3")
+	applyEnvOverrides(cfg, "TEST")
+	if len(cfg.Providers) != 2 {
+		t.Fatalf("Providers length = %d, want 2", len(cfg.Providers))
+	}
+	if cfg.Providers[0].Type != "adguard" || cfg.Providers[0].URL != "http://192.168.1.2:3000" || cfg.Providers[0].Password != "secret" {
+		t.Errorf("Providers[0] = %+v, want adguard", cfg.Providers[0])
+	}
+	if cfg.Providers[1].Type != "pihole" || cfg.Providers[1].URL != "http://192.168.1.3" {
+		t.Errorf("Providers[1] = %+v, want pihole", cfg.Providers[1])
+	}
+}
+
+func TestApplyEnvOverrides_SliceOfStructsGap(t *testing.T) {
+	// Indices must be contiguous — gap at index 1 stops scanning.
+	cfg := &testCfg{}
+	t.Setenv("TEST_PROVIDERS_0_TYPE", "adguard")
+	t.Setenv("TEST_PROVIDERS_2_TYPE", "pihole") // gap: no index 1
+	applyEnvOverrides(cfg, "TEST")
+	if len(cfg.Providers) != 1 {
+		t.Fatalf("Providers length = %d, want 1 (gap should stop scan)", len(cfg.Providers))
 	}
 }
 

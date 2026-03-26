@@ -9,7 +9,14 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+	"time"
+
+	"github.com/jdillenberger/arastack/pkg/netutil"
 )
+
+// commandTimeout limits how long Docker/Podman commands can run
+// to prevent the reconciliation loop from blocking indefinitely.
+const commandTimeout = 30 * time.Second
 
 var (
 	routerRuleRE  = regexp.MustCompile(`^traefik\.http\.routers\..+\.rule$`)
@@ -19,6 +26,18 @@ var (
 // DiscoverTraefikDomains queries running Docker containers for Traefik router
 // labels and returns the set of .local domains found.
 func DiscoverTraefikDomains(runtime string) (map[string]bool, error) {
+	return discoverTraefikDomains(runtime, func(host string) bool {
+		return strings.HasSuffix(host, ".local")
+	})
+}
+
+// DiscoverAllTraefikDomains queries running Docker containers for Traefik router
+// labels and returns all domains found (not filtered by suffix).
+func DiscoverAllTraefikDomains(runtime string) (map[string]bool, error) {
+	return discoverTraefikDomains(runtime, func(string) bool { return true })
+}
+
+func discoverTraefikDomains(runtime string, accept func(string) bool) (map[string]bool, error) {
 	result, err := run(runtime, "ps", "-q", "--filter", "label=traefik.enable=true")
 	if err != nil {
 		return nil, fmt.Errorf("listing traefik containers: %w", err)
@@ -52,7 +71,7 @@ func DiscoverTraefikDomains(runtime string) (map[string]bool, error) {
 				continue
 			}
 			for _, host := range ExtractHosts(value) {
-				if strings.HasSuffix(host, ".local") {
+				if accept(host) && netutil.IsValidDomain(host) {
 					domains[host] = true
 				}
 			}
@@ -72,10 +91,12 @@ func ExtractHosts(rule string) []string {
 	return hosts
 }
 
-// run executes a command and returns stdout.
+// run executes a command with a timeout and returns stdout.
 func run(name string, args ...string) (string, error) {
 	slog.Debug("exec", "cmd", name, "args", args)
-	cmd := exec.CommandContext(context.Background(), name, args...) // #nosec G204 -- command is from internal config
+	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, name, args...) // #nosec G204 -- command is from internal config
 	out, err := cmd.Output()
 	if err != nil {
 		var exitErr *exec.ExitError

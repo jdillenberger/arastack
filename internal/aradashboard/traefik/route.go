@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"text/template"
 	"time"
@@ -16,13 +17,13 @@ const routeFileName = "dashboard.yml"
 var routeTemplateHTTPS = template.Must(template.New("route").Parse(`http:
   routers:
     dashboard:
-      rule: "Host(` + "`" + `{{.Hostname}}.{{.Domain}}` + "`" + `)"
+      rule: "Host(` + "`" + `{{.Hostname}}.{{.Domain}}` + "`" + `){{range .AltDomains}} || Host(` + "`" + `{{.}}` + "`" + `){{end}}"
       entrypoints:
         - websecure
       service: dashboard
       tls: {}
     dashboard-http:
-      rule: "Host(` + "`" + `{{.Hostname}}.{{.Domain}}` + "`" + `)"
+      rule: "Host(` + "`" + `{{.Hostname}}.{{.Domain}}` + "`" + `){{range .AltDomains}} || Host(` + "`" + `{{.}}` + "`" + `){{end}}"
       entrypoints:
         - web
       middlewares:
@@ -43,7 +44,7 @@ var routeTemplateHTTPS = template.Must(template.New("route").Parse(`http:
 var routeTemplateHTTP = template.Must(template.New("route").Parse(`http:
   routers:
     dashboard:
-      rule: "Host(` + "`" + `{{.Hostname}}.{{.Domain}}` + "`" + `)"
+      rule: "Host(` + "`" + `{{.Hostname}}.{{.Domain}}` + "`" + `){{range .AltDomains}} || Host(` + "`" + `{{.}}` + "`" + `){{end}}"
       entrypoints:
         - web
       service: dashboard
@@ -58,6 +59,7 @@ type routeData struct {
 	Hostname      string
 	Domain        string
 	DashboardPort int
+	AltDomains    []string
 }
 
 // RouteManager writes and maintains a Traefik dynamic route file
@@ -127,10 +129,15 @@ func (rm *RouteManager) sync() {
 		return
 	}
 
+	primaryDomain := rm.hostname + "." + rm.domain
 	data := routeData{
 		Hostname:      rm.hostname,
 		Domain:        rm.domain,
 		DashboardPort: rm.dashboardPort,
+	}
+	// Add .lan alias for .local domains so VPN clients can reach the dashboard.
+	if strings.HasSuffix(primaryDomain, ".local") {
+		data.AltDomains = append(data.AltDomains, strings.TrimSuffix(primaryDomain, ".local")+".lan")
 	}
 
 	tmpl := routeTemplateHTTPS

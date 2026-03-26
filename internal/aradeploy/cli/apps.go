@@ -593,13 +593,18 @@ var inspectCmd = &cobra.Command{
 		}
 
 		if len(info.Values) > 0 {
+			hasSecrets := false
 			fmt.Println("\nValues:")
 			for k, v := range info.Values {
 				if secretNames[k] {
 					fmt.Printf("  %-20s ***\n", k)
+					hasSecrets = true
 				} else {
 					fmt.Printf("  %-20s %s\n", k, v)
 				}
+			}
+			if hasSecrets {
+				fmt.Printf("\nTo reveal secrets run: aradeploy secrets %s\n", appName)
 			}
 		}
 

@@ -442,9 +442,7 @@ func (m *Manager) Deploy(appName string, opts DeployOptions) error {
 
 	fmt.Println()
 
-	if meta.PostDeployInfo != nil {
-		printPostDeployInfo(meta.PostDeployInfo, mergedValues)
-	}
+	printPostDeployInfo(meta, mergedValues)
 
 	// Execute post-deploy hooks
 	if meta.Hooks != nil {
@@ -724,6 +722,45 @@ func (m *Manager) SaveDeployedInfo(appName string, info *DeployedApp) error {
 		return fmt.Errorf("renaming temp file: %w", err)
 	}
 	return nil
+}
+
+// SecretEntry holds a single secret value with metadata for display.
+type SecretEntry struct {
+	Name        string `json:"name"`
+	Value       string `json:"value"`
+	Description string `json:"description"`
+	UserFacing  bool   `json:"user_facing"`
+}
+
+// GetSecrets returns the secrets for a deployed app.
+func (m *Manager) GetSecrets(appName string) ([]SecretEntry, error) {
+	info, err := m.GetDeployedInfo(appName)
+	if err != nil {
+		return nil, fmt.Errorf("app %s is not deployed: %w", appName, err)
+	}
+
+	meta, ok := m.registry.Get(appName)
+	if !ok {
+		return nil, fmt.Errorf("unknown app template: %s", appName)
+	}
+
+	var secrets []SecretEntry
+	for _, v := range meta.Values {
+		if !v.Secret {
+			continue
+		}
+		val, exists := info.Values[v.Name]
+		if !exists || val == "" {
+			continue
+		}
+		secrets = append(secrets, SecretEntry{
+			Name:        v.Name,
+			Value:       val,
+			Description: v.Description,
+			UserFacing:  v.UserFacing,
+		})
+	}
+	return secrets, nil
 }
 
 // RegenerateCompose re-renders the template for a deployed app and re-injects
@@ -1136,29 +1173,69 @@ func availableSlotNames(meta *template.AppMeta) string {
 	return strings.Join(names, ", ")
 }
 
-// printPostDeployInfo displays post-deploy information to the user.
-func printPostDeployInfo(info *template.PostDeployInfo, values map[string]string) {
+// printPostDeployInfo displays post-deploy information including user-facing secrets.
+// It consolidates access URL, login credentials (username from post_deploy_info +
+// user_facing secret values), and setup notes into one block.
+func printPostDeployInfo(meta *template.AppMeta, values map[string]string) {
+	info := meta.PostDeployInfo
+
+	// Collect all user-facing secrets that have a value.
+	var secrets []struct{ name, value, desc string }
+	for _, v := range meta.Values {
+		if !v.UserFacing || !v.Secret {
+			continue
+		}
+		val := values[v.Name]
+		if val == "" {
+			continue
+		}
+		secrets = append(secrets, struct{ name, value, desc string }{v.Name, val, v.Description})
+	}
+
+	if info == nil && len(secrets) == 0 {
+		return
+	}
+
 	fmt.Println("--- Post-Deploy Info ---")
 
-	if info.AccessURL != "" {
+	if info != nil && info.AccessURL != "" {
 		if rendered, err := renderTemplate(info.AccessURL, values); err == nil {
 			fmt.Printf("  Access URL:    %s\n", rendered)
 		}
 	}
 
-	if info.Credentials != "" {
-		if rendered, err := renderTemplate(info.Credentials, values); err == nil {
-			fmt.Printf("  Credentials:   %s\n", rendered)
+	// Show login credentials: username from post_deploy_info + user-facing secrets.
+	hasCredentials := info != nil && info.Credentials != ""
+	if hasCredentials || len(secrets) > 0 {
+		fmt.Println()
+		fmt.Println("  Login credentials:")
+		if hasCredentials {
+			if rendered, err := renderTemplate(info.Credentials, values); err == nil {
+				fmt.Printf("    %s\n", rendered)
+			}
+		}
+		for _, e := range secrets {
+			label := e.desc
+			if label == "" {
+				label = e.name
+			}
+			fmt.Printf("    %-25s %s\n", label+":", e.value)
 		}
 	}
 
-	if len(info.Notes) > 0 {
-		fmt.Println("  First-time setup:")
+	if info != nil && len(info.Notes) > 0 {
+		fmt.Println()
+		fmt.Println("  Notes:")
 		for i, note := range info.Notes {
 			if rendered, err := renderTemplate(note, values); err == nil {
 				fmt.Printf("    %d. %s\n", i+1, rendered)
 			}
 		}
+	}
+
+	if len(secrets) > 0 {
+		fmt.Println()
+		fmt.Println("  View secrets later with: aradeploy secrets " + meta.Name)
 	}
 
 	fmt.Println()

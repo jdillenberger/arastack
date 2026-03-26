@@ -100,6 +100,7 @@ type Value struct {
 	Secret      bool   `yaml:"secret"`
 	AutoGen     string `yaml:"auto_gen"`
 	Validation  string `yaml:"validation"`
+	UserFacing  bool   `yaml:"user_facing"` // show to user after deploy (e.g. admin tokens, passwords)
 }
 
 // BackupMeta defines backup configuration for an app.

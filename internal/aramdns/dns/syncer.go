@@ -32,8 +32,8 @@ func realDomain(marker string) string {
 
 // Syncer reconciles DNS entries across providers.
 type Syncer struct {
-	providers    []Provider
-	mu           sync.Mutex
+	providers       []Provider
+	mu              sync.Mutex
 	lastDesiredHash string
 }
 
@@ -51,7 +51,7 @@ func desiredHash(desired map[string]string) string {
 	sort.Strings(keys)
 	h := sha256.New()
 	for _, k := range keys {
-		fmt.Fprintf(h, "%s\x00%s\x00", k, desired[k])
+		_, _ = fmt.Fprintf(h, "%s\x00%s\x00", k, desired[k])
 	}
 	return fmt.Sprintf("%x", h.Sum(nil))[:16]
 }

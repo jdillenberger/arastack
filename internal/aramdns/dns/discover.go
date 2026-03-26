@@ -130,7 +130,17 @@ func MergeProviders(manual, autodetected []config.DNSProviderConfig) []config.DN
 }
 
 func buildProviderURL(app deployedApp, deployCfg *aradeployconfig.Config, defaultPort int) string {
-	// If the app has a routed domain, use it.
+	// Prefer localhost access for auto-discovered (same-host) providers.
+	// Routed domains (e.g. *.local via mDNS) cannot be resolved by Go's
+	// standard DNS resolver, so localhost is more reliable.
+	if app.Values != nil {
+		if webPort := app.Values["web_port"]; webPort != "" {
+			return fmt.Sprintf("http://localhost:%s", webPort)
+		}
+	}
+
+	// If routing is enabled, use the routed domain (only reached when
+	// web_port is not set in values).
 	if app.Routing != nil && app.Routing.Enabled && len(app.Routing.Domains) > 0 {
 		scheme := "http"
 		if deployCfg.IsHTTPSEnabled() {
@@ -139,12 +149,5 @@ func buildProviderURL(app deployedApp, deployCfg *aradeployconfig.Config, defaul
 		return fmt.Sprintf("%s://%s", scheme, app.Routing.Domains[0])
 	}
 
-	// Fallback: localhost with deployed host port (the host-side port from
-	// aradeploy values, not the container-internal port).
-	if app.Values != nil {
-		if webPort := app.Values["web_port"]; webPort != "" {
-			return fmt.Sprintf("http://localhost:%s", webPort)
-		}
-	}
 	return fmt.Sprintf("http://localhost:%d", defaultPort)
 }

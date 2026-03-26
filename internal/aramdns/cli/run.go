@@ -171,9 +171,12 @@ var runCmd = &cobra.Command{
 			// Sync to DNS providers (AdGuard/Pi-hole).
 			if syncer != nil {
 				// Build desired map: domain → IP (own domains → own IP).
-				allDesired := make(map[string]string, len(allDomains))
+				allDesired := make(map[string]string, len(allDomains)*2)
 				for domain := range allDomains {
 					allDesired[domain] = localIP
+					if lanDomain := localToLAN(domain); lanDomain != "" {
+						allDesired[lanDomain] = localIP
+					}
 				}
 
 				// Discover peer domains via _aramdns._tcp mDNS browse.
@@ -184,6 +187,11 @@ var runCmd = &cobra.Command{
 				for _, pe := range peerEntries {
 					if _, ownDomain := allDomains[pe.Domain]; !ownDomain {
 						allDesired[pe.Domain] = pe.IP
+					}
+					if lanDomain := localToLAN(pe.Domain); lanDomain != "" {
+						if _, own := allDomains[lanDomain]; !own {
+							allDesired[lanDomain] = pe.IP
+						}
 					}
 				}
 
@@ -238,6 +246,15 @@ var runCmd = &cobra.Command{
 			}
 		}
 	},
+}
+
+// localToLAN converts a ".local" domain to a ".lan" domain.
+// Returns "" if the domain is not a .local domain.
+func localToLAN(domain string) string {
+	if strings.HasSuffix(domain, ".local") {
+		return strings.TrimSuffix(domain, ".local") + ".lan"
+	}
+	return ""
 }
 
 func resolveInterval() time.Duration {

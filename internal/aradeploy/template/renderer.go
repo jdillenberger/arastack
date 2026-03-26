@@ -113,6 +113,9 @@ func (r *Renderer) renderString(tmplStr string, values map[string]string) (strin
 		"upper":       strings.ToUpper,
 		"lower":       strings.ToLower,
 		"replace":     strings.ReplaceAll,
+		"escapeCompose": func(s string) string {
+			return strings.ReplaceAll(s, "$", "$$")
+		},
 		"argon2Hash":  Argon2Hash,
 	}
 

@@ -182,3 +182,17 @@ func TestIsLocalDomain(t *testing.T) {
 		})
 	}
 }
+
+func TestComputeRouting_WireguardContainerPort(t *testing.T) {
+	meta := &template.AppMeta{
+		Ports: []template.PortMapping{
+			{Host: 51820, Container: 51820, Protocol: "udp"},
+			{Host: 51821, Container: 51821, Protocol: "tcp"},
+		},
+		Routing: &template.RoutingMeta{ContainerPort: 51821},
+	}
+	got := ComputeRouting("pi01", "local", "", false, "wireguard", meta, nil)
+	if got.ContainerPort != 51821 {
+		t.Errorf("ContainerPort = %d, want 51821", got.ContainerPort)
+	}
+}

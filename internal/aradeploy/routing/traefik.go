@@ -64,7 +64,8 @@ func (l *TraefikProvider) InjectLabels(composeYAML, appName string, routing *Dep
 		return composeYAML, nil
 	}
 
-	labels := l.buildLabels(appName, routing)
+	isHostNetwork := primarySvc["network_mode"] == "host"
+	labels := l.buildLabels(appName, routing, isHostNetwork)
 
 	existingLabels := getLabelsMap(primarySvc)
 	for k, v := range labels {
@@ -92,13 +93,20 @@ func (l *TraefikProvider) InjectLabels(composeYAML, appName string, routing *Dep
 	return string(out), nil
 }
 
-func (l *TraefikProvider) buildLabels(appName string, routing *DeployedRoute) map[string]string {
+func (l *TraefikProvider) buildLabels(appName string, routing *DeployedRoute, hostNetwork bool) map[string]string {
 	routerName := strings.ReplaceAll(appName, ".", "-")
 	routerName = strings.ReplaceAll(routerName, "_", "-")
 
 	labels := map[string]string{
 		"traefik.enable": "true",
-		fmt.Sprintf("traefik.http.services.%s.loadbalancer.server.port", routerName): fmt.Sprintf("%d", routing.ContainerPort),
+	}
+
+	if hostNetwork {
+		// Host-networked containers are not reachable via Docker's internal network.
+		// Traefik must connect to the host directly via host.docker.internal.
+		labels[fmt.Sprintf("traefik.http.services.%s.loadbalancer.server.url", routerName)] = fmt.Sprintf("http://host.docker.internal:%d", routing.ContainerPort)
+	} else {
+		labels[fmt.Sprintf("traefik.http.services.%s.loadbalancer.server.port", routerName)] = fmt.Sprintf("%d", routing.ContainerPort)
 	}
 
 	var allHostParts []string

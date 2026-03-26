@@ -1,6 +1,8 @@
 package routing
 
 import (
+	"strings"
+
 	"github.com/jdillenberger/arastack/internal/aradeploy/template"
 )
 
@@ -46,6 +48,14 @@ func ComputeRouting(hostname, networkDomain, routingDomain string, httpsEnabled 
 		r.Domains = []string{subdomain + "." + routingDomain}
 	default:
 		r.Domains = []string{subdomain + "-" + hostname + "." + networkDomain}
+	}
+
+	// Add .lan aliases for .local domains so VPN clients (which can't use
+	// mDNS) can reach services via unicast DNS.
+	for _, d := range r.Domains {
+		if strings.HasSuffix(d, ".local") {
+			r.Domains = append(r.Domains, strings.TrimSuffix(d, ".local")+".lan")
+		}
 	}
 
 	switch {

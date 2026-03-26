@@ -175,9 +175,9 @@ func (l *TraefikProvider) addSecureRouter(labels map[string]string, serviceName,
 	}
 }
 
-// IsLocalDomain returns true if the domain ends with ".local".
+// IsLocalDomain returns true if the domain ends with ".local" or ".lan".
 func IsLocalDomain(domain string) bool {
-	return strings.HasSuffix(domain, ".local")
+	return strings.HasSuffix(domain, ".local") || strings.HasSuffix(domain, ".lan")
 }
 
 func getLabelsMap(svc map[string]interface{}) map[string]string {

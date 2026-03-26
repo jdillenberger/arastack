@@ -162,6 +162,12 @@ var runCmd = &cobra.Command{
 				}
 			}
 
+			// Include host-level domain in the domain set so it gets advertised
+			// to peers and synced to DNS providers.
+			if hostname != "" {
+				allDomains[hostname+".local"] = true
+			}
+
 			// Advertise all domains via _aramdns._tcp service for peer discovery.
 			if err := advertiser.Update(allDomains); err != nil &&
 				!errors.Is(err, peer.ErrAvahiPublishServiceNotFound) {
@@ -178,6 +184,7 @@ var runCmd = &cobra.Command{
 						allDesired[lanDomain] = localIP
 					}
 				}
+
 
 				// Discover peer domains via _aramdns._tcp mDNS browse.
 				peerEntries, err := peer.Browse(ctx, localIP)

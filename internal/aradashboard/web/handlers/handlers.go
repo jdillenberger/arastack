@@ -98,7 +98,7 @@ func (h *Handler) basePage(c ...echo.Context) BasePage {
 			reqHost = reqHost[:idx]
 		}
 		if strings.HasSuffix(reqHost, ".lan") {
-			domain = strings.TrimSuffix(domain, ".local") + ".lan"
+			domain = "lan"
 		}
 	}
 	return BasePage{

@@ -3,6 +3,7 @@ package handlers
 import (
 	"log/slog"
 	"path/filepath"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 
@@ -89,10 +90,20 @@ func buildRegistry(ldc *config.AradeployYAML, runner *executil.Runner) (reg *tem
 	return reg, repoNames, repoURLs
 }
 
-func (h *Handler) basePage() BasePage {
+func (h *Handler) basePage(c ...echo.Context) BasePage {
+	domain := h.ldc.Network.Domain
+	if len(c) > 0 {
+		reqHost := c[0].Request().Host
+		if idx := strings.LastIndex(reqHost, ":"); idx != -1 {
+			reqHost = reqHost[:idx]
+		}
+		if strings.HasSuffix(reqHost, ".lan") {
+			domain = strings.TrimSuffix(domain, ".local") + ".lan"
+		}
+	}
 	return BasePage{
 		Hostname:    h.ldc.Hostname,
-		Domain:      h.ldc.Network.Domain,
+		Domain:      domain,
 		NavColor:    h.cfg.Web.NavColor,
 		AuthEnabled: h.cfg.Auth.Password != "",
 	}

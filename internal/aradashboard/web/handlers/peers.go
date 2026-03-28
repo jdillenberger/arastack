@@ -29,7 +29,7 @@ func (h *Handler) HandlePeersPage(c echo.Context) error {
 	resp, err := h.peerClient.Peers()
 	if err != nil {
 		return c.Render(http.StatusOK, "peers.html", PeersPageData{
-			BasePage:    h.basePage(),
+			BasePage:    h.basePage(c),
 			Unavailable: true,
 		})
 	}
@@ -47,7 +47,7 @@ func (h *Handler) HandlePeersPage(c echo.Context) error {
 	}
 
 	data := PeersPageData{
-		BasePage:      h.basePage(),
+		BasePage:      h.basePage(c),
 		PeerGroupName: resp.PeerGroup.Name,
 		Self:          resp.Self,
 		Peers:         peers,

@@ -33,12 +33,12 @@ func (h *Handler) HandleSettingsPage(c echo.Context) error {
 	s := stats.Collect()
 
 	data := SettingsPageData{
-		BasePage:        h.basePage(),
+		BasePage:        h.basePage(c),
 		Version:         version,
 		Uptime:          s.Uptime,
 		AppsDir:         h.ldc.AppsDir,
 		DataDir:         h.ldc.DataDir,
-		AradeployDomain: h.ldc.Hostname + "." + h.ldc.Network.Domain,
+		AradeployDomain: h.ldc.Hostname + "." + h.basePage(c).Domain,
 		AraScannerURL:   h.cfg.Services.AraScanner.URL,
 		AraalertURL:     h.cfg.Services.Araalert.URL,
 		ArabackupURL:    h.cfg.Services.Arabackup.URL,

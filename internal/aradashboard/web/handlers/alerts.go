@@ -47,7 +47,7 @@ func (h *Handler) HandleAlertsPage(c echo.Context) error {
 	rulesRaw, err := client.Rules(ctx)
 	if err != nil {
 		return c.Render(http.StatusOK, "alerts.html", AlertsPageData{
-			BasePage:    h.basePage(),
+			BasePage:    h.basePage(c),
 			Unavailable: true,
 		})
 	}
@@ -68,7 +68,7 @@ func (h *Handler) HandleAlertsPage(c echo.Context) error {
 	}
 
 	return c.Render(http.StatusOK, "alerts.html", AlertsPageData{
-		BasePage: h.basePage(),
+		BasePage: h.basePage(c),
 		Rules:    rules,
 		History:  history,
 	})

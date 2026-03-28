@@ -27,13 +27,13 @@ func (h *Handler) HandleBackupPage(c echo.Context) error {
 	status, err := client.Status(ctx)
 	if err != nil {
 		return c.Render(http.StatusOK, "backup.html", BackupPageData{
-			BasePage:    h.basePage(),
+			BasePage:    h.basePage(c),
 			Unavailable: true,
 		})
 	}
 
 	return c.Render(http.StatusOK, "backup.html", BackupPageData{
-		BasePage: h.basePage(),
+		BasePage: h.basePage(c),
 		Status:   status,
 	})
 }

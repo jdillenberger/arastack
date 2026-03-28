@@ -154,7 +154,7 @@ func repoWebURL(gitURL, subdir string) string {
 // TemplatesList renders the available templates page.
 func (h *Handler) TemplatesList(c echo.Context) error {
 	data := TemplatesListData{
-		BasePage: h.basePage(),
+		BasePage: h.basePage(c),
 	}
 
 	if h.registry != nil {
@@ -207,7 +207,7 @@ func (h *Handler) TemplateDetail(c echo.Context) error {
 	}
 
 	data := TemplateDetailData{
-		BasePage:         h.basePage(),
+		BasePage:         h.basePage(c),
 		Template:         meta,
 		Values:           publicValues,
 		HasValues:        len(publicValues) > 0,

@@ -56,7 +56,7 @@ func (h *Handler) AppsList(c echo.Context) error {
 	apps, _ := discovery.GetAllApps(h.ldc.AppsDir)
 
 	data := AppsListData{
-		BasePage:     h.basePage(),
+		BasePage:     h.basePage(c),
 		DeployedApps: apps,
 	}
 
@@ -81,7 +81,7 @@ func (h *Handler) AppDetail(c echo.Context) error {
 	}
 
 	data := AppDetailData{
-		BasePage:       h.basePage(),
+		BasePage:       h.basePage(c),
 		App:            info,
 		Addresses:      h.buildAppAddresses(info),
 		TemplateExists: tmplExists,
@@ -136,6 +136,8 @@ func (h *Handler) buildAppAddresses(info *discovery.DeployedApp) []AppAddress {
 				} else {
 					addr.MDNSStatus = "not resolved"
 				}
+			} else if strings.HasSuffix(domain, ".lan") {
+				addr.Type = "Local Domain"
 			} else {
 				addr.Type = "Domain"
 			}
@@ -209,7 +211,7 @@ func (h *Handler) AppLogs(c echo.Context) error {
 	}
 
 	data := AppLogsData{
-		BasePage: h.basePage(),
+		BasePage: h.basePage(c),
 		App:      info,
 	}
 

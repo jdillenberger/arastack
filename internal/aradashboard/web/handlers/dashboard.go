@@ -138,7 +138,7 @@ func (h *Handler) Dashboard(c echo.Context) error {
 	}
 
 	data := DashboardData{
-		BasePage:         h.basePage(),
+		BasePage:         h.basePage(c),
 		Apps:             portalApps,
 		ActiveAlertCount: alertCount,
 	}

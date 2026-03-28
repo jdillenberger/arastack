@@ -34,7 +34,7 @@ type CAPageData struct {
 // HandleCAPage renders the CA certificate trust page.
 func (h *Handler) HandleCAPage(c echo.Context) error {
 	data := CAPageData{
-		BasePage:     h.basePage(),
+		BasePage:     h.basePage(c),
 		HTTPSEnabled: h.ldc.IsHTTPSEnabled(),
 	}
 

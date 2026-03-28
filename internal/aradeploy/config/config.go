@@ -57,10 +57,11 @@ type DockerConfig struct {
 
 // RoutingConfig holds routing-related configuration.
 type RoutingConfig struct {
-	Enabled  bool        `yaml:"enabled"`
-	Provider string      `yaml:"provider"`
-	Domain   string      `yaml:"domain"`
-	HTTPS    HTTPSConfig `yaml:"https"`
+	Enabled        bool        `yaml:"enabled"`
+	Provider       string      `yaml:"provider"`
+	Domain         string      `yaml:"domain"`
+	DomainPriority []string    `yaml:"domain_priority"`
+	HTTPS          HTTPSConfig `yaml:"https"`
 }
 
 // HTTPSConfig holds HTTPS-related configuration.
@@ -93,9 +94,10 @@ func DefaultConfig() *Config {
 			DefaultNetwork: "aradeploy-net",
 		},
 		Routing: RoutingConfig{
-			Enabled:  true,
-			Provider: "traefik",
-			Domain:   "",
+			Enabled:        true,
+			Provider:       "traefik",
+			Domain:         "",
+			DomainPriority: []string{".local", ".lan"},
 			HTTPS: HTTPSConfig{
 				Enabled: true,
 			},
@@ -251,9 +253,10 @@ func (c *Config) ToManagerConfig() *deploy.ManagerConfig {
 			DefaultNetwork: c.Docker.DefaultNetwork,
 		},
 		Routing: deploy.RoutingConfig{
-			Enabled:  c.Routing.Enabled,
-			Provider: c.Routing.Provider,
-			Domain:   c.Routing.Domain,
+			Enabled:        c.Routing.Enabled,
+			Provider:       c.Routing.Provider,
+			Domain:         c.Routing.Domain,
+			DomainPriority: c.Routing.DomainPriority,
 			HTTPS: deploy.HTTPSConfig{
 				Enabled:   c.Routing.HTTPS.Enabled,
 				AcmeEmail: c.Routing.HTTPS.AcmeEmail,

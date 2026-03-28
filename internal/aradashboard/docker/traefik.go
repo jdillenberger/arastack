@@ -49,7 +49,7 @@ func DiscoverTraefikDomains(runner *executil.Runner, runtime string) (map[string
 				continue
 			}
 			for _, host := range extractHosts(value) {
-				if strings.HasSuffix(host, ".local") {
+				if strings.HasSuffix(host, ".local") || strings.HasSuffix(host, ".lan") {
 					domains[host] = true
 				}
 			}

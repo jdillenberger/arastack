@@ -76,11 +76,17 @@ func (h *Handler) Dashboard(c echo.Context) error {
 		}
 
 		// Tier 1 & 2: routing domains.
+		// When the dashboard is accessed via a .lan domain, prefer .lan
+		// links so VPN clients stay on resolvable addresses.
+		preferLAN := strings.HasSuffix(requestHost, ".lan")
 		if info.Routing != nil && info.Routing.Enabled {
 			for _, domain := range info.Routing.Domains {
 				url := fmt.Sprintf("https://%s", domain)
-				if strings.HasSuffix(domain, ".local") {
+				if strings.HasSuffix(domain, ".local") || strings.HasSuffix(domain, ".lan") {
 					if pa.LocalURL == "" {
+						pa.LocalURL = url
+					}
+					if preferLAN && strings.HasSuffix(domain, ".lan") {
 						pa.LocalURL = url
 					}
 				} else {

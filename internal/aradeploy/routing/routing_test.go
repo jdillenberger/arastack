@@ -137,7 +137,7 @@ func TestComputeRouting(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := ComputeRouting(tt.hostname, tt.networkDomain, tt.routingDomain, tt.httpsEnabled, tt.appName, tt.meta, tt.mergedValues)
+			got := ComputeRouting(tt.hostname, tt.networkDomain, tt.routingDomain, tt.httpsEnabled, tt.appName, tt.meta, tt.mergedValues, nil)
 			if got.Enabled != tt.wantEnabled {
 				t.Errorf("Enabled = %v, want %v", got.Enabled, tt.wantEnabled)
 			}
@@ -186,6 +186,86 @@ func TestIsLocalDomain(t *testing.T) {
 	}
 }
 
+func TestSortDomainsByPriority(t *testing.T) {
+	tests := []struct {
+		name     string
+		domains  []string
+		priority []string
+		want     []string
+	}{
+		{
+			name:     "nil priority preserves order",
+			domains:  []string{"app.local", "app.lan"},
+			priority: nil,
+			want:     []string{"app.local", "app.lan"},
+		},
+		{
+			name:     "empty priority preserves order",
+			domains:  []string{"app.local", "app.lan"},
+			priority: []string{},
+			want:     []string{"app.local", "app.lan"},
+		},
+		{
+			name:     "default priority keeps .local first",
+			domains:  []string{"app.local", "app.lan"},
+			priority: []string{".local", ".lan"},
+			want:     []string{"app.local", "app.lan"},
+		},
+		{
+			name:     "lan-first priority reorders",
+			domains:  []string{"app.local", "app.lan"},
+			priority: []string{".lan", ".local"},
+			want:     []string{"app.lan", "app.local"},
+		},
+		{
+			name:     "unmatched domains go to end",
+			domains:  []string{"app.example.com", "app.local", "app.lan"},
+			priority: []string{".local", ".lan"},
+			want:     []string{"app.local", "app.lan", "app.example.com"},
+		},
+		{
+			name:     "stable sort within same priority",
+			domains:  []string{"a.local", "b.local", "a.lan"},
+			priority: []string{".local", ".lan"},
+			want:     []string{"a.local", "b.local", "a.lan"},
+		},
+		{
+			name:     "single domain unchanged",
+			domains:  []string{"app.local"},
+			priority: []string{".lan", ".local"},
+			want:     []string{"app.local"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := SortDomainsByPriority(tt.domains, tt.priority)
+			if len(got) != len(tt.want) {
+				t.Fatalf("got %v, want %v", got, tt.want)
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("index %d: got %q, want %q", i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
+
+func TestComputeRouting_DomainPriority(t *testing.T) {
+	meta := &template.AppMeta{}
+	got := ComputeRouting("host1", "home.local", "", false, "myapp", meta, map[string]string{}, []string{".lan", ".local"})
+	if len(got.Domains) != 2 {
+		t.Fatalf("Domains = %v, want 2 entries", got.Domains)
+	}
+	if got.Domains[0] != "myapp-host1.home.lan" {
+		t.Errorf("Domains[0] = %q, want %q", got.Domains[0], "myapp-host1.home.lan")
+	}
+	if got.Domains[1] != "myapp-host1.home.local" {
+		t.Errorf("Domains[1] = %q, want %q", got.Domains[1], "myapp-host1.home.local")
+	}
+}
+
 func TestComputeRouting_WireguardContainerPort(t *testing.T) {
 	meta := &template.AppMeta{
 		Ports: []template.PortMapping{
@@ -194,7 +274,7 @@ func TestComputeRouting_WireguardContainerPort(t *testing.T) {
 		},
 		Routing: &template.RoutingMeta{ContainerPort: 51821},
 	}
-	got := ComputeRouting("pi01", "local", "", false, "wireguard", meta, nil)
+	got := ComputeRouting("pi01", "local", "", false, "wireguard", meta, nil, nil)
 	if got.ContainerPort != 51821 {
 		t.Errorf("ContainerPort = %d, want 51821", got.ContainerPort)
 	}

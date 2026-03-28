@@ -1,6 +1,7 @@
 package routing
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/jdillenberger/arastack/internal/aradeploy/template"
@@ -23,7 +24,7 @@ type Provider interface {
 }
 
 // ComputeRouting builds a DeployedRoute from config and app metadata.
-func ComputeRouting(hostname, networkDomain, routingDomain string, httpsEnabled bool, appName string, meta *template.AppMeta, mergedValues map[string]string) *DeployedRoute {
+func ComputeRouting(hostname, networkDomain, routingDomain string, httpsEnabled bool, appName string, meta *template.AppMeta, mergedValues map[string]string, domainPriority []string) *DeployedRoute {
 	r := &DeployedRoute{
 		Enabled:   true,
 		KeepPorts: true,
@@ -58,6 +59,8 @@ func ComputeRouting(hostname, networkDomain, routingDomain string, httpsEnabled 
 		}
 	}
 
+	r.Domains = SortDomainsByPriority(r.Domains, domainPriority)
+
 	switch {
 	case meta.Routing != nil && meta.Routing.ContainerPort > 0:
 		r.ContainerPort = meta.Routing.ContainerPort
@@ -72,4 +75,26 @@ func ComputeRouting(hostname, networkDomain, routingDomain string, httpsEnabled 
 	}
 
 	return r
+}
+
+// SortDomainsByPriority reorders domains so that domains matching earlier
+// entries in the priority list come first. Domains that don't match any
+// priority suffix keep their relative order at the end.
+func SortDomainsByPriority(domains []string, priority []string) []string {
+	if len(priority) == 0 || len(domains) <= 1 {
+		return domains
+	}
+	sort.SliceStable(domains, func(i, j int) bool {
+		return domainPriorityIndex(domains[i], priority) < domainPriorityIndex(domains[j], priority)
+	})
+	return domains
+}
+
+func domainPriorityIndex(domain string, priority []string) int {
+	for i, suffix := range priority {
+		if strings.HasSuffix(domain, suffix) {
+			return i
+		}
+	}
+	return len(priority)
 }

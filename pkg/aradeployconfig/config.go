@@ -35,8 +35,9 @@ type Config struct {
 		ComposeCommand string `yaml:"compose_command"`
 	} `yaml:"docker"`
 	Routing struct {
-		Enabled bool `yaml:"enabled"`
-		HTTPS   struct {
+		Enabled        bool     `yaml:"enabled"`
+		DomainPriority []string `yaml:"domain_priority"`
+		HTTPS          struct {
 			Enabled *bool `yaml:"enabled"`
 		} `yaml:"https"`
 	} `yaml:"routing"`
@@ -135,6 +136,9 @@ func applyDefaults(cfg *Config) {
 	}
 	if cfg.Docker.ComposeCommand == "" {
 		cfg.Docker.ComposeCommand = "docker compose"
+	}
+	if len(cfg.Routing.DomainPriority) == 0 {
+		cfg.Routing.DomainPriority = []string{".local", ".lan"}
 	}
 	if cfg.Routing.HTTPS.Enabled == nil {
 		t := true

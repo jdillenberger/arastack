@@ -61,10 +61,11 @@ type DockerConfig struct {
 
 // RoutingConfig holds routing-related configuration.
 type RoutingConfig struct {
-	Enabled  bool
-	Provider string
-	Domain   string
-	HTTPS    HTTPSConfig
+	Enabled        bool
+	Provider       string
+	Domain         string
+	DomainPriority []string
+	HTTPS          HTTPSConfig
 }
 
 // HTTPSConfig holds HTTPS-related configuration.

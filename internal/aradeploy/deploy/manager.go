@@ -199,6 +199,7 @@ func (m *Manager) Deploy(appName string, opts DeployOptions) error {
 		deployedRouting = routing.ComputeRouting(
 			m.cfg.Hostname, m.cfg.Network.Domain, m.cfg.Routing.Domain,
 			m.cfg.Routing.HTTPS.Enabled, appName, meta, mergedValues,
+			m.cfg.Routing.DomainPriority,
 		)
 		if deployedRouting.Enabled && len(deployedRouting.Domains) > 0 {
 			scheme := "http"
@@ -206,7 +207,13 @@ func (m *Manager) Deploy(appName string, opts DeployOptions) error {
 				scheme = "https"
 			}
 			mergedValues["routing_domain"] = deployedRouting.Domains[0]
+			mergedValues["routing_domains"] = strings.Join(deployedRouting.Domains, " ")
 			mergedValues["routing_url"] = fmt.Sprintf("%s://%s", scheme, deployedRouting.Domains[0])
+			var urls []string
+			for _, d := range deployedRouting.Domains {
+				urls = append(urls, fmt.Sprintf("%s://%s", scheme, d))
+			}
+			mergedValues["routing_urls"] = strings.Join(urls, ",")
 		}
 		if mergedValues["forward_auth"] == "true" {
 			deployedRouting.ForwardAuth = true
@@ -217,12 +224,18 @@ func (m *Manager) Deploy(appName string, opts DeployOptions) error {
 	if mergedValues["routing_domain"] == "" {
 		mergedValues["routing_domain"] = appName + "-" + m.cfg.Hostname + "." + m.cfg.Network.Domain
 	}
+	if mergedValues["routing_domains"] == "" {
+		mergedValues["routing_domains"] = mergedValues["routing_domain"]
+	}
 	if mergedValues["routing_url"] == "" {
 		scheme := "http"
 		if m.cfg.Routing.HTTPS.Enabled {
 			scheme = "https"
 		}
 		mergedValues["routing_url"] = fmt.Sprintf("%s://%s", scheme, mergedValues["routing_domain"])
+	}
+	if mergedValues["routing_urls"] == "" {
+		mergedValues["routing_urls"] = mergedValues["routing_url"]
 	}
 
 	// Regenerate SAN cert to include this app's domain (non-traefik deploys)

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 
@@ -33,11 +34,15 @@ func (h *Handler) HandlePeersPage(c echo.Context) error {
 		})
 	}
 
+	requestHost := c.Request().Host
+	if idx := strings.LastIndex(requestHost, ":"); idx != -1 {
+		requestHost = requestHost[:idx]
+	}
 	var peers []PeersPagePeer
 	for _, p := range resp.Peers {
 		peers = append(peers, PeersPagePeer{
 			Peer:    p,
-			DashURL: peerDashboardURL(p),
+			DashURL: peerDashboardURL(p, requestHost),
 		})
 	}
 

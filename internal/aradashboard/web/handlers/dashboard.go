@@ -198,11 +198,15 @@ func (h *Handler) DashboardPeers(c echo.Context) error {
 		if appsTag, ok := p.Tags["apps"]; ok && appsTag != "" {
 			apps = strings.Split(appsTag, ",")
 		}
+		requestHost := c.Request().Host
+		if idx := strings.LastIndex(requestHost, ":"); idx != -1 {
+			requestHost = requestHost[:idx]
+		}
 		peers = append(peers, DashboardPeer{
 			Hostname: p.Hostname,
 			Address:  p.Address,
 			Port:     p.Port,
-			DashURL:  peerDashboardURL(p),
+			DashURL:  peerDashboardURL(p, requestHost),
 			Apps:     apps,
 		})
 	}
@@ -236,15 +240,20 @@ func (h *Handler) DashboardPeers(c echo.Context) error {
 
 // peerDashboardURL returns the best URL to reach a peer's dashboard:
 //  1. Explicit dashboard_url tag (regular domain, e.g. https://x1.example.com)
-//  2. https://<hostname>.local (mDNS local domain)
-//  3. https://<ip>:<port> (fallback)
-func peerDashboardURL(p clients.Peer) string {
+//  2. https://<hostname>.lan (when accessed via .lan)
+//  3. https://<hostname>.local (mDNS local domain)
+//  4. https://<ip>:<port> (fallback)
+func peerDashboardURL(p clients.Peer, requestHost string) string {
 	if url, ok := p.Tags["dashboard_url"]; ok && url != "" {
 		return url
 	}
 
 	if p.Hostname != "" {
-		return fmt.Sprintf("https://%s.local", p.Hostname)
+		suffix := ".local"
+		if strings.HasSuffix(requestHost, ".lan") {
+			suffix = ".lan"
+		}
+		return fmt.Sprintf("https://%s%s", p.Hostname, suffix)
 	}
 
 	dashPort := ports.AraDashboard

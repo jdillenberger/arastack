@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"sort"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -66,7 +67,12 @@ func runDaemon() error {
 
 	// Start peer trust sync loop.
 	trustDone := make(chan struct{})
-	go trustSyncLoop(trustDone)
+	var trustWG sync.WaitGroup
+	trustWG.Add(1)
+	go func() {
+		defer trustWG.Done()
+		trustSyncLoop(trustDone)
+	}()
 
 	// Signal handling.
 	sigCh := make(chan os.Signal, 1)
@@ -75,6 +81,7 @@ func runDaemon() error {
 	sig := <-sigCh
 	slog.Info("received signal, shutting down", "signal", sig)
 	close(trustDone)
+	trustWG.Wait()
 	slog.Info("aradeploy service stopped")
 	return nil
 }

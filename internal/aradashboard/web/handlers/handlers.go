@@ -105,7 +105,7 @@ func (h *Handler) basePage(c echo.Context) BasePage {
 	domain := h.ldc.Network.Domain
 	reqHost := requestHostname(c)
 	if strings.HasSuffix(reqHost, ".lan") {
-		if strings.HasSuffix(domain, "local") {
+		if domain == "local" || strings.HasSuffix(domain, ".local") {
 			domain = strings.TrimSuffix(domain, "local") + "lan"
 		} else {
 			domain = "lan"

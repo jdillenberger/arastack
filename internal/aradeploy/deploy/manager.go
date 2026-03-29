@@ -186,7 +186,7 @@ func (m *Manager) Deploy(appName string, opts DeployOptions) error {
 			return fmt.Errorf("creating traefik data directory: %w", err)
 		}
 		cm := certs.NewManager(m.cfg.DataPath("traefik"))
-		certDomains := m.collectAllRoutingDomains(appName, mergedValues)
+		certDomains := m.CollectAllRoutingDomains(appName, mergedValues)
 		if err := cm.EnsureCerts(certDomains); err != nil {
 			return fmt.Errorf("generating local certificates: %w", err)
 		}
@@ -241,7 +241,7 @@ func (m *Manager) Deploy(appName string, opts DeployOptions) error {
 	// Regenerate SAN cert to include this app's domain (non-traefik deploys)
 	if appName != "traefik" && m.cfg.Routing.HTTPS.Enabled && m.isTraefikDeployed() {
 		cm := certs.NewManager(m.cfg.DataPath("traefik"))
-		certDomains := m.collectAllRoutingDomains(appName, mergedValues)
+		certDomains := m.CollectAllRoutingDomains(appName, mergedValues)
 		if err := cm.EnsureCerts(certDomains); err != nil {
 			slog.Warn("Failed to regenerate SAN cert", "error", err)
 		}
@@ -919,8 +919,8 @@ func (m *Manager) isAppDeployed(appName string) bool {
 	return false
 }
 
-// collectAllRoutingDomains gathers all local routing domains from deployed apps.
-func (m *Manager) collectAllRoutingDomains(currentApp string, mergedValues map[string]string) []string {
+// CollectAllRoutingDomains gathers all local routing domains from deployed apps.
+func (m *Manager) CollectAllRoutingDomains(currentApp string, mergedValues map[string]string) []string {
 	domainSet := make(map[string]bool)
 
 	dashboardDomain := m.cfg.RoutingDomain()
@@ -969,7 +969,7 @@ func (m *Manager) RenewCerts() error {
 	}
 
 	cm := certs.NewManager(m.cfg.DataPath("traefik"))
-	certDomains := m.collectAllRoutingDomains("", nil)
+	certDomains := m.CollectAllRoutingDomains("", nil)
 	if len(certDomains) == 0 {
 		return nil
 	}

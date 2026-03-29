@@ -207,6 +207,17 @@ func (cm *Manager) generateSANCert(domains []string, caKeyPath, caCrtPath, keyPa
 	return writeCertPEM(crtPath, certDER)
 }
 
+// CertDomains returns the DNS SANs from the current wildcard certificate.
+// Returns nil if the cert does not exist or cannot be parsed.
+func (cm *Manager) CertDomains() []string {
+	certCrtPath := filepath.Join(cm.certsDir, "wildcard.crt")
+	cert, err := loadCert(certCrtPath)
+	if err != nil {
+		return nil
+	}
+	return cert.DNSNames
+}
+
 func (cm *Manager) certDomainsMismatch(certPath string, domains []string) bool {
 	cert, err := loadCert(certPath)
 	if err != nil {

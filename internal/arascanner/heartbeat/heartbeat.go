@@ -97,8 +97,13 @@ func (h *Heartbeater) heartbeatPeer(ctx context.Context, p peer.Peer) error {
 		return fmt.Errorf("decoding response: %w", err)
 	}
 
-	// Update the peer as seen
-	h.store.MarkSeen(p.Hostname, p.Address, hbResp.Sender.Version)
+	// Update the peer with the sender's latest info (including CACert).
+	hbResp.Sender.Hostname = p.Hostname
+	hbResp.Sender.Address = p.Address
+	hbResp.Sender.LastSeen = time.Now()
+	hbResp.Sender.Online = true
+	hbResp.Sender.Source = p.Source
+	h.store.Upsert(hbResp.Sender)
 
 	// Merge gossip peers
 	for _, gp := range hbResp.KnownPeers {

@@ -79,9 +79,10 @@ func (dc *DeploymentChecker) checkEnvVars(appName string, info *deploy.DeployedA
 	}}
 }
 
-// findMissingDomains checks if an env var value contains the primary routing
-// domain (indicating it's a domain-bearing env var) and returns any routing
-// domains that are missing from it.
+// findMissingDomains checks if an env var value is a domain list that
+// contains the primary routing domain but is missing other routing domains.
+// Single-value env vars (like DOMAIN=app.local) are not flagged — only
+// multi-value lists (space or comma separated) are checked.
 func findMissingDomains(val string, info *deploy.DeployedApp) []string {
 	if info.Routing == nil || len(info.Routing.Domains) < 2 {
 		return nil
@@ -89,6 +90,14 @@ func findMissingDomains(val string, info *deploy.DeployedApp) []string {
 
 	primary := info.Routing.Domains[0]
 	if !strings.Contains(val, primary) {
+		return nil
+	}
+
+	// Only flag list-style values (contain separator characters beyond the domain).
+	// A single URL like "https://app.local" should not be flagged.
+	trimmed := strings.TrimSpace(val)
+	hasSeparator := strings.ContainsAny(trimmed, " ,")
+	if !hasSeparator {
 		return nil
 	}
 

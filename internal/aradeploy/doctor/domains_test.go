@@ -29,8 +29,28 @@ func TestFindMissingDomains(t *testing.T) {
 			},
 		},
 		{
-			name: "primary present, .lan missing",
+			name: "single value with primary domain, not a list",
 			val:  "https://app.local",
+			info: &deploy.DeployedApp{
+				Routing: &routing.DeployedRoute{
+					Domains: []string{"app.local", "app.lan"},
+				},
+			},
+			wantLen: 0,
+		},
+		{
+			name: "list value with primary, .lan missing",
+			val:  "localhost app.local",
+			info: &deploy.DeployedApp{
+				Routing: &routing.DeployedRoute{
+					Domains: []string{"app.local", "app.lan"},
+				},
+			},
+			wantLen: 1,
+		},
+		{
+			name: "comma-separated list, .lan missing",
+			val:  "https://app.local,http://localhost:8000",
 			info: &deploy.DeployedApp{
 				Routing: &routing.DeployedRoute{
 					Domains: []string{"app.local", "app.lan"},

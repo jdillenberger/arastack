@@ -107,13 +107,21 @@ func (dc *DeploymentChecker) fixLabelsViaComposeLabels(appName string, info *dep
 				}
 			}
 			if needsPatch {
-				// Insert extra hosts before the closing quote/bracket.
-				// Handle both label formats: "key=value" and key: "value"
+				// Append extra Host() clauses to the rule.
+				// Handle formats:
+				//   - key=Host(`x`)                     (unquoted YAML list)
+				//   - key=Host(`x`) || Host(`y`)        (unquoted with existing ||)
+				//   - "key=Host(`x`)"                   (quoted YAML list)
+				//   key: "Host(`x`)"                    (YAML map)
 				if idx := strings.LastIndex(line, "\""); idx > 0 && strings.Contains(line[:idx], "Host(") {
 					line = line[:idx] + extra + line[idx:]
 					changed = true
 				} else if idx := strings.LastIndex(line, "'"); idx > 0 && strings.Contains(line[:idx], "Host(") {
 					line = line[:idx] + extra + line[idx:]
+					changed = true
+				} else if idx := strings.LastIndex(line, ")"); idx > 0 && strings.Contains(line[:idx], "Host(") {
+					// Unquoted: append after the last closing paren.
+					line = line[:idx+1] + extra + line[idx+1:]
 					changed = true
 				}
 			}

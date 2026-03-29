@@ -203,6 +203,17 @@ func (s *Store) SetSelfRole(role string) {
 	s.dirty = true
 }
 
+// SetSelfCACert updates the CA certificate on the local peer entry.
+func (s *Store) SetSelfCACert(pem string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.state.Self.CACert == pem {
+		return
+	}
+	s.state.Self.CACert = pem
+	s.dirty = true
+}
+
 // Get returns the peer with the given hostname. If the hostname matches self,
 // the self entry is returned. Returns false when not found.
 func (s *Store) Get(hostname string) (peer.Peer, bool) {
@@ -245,6 +256,9 @@ func (s *Store) Upsert(p peer.Peer) (created bool) {
 		s.state.Peers[i].Online = p.Online
 		if p.Tags != nil {
 			s.state.Peers[i].Tags = p.Tags
+		}
+		if p.CACert != "" {
+			s.state.Peers[i].CACert = p.CACert
 		}
 		if peer.SourcePriority(p.Source) >= peer.SourcePriority(existing.Source) {
 			s.state.Peers[i].Source = p.Source

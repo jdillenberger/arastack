@@ -8,12 +8,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/jdillenberger/arastack/internal/arascanner/peer"
 	"github.com/jdillenberger/arastack/internal/arascanner/store"
+	"github.com/jdillenberger/arastack/pkg/aradeployconfig"
 )
 
 func init() {
@@ -63,12 +66,23 @@ var inviteCmd = &cobra.Command{
 			return fmt.Errorf("detecting local IP: %w", err)
 		}
 
+		// Read local CA cert for the invite token.
+		var caCert string
+		ldc, ldcErr := aradeployconfig.Load("")
+		if ldcErr == nil {
+			caPath := filepath.Join(ldc.DataDir, "traefik", "certs", "ca.crt")
+			if data, err := os.ReadFile(caPath); err == nil { // #nosec G304 -- path is constructed internally
+				caCert = string(data)
+			}
+		}
+
 		// Build invite token — does NOT contain the PSK.
 		token := peer.InviteToken{
 			PeerGroup: pg.Name,
 			Address:   localIP,
 			Port:      cfg.Server.Port,
 			Token:     oneTimeToken,
+			CACert:    caCert,
 			Expires:   expires,
 		}
 

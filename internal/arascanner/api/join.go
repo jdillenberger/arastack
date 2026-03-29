@@ -17,6 +17,7 @@ type joinRequest struct {
 	Version  string            `json:"version"`
 	Role     string            `json:"role"`
 	Tags     map[string]string `json:"tags,omitempty"`
+	CACert   string            `json:"ca_cert,omitempty"`
 }
 
 type joinResponse struct {
@@ -28,6 +29,7 @@ type joinResponse struct {
 	Version   string            `json:"version"`
 	Role      string            `json:"role"`
 	Tags      map[string]string `json:"tags,omitempty"`
+	CACert    string            `json:"ca_cert,omitempty"`
 }
 
 func (srv *Server) handleJoin(w http.ResponseWriter, r *http.Request) {
@@ -69,6 +71,7 @@ func (srv *Server) handleJoin(w http.ResponseWriter, r *http.Request) {
 		Role:     req.Role,
 		Source:   peer.SourceInvite,
 		Tags:     req.Tags,
+		CACert:   req.CACert,
 		LastSeen: time.Now(),
 		Online:   true,
 	}
@@ -93,6 +96,7 @@ func (srv *Server) handleJoin(w http.ResponseWriter, r *http.Request) {
 		Version:   srv.version,
 		Role:      self.Role,
 		Tags:      self.Tags,
+		CACert:    self.CACert,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

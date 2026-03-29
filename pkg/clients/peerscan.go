@@ -13,6 +13,7 @@ type Peer struct {
 	Version  string            `json:"version"`
 	Role     string            `json:"role"`
 	Tags     map[string]string `json:"tags,omitempty"`
+	CACert   string            `json:"ca_cert,omitempty"`
 	Online   bool              `json:"online"`
 }
 

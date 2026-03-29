@@ -10,9 +10,9 @@ type Peer struct {
 	Role     string            `yaml:"role"     json:"role"`
 	Source   string            `yaml:"source"   json:"source"` // mdns, invite, gossip
 	Tags     map[string]string `yaml:"tags,omitempty" json:"tags,omitempty"`
+	CACert   string            `yaml:"ca_cert,omitempty" json:"ca_cert,omitempty"`
 	LastSeen time.Time         `yaml:"last_seen" json:"last_seen"`
 	Online   bool              `yaml:"-"        json:"online"`
-	// Future: Apps []string   `yaml:"apps,omitempty" json:"apps,omitempty"`
 }
 
 // Source priority constants (higher = more trusted).

@@ -1,15 +1,22 @@
 package cli
 
 import (
+	"crypto/sha256"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
+	"sort"
+	"strings"
 	"syscall"
+	"time"
 
 	"github.com/robfig/cron/v3"
 	"github.com/spf13/cobra"
 
+	"github.com/jdillenberger/arastack/internal/aradeploy/certs"
 	"github.com/jdillenberger/arastack/internal/aradeploy/deploy"
+	"github.com/jdillenberger/arastack/internal/aradeploy/trust"
 	"github.com/jdillenberger/arastack/pkg/executil"
 )
 
@@ -57,12 +64,81 @@ func runDaemon() error {
 	c.Start()
 	defer c.Stop()
 
+	// Start peer trust sync loop.
+	trustDone := make(chan struct{})
+	go trustSyncLoop(trustDone)
+
 	// Signal handling.
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
 	sig := <-sigCh
 	slog.Info("received signal, shutting down", "signal", sig)
+	close(trustDone)
 	slog.Info("aradeploy service stopped")
 	return nil
+}
+
+// trustSyncLoop periodically checks if peer CA certificates have changed
+// and regenerates CA bundles for all deployed apps when they do.
+func trustSyncLoop(done chan struct{}) {
+	var lastHash string
+
+	// Initial sync after a short delay to let arascanner start.
+	select {
+	case <-done:
+		return
+	case <-time.After(30 * time.Second):
+	}
+
+	lastHash = syncTrustBundles(lastHash)
+
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-done:
+			return
+		case <-ticker.C:
+			lastHash = syncTrustBundles(lastHash)
+		}
+	}
+}
+
+func syncTrustBundles(lastHash string) string {
+	scannerDataDir := "/var/lib/arascanner"
+	peerCAs := trust.FetchPeerCACerts(scannerDataDir)
+
+	// Hash the current set of peer CAs to detect changes.
+	sorted := make([]string, len(peerCAs))
+	copy(sorted, peerCAs)
+	sort.Strings(sorted)
+	h := sha256.Sum256([]byte(strings.Join(sorted, "\n")))
+	hash := fmt.Sprintf("%x", h)
+
+	if hash == lastHash {
+		return hash
+	}
+
+	slog.Info("peer CA certificates changed, regenerating trust bundles", "peer_cas", len(peerCAs))
+
+	mgr := newServiceManager()
+	caCertPath := cfg.DataPath("traefik") + "/certs/ca.crt"
+
+	deployed, err := mgr.ListDeployed()
+	if err != nil {
+		slog.Error("failed to list deployed apps for trust sync", "error", err)
+		return lastHash // keep old hash so we retry
+	}
+
+	for _, appName := range deployed {
+		dataDir := cfg.DataPath(appName)
+		if err := certs.GenerateCABundle(caCertPath, peerCAs, dataDir); err != nil {
+			slog.Warn("failed to regenerate CA bundle", "app", appName, "error", err)
+		}
+	}
+
+	slog.Info("trust bundles regenerated for all deployed apps", "apps", len(deployed))
+	return hash
 }

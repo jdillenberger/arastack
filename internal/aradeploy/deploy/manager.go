@@ -16,6 +16,7 @@ import (
 	"github.com/jdillenberger/arastack/internal/aradeploy/compose"
 	"github.com/jdillenberger/arastack/internal/aradeploy/routing"
 	"github.com/jdillenberger/arastack/internal/aradeploy/template"
+	"github.com/jdillenberger/arastack/internal/aradeploy/trust"
 	"github.com/jdillenberger/arastack/pkg/aradeployconfig"
 	"github.com/jdillenberger/arastack/pkg/cliutil"
 	"github.com/jdillenberger/arastack/pkg/executil"
@@ -1006,28 +1007,16 @@ func (m *Manager) RenewCerts() error {
 	return nil
 }
 
-// generateCABundle creates a CA certificate bundle.
-// If the local CA cert is not available (e.g. traefik not yet deployed),
-// it falls back to using just the system CA bundle so the mount still works.
+// generateCABundle creates a CA certificate bundle including system CAs,
+// the local CA, and any peer CA certificates from arascanner.
 func generateCABundle(caCertPath, dataDir string) error {
-	systemBundle, err := os.ReadFile("/etc/ssl/certs/ca-certificates.crt") // #nosec G304 -- well-known system path
-	if err != nil {
-		return fmt.Errorf("reading system CA bundle: %w", err)
-	}
+	peerCACerts := trust.FetchPeerCACerts(defaultScannerDataDir())
+	return certs.GenerateCABundle(caCertPath, peerCACerts, dataDir)
+}
 
-	bundle := systemBundle
-	localCA, err := os.ReadFile(caCertPath) // #nosec G304 -- path is constructed internally
-	if err != nil {
-		slog.Warn("Local CA cert not available, using system bundle only", "path", caCertPath, "error", err)
-	} else {
-		bundle = make([]byte, 0, len(systemBundle)+1+len(localCA))
-		bundle = append(bundle, systemBundle...)
-		bundle = append(bundle, '\n')
-		bundle = append(bundle, localCA...)
-	}
-
-	bundlePath := filepath.Join(dataDir, "ca-bundle.crt")
-	return os.WriteFile(bundlePath, bundle, 0o644) // #nosec G306,G703 -- CA bundle is public; path is constructed internally
+// defaultScannerDataDir returns the arascanner data directory.
+func defaultScannerDataDir() string {
+	return "/var/lib/arascanner"
 }
 
 // printDeploySummary shows what will be deployed before asking for confirmation.

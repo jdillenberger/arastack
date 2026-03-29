@@ -6,12 +6,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/jdillenberger/arastack/internal/arascanner/peer"
 	"github.com/jdillenberger/arastack/internal/arascanner/store"
+	"github.com/jdillenberger/arastack/pkg/aradeployconfig"
 	"github.com/jdillenberger/arastack/pkg/version"
 )
 
@@ -56,6 +59,16 @@ var joinCmd = &cobra.Command{
 		}
 		self := st.Self()
 
+		// Read our local CA cert to send to the originator.
+		var selfCACert string
+		ldc, ldcErr := aradeployconfig.Load("")
+		if ldcErr == nil {
+			caPath := filepath.Join(ldc.DataDir, "traefik", "certs", "ca.crt")
+			if data, err := os.ReadFile(caPath); err == nil { // #nosec G304 -- path is constructed internally
+				selfCACert = string(data)
+			}
+		}
+
 		// POST to the originator's /api/join endpoint.
 		joinReq := struct {
 			Hostname string            `json:"hostname"`
@@ -64,6 +77,7 @@ var joinCmd = &cobra.Command{
 			Version  string            `json:"version"`
 			Role     string            `json:"role"`
 			Tags     map[string]string `json:"tags,omitempty"`
+			CACert   string            `json:"ca_cert,omitempty"`
 		}{
 			Hostname: cfg.Server.Hostname,
 			Address:  localIP,
@@ -71,6 +85,7 @@ var joinCmd = &cobra.Command{
 			Version:  version.Version,
 			Role:     self.Role,
 			Tags:     self.Tags,
+			CACert:   selfCACert,
 		}
 
 		body, err := json.Marshal(joinReq)
@@ -107,6 +122,7 @@ var joinCmd = &cobra.Command{
 			Version   string            `json:"version"`
 			Role      string            `json:"role"`
 			Tags      map[string]string `json:"tags,omitempty"`
+			CACert    string            `json:"ca_cert,omitempty"`
 		}
 		if err := json.NewDecoder(resp.Body).Decode(&joinResp); err != nil {
 			return fmt.Errorf("decoding join response: %w", err)
@@ -118,6 +134,12 @@ var joinCmd = &cobra.Command{
 			Secret: joinResp.PSK,
 		})
 
+		// Use CACert from response, falling back to invite token.
+		peerCACert := joinResp.CACert
+		if peerCACert == "" {
+			peerCACert = token.CACert
+		}
+
 		// Save originator as a peer with source="invite".
 		originator := peer.Peer{
 			Hostname: joinResp.Hostname,
@@ -127,6 +149,7 @@ var joinCmd = &cobra.Command{
 			Role:     joinResp.Role,
 			Source:   peer.SourceInvite,
 			Tags:     joinResp.Tags,
+			CACert:   peerCACert,
 			LastSeen: time.Now(),
 			Online:   true,
 		}

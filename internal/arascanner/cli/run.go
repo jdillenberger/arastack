@@ -79,6 +79,9 @@ func runDaemon() error {
 	// Enrich self tags with dashboard metadata from aradeploy config.
 	enrichDashboardTags(s)
 
+	// Load local CA certificate for cross-peer trust exchange.
+	refreshSelfCACert(s)
+
 	self = s.Self()
 	slog.Info("starting arascanner",
 		"hostname", hostname,
@@ -204,6 +207,7 @@ func heartbeatLoop(ctx context.Context, hb *heartbeat.Heartbeater, s *store.Stor
 			}
 			refreshAppTags(s, tags)
 			s.SetSelfTags(tags)
+			refreshSelfCACert(s)
 
 			s.UpdateOnlineStatus(offlineThreshold)
 			hb.HeartbeatAll(ctx)
@@ -286,6 +290,23 @@ func refreshAppTags(s *store.Store, tags map[string]string) {
 	} else {
 		delete(tags, "apps")
 	}
+}
+
+// refreshSelfCACert reads the local CA certificate from the aradeploy data
+// directory and sets it on the local peer entry. This is called on startup and
+// periodically so that CA renewals propagate to peers via heartbeat.
+func refreshSelfCACert(s *store.Store) {
+	ldc, err := aradeployconfig.Load("")
+	if err != nil {
+		return
+	}
+	caPath := filepath.Join(ldc.DataDir, "traefik", "certs", "ca.crt")
+	data, err := os.ReadFile(caPath) // #nosec G304 -- path is constructed internally
+	if err != nil {
+		slog.Debug("CA cert not available for peer exchange", "path", caPath, "error", err)
+		return
+	}
+	s.SetSelfCACert(string(data))
 }
 
 func persistLoop(ctx context.Context, s *store.Store) {

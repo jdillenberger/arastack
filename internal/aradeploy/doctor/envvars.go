@@ -100,33 +100,45 @@ func (dc *DeploymentChecker) fixEnvVars(appName string, info *deploy.DeployedApp
 
 	for _, line := range strings.Split(content, "\n") {
 		trimmed := strings.TrimSpace(line)
-		// Match env var lines like "- KEY=value" or "KEY: value"
-		if strings.Contains(trimmed, primary) && strings.ContainsAny(trimmed, " ,") {
-			for _, d := range info.Routing.Domains[1:] {
-				if strings.Contains(line, d) {
-					continue
-				}
-				// Determine separator: space-separated or comma-separated.
-				// Insert the new domain/URL right after the primary occurrence.
-				scheme := ""
-				if strings.Contains(line, "https://"+primary) {
-					scheme = "https://"
-				} else if strings.Contains(line, "http://"+primary) {
-					scheme = "http://"
-				}
-
-				old := scheme + primary
-				addition := old
-				if strings.Contains(line, old+",") || strings.Contains(line, ","+old) {
-					addition = old + "," + scheme + d
-				} else if strings.Contains(line, old+" ") || strings.Contains(line, " "+old) {
-					addition = old + " " + scheme + d
-				} else {
-					addition = old + "," + scheme + d
-				}
-				line = strings.Replace(line, old, addition, 1)
-				changed = true
+		// Only patch YAML list env var lines (- KEY=value).
+		if !strings.HasPrefix(trimmed, "- ") || !strings.Contains(trimmed, "=") {
+			lines = append(lines, line)
+			continue
+		}
+		// Skip comment lines.
+		if strings.HasPrefix(strings.TrimSpace(strings.TrimPrefix(trimmed, "- ")), "#") {
+			lines = append(lines, line)
+			continue
+		}
+		// Skip if line doesn't contain the primary domain in a list context.
+		if !strings.Contains(trimmed, primary) || !strings.ContainsAny(trimmed, " ,") {
+			lines = append(lines, line)
+			continue
+		}
+		for _, d := range info.Routing.Domains[1:] {
+			if strings.Contains(line, d) {
+				continue // already present
 			}
+			// Determine separator: space-separated or comma-separated.
+			// Insert the new domain/URL right after the primary occurrence.
+			scheme := ""
+			if strings.Contains(line, "https://"+primary) {
+				scheme = "https://"
+			} else if strings.Contains(line, "http://"+primary) {
+				scheme = "http://"
+			}
+
+			old := scheme + primary
+			addition := old
+			if strings.Contains(line, old+",") || strings.Contains(line, ","+old) {
+				addition = old + "," + scheme + d
+			} else if strings.Contains(line, old+" ") || strings.Contains(line, " "+old) {
+				addition = old + " " + scheme + d
+			} else {
+				addition = old + "," + scheme + d
+			}
+			line = strings.Replace(line, old, addition, 1)
+			changed = true
 		}
 		lines = append(lines, line)
 	}

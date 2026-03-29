@@ -323,6 +323,21 @@ func (s *Store) MarkSeen(hostname, addr, version string) {
 	}
 }
 
+// UpdatePeerCACert updates the CA certificate for the given peer.
+func (s *Store) UpdatePeerCACert(hostname, caCert string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i, p := range s.state.Peers {
+		if p.Hostname == hostname {
+			if s.state.Peers[i].CACert != caCert {
+				s.state.Peers[i].CACert = caCert
+				s.dirty = true
+			}
+			return
+		}
+	}
+}
+
 // MarkOffline sets Online=false for the given peer.
 func (s *Store) MarkOffline(hostname string) {
 	s.mu.Lock()

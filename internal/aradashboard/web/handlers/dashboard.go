@@ -53,10 +53,7 @@ func (h *Handler) Dashboard(c echo.Context) error {
 	appsDir := h.ldc.AppsDir
 	deployed, _ := discovery.GetAllApps(appsDir)
 
-	requestHost := c.Request().Host
-	if idx := strings.LastIndex(requestHost, ":"); idx != -1 {
-		requestHost = requestHost[:idx]
-	}
+	requestHost := requestHostname(c)
 
 	var portalApps []PortalApp
 	for _, info := range deployed {
@@ -189,6 +186,7 @@ func (h *Handler) DashboardPeers(c echo.Context) error {
 		return c.HTML(http.StatusOK, "")
 	}
 
+	requestHost := requestHostname(c)
 	var peers []DashboardPeer
 	for _, p := range resp.Peers {
 		if p.Hostname == h.ldc.Hostname || p.Address == "" {
@@ -197,10 +195,6 @@ func (h *Handler) DashboardPeers(c echo.Context) error {
 		var apps []string
 		if appsTag, ok := p.Tags["apps"]; ok && appsTag != "" {
 			apps = strings.Split(appsTag, ",")
-		}
-		requestHost := c.Request().Host
-		if idx := strings.LastIndex(requestHost, ":"); idx != -1 {
-			requestHost = requestHost[:idx]
 		}
 		peers = append(peers, DashboardPeer{
 			Hostname: p.Hostname,

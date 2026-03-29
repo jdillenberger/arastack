@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"log/slog"
+	"net"
 	"path/filepath"
 	"strings"
 
@@ -90,14 +91,23 @@ func buildRegistry(ldc *config.AradeployYAML, runner *executil.Runner) (reg *tem
 	return reg, repoNames, repoURLs
 }
 
-func (h *Handler) basePage(c ...echo.Context) BasePage {
+// requestHostname extracts the hostname from the request's Host header,
+// correctly handling IPv6 addresses and port suffixes.
+func requestHostname(c echo.Context) string {
+	host := c.Request().Host
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		return h
+	}
+	return host
+}
+
+func (h *Handler) basePage(c echo.Context) BasePage {
 	domain := h.ldc.Network.Domain
-	if len(c) > 0 {
-		reqHost := c[0].Request().Host
-		if idx := strings.LastIndex(reqHost, ":"); idx != -1 {
-			reqHost = reqHost[:idx]
-		}
-		if strings.HasSuffix(reqHost, ".lan") {
+	reqHost := requestHostname(c)
+	if strings.HasSuffix(reqHost, ".lan") {
+		if strings.HasSuffix(domain, "local") {
+			domain = strings.TrimSuffix(domain, "local") + "lan"
+		} else {
 			domain = "lan"
 		}
 	}

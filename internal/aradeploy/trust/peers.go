@@ -1,7 +1,8 @@
 package trust
 
 import (
-	"context"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"log/slog"
@@ -96,10 +97,8 @@ func fetchDirectFromPeers(scannerDataDir string) []string {
 
 func fetchCA(client *http.Client, address string) (string, error) {
 	url := fmt.Sprintf("http://%s/api/ca", address)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return "", err
 	}
@@ -119,32 +118,57 @@ func fetchCA(client *http.Client, address string) (string, error) {
 		return "", err
 	}
 
-	pem := strings.TrimSpace(string(body))
-	if !strings.HasPrefix(pem, "-----BEGIN CERTIFICATE-----") {
+	pemStr := strings.TrimSpace(string(body))
+	if !strings.HasPrefix(pemStr, "-----BEGIN CERTIFICATE-----") {
 		return "", fmt.Errorf("invalid PEM response")
 	}
-	return pem, nil
+
+	block, _ := pem.Decode([]byte(pemStr))
+	if block == nil {
+		return "", fmt.Errorf("no PEM block found")
+	}
+	if _, err := x509.ParseCertificate(block.Bytes); err != nil {
+		return "", fmt.Errorf("invalid certificate: %w", err)
+	}
+
+	return pemStr, nil
 }
 
-func readPeerAddresses(dataDir string) []string {
+// peersFile mirrors the on-disk peers.yaml layout used by arascanner.
+type peersFile struct {
+	PeerGroup struct {
+		Secret string `yaml:"secret"`
+	} `yaml:"peer_group"`
+	Peers []struct {
+		Address string `yaml:"address"`
+		Port    int    `yaml:"port"`
+		CACert  string `yaml:"ca_cert"`
+	} `yaml:"peers"`
+}
+
+// readPeersFile reads and parses the peers.yaml file from dataDir.
+// Returns nil if the file cannot be read or parsed.
+func readPeersFile(dataDir string) *peersFile {
 	path := filepath.Join(dataDir, "peers.yaml")
 	data, err := os.ReadFile(path) // #nosec G304 -- path is constructed internally
 	if err != nil {
 		return nil
 	}
-
-	var state struct {
-		Peers []struct {
-			Address string `yaml:"address"`
-			Port    int    `yaml:"port"`
-		} `yaml:"peers"`
-	}
-	if err := yaml.Unmarshal(data, &state); err != nil {
+	var pf peersFile
+	if err := yaml.Unmarshal(data, &pf); err != nil {
+		slog.Debug("could not parse peers.yaml", "error", err)
 		return nil
 	}
+	return &pf
+}
 
+func readPeerAddresses(dataDir string) []string {
+	pf := readPeersFile(dataDir)
+	if pf == nil {
+		return nil
+	}
 	var addrs []string
-	for _, p := range state.Peers {
+	for _, p := range pf.Peers {
 		if p.Address != "" && p.Port > 0 {
 			addrs = append(addrs, fmt.Sprintf("%s:%d", p.Address, p.Port))
 		}
@@ -153,25 +177,12 @@ func readPeerAddresses(dataDir string) []string {
 }
 
 func fetchFromFile(scannerDataDir string) []string {
-	path := filepath.Join(scannerDataDir, "peers.yaml")
-	data, err := os.ReadFile(path) // #nosec G304 -- path is constructed internally
-	if err != nil {
-		slog.Debug("could not read peers.yaml for CA certs", "path", path, "error", err)
+	pf := readPeersFile(scannerDataDir)
+	if pf == nil {
 		return nil
 	}
-
-	var state struct {
-		Peers []struct {
-			CACert string `yaml:"ca_cert"`
-		} `yaml:"peers"`
-	}
-	if err := yaml.Unmarshal(data, &state); err != nil {
-		slog.Debug("could not parse peers.yaml", "error", err)
-		return nil
-	}
-
 	var certs []string
-	for _, p := range state.Peers {
+	for _, p := range pf.Peers {
 		if p.CACert != "" {
 			certs = append(certs, p.CACert)
 		}
@@ -180,18 +191,9 @@ func fetchFromFile(scannerDataDir string) []string {
 }
 
 func readPeerGroupSecret(dataDir string) string {
-	path := filepath.Join(dataDir, "peers.yaml")
-	data, err := os.ReadFile(path) // #nosec G304 -- path is constructed internally
-	if err != nil {
+	pf := readPeersFile(dataDir)
+	if pf == nil {
 		return ""
 	}
-	var state struct {
-		PeerGroup struct {
-			Secret string `yaml:"secret"`
-		} `yaml:"peer_group"`
-	}
-	if err := yaml.Unmarshal(data, &state); err != nil {
-		return ""
-	}
-	return state.PeerGroup.Secret
+	return pf.PeerGroup.Secret
 }

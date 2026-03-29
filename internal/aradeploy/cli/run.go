@@ -121,7 +121,11 @@ func syncTrustBundles(lastHash string) string {
 		return hash
 	}
 
-	slog.Info("peer CA certificates changed, regenerating trust bundles", "peer_cas", len(peerCAs))
+	if lastHash != "" {
+		slog.Info("peer CA certificates changed, updating trust bundles", "peer_cas", len(peerCAs))
+	} else {
+		slog.Debug("initial trust bundle sync", "peer_cas", len(peerCAs))
+	}
 
 	mgr := newServiceManager()
 	caCertPath := cfg.DataPath("traefik") + "/certs/ca.crt"
@@ -139,6 +143,5 @@ func syncTrustBundles(lastHash string) string {
 		}
 	}
 
-	slog.Info("trust bundles regenerated for all deployed apps", "apps", len(deployed))
 	return hash
 }

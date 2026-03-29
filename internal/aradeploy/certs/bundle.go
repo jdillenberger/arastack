@@ -1,6 +1,7 @@
 package certs
 
 import (
+	"bytes"
 	"fmt"
 	"log/slog"
 	"os"
@@ -40,5 +41,12 @@ func GenerateCABundle(localCACertPath string, peerCACerts []string, dataDir stri
 	}
 
 	bundlePath := filepath.Join(dataDir, "ca-bundle.crt")
+
+	// Only write if the content actually changed.
+	existing, err := os.ReadFile(bundlePath) // #nosec G304 -- path is constructed internally
+	if err == nil && bytes.Equal(existing, bundle) {
+		return nil
+	}
+
 	return os.WriteFile(bundlePath, bundle, 0o644) // #nosec G306 -- CA bundle is public; path is constructed internally
 }

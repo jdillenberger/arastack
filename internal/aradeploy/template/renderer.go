@@ -117,6 +117,7 @@ func (r *Renderer) renderString(tmplStr string, values map[string]string) (strin
 			return strings.ReplaceAll(s, "$", "$$")
 		},
 		"argon2Hash":  Argon2Hash,
+		"split":       strings.Split,
 	}
 
 	tmpl, err := template.New("").Option("missingkey=error").Funcs(funcMap).Parse(tmplStr)

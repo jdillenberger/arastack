@@ -64,7 +64,11 @@ func (dc *DeploymentChecker) checkLabels(appName string, info *deploy.DeployedAp
 		App:      appName,
 		Name:     "traefik labels",
 		Severity: SeverityWarn,
-		Detail:   fmt.Sprintf("missing in labels: %s (redeploy needed)", strings.Join(missing, ", ")),
+		Detail:   fmt.Sprintf("missing in labels: %s", strings.Join(missing, ", ")),
+		Fixable:  true,
+		FixFunc: func() error {
+			return dc.mgr.RegenerateCompose(appName)
+		},
 	}}
 }
 

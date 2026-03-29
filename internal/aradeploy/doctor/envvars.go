@@ -74,9 +74,74 @@ func (dc *DeploymentChecker) checkEnvVars(appName string, info *deploy.DeployedA
 		Detail:   strings.Join(issues, "; "),
 		Fixable:  true,
 		FixFunc: func() error {
-			return dc.mgr.RegenerateCompose(appName)
+			return dc.fixEnvVars(appName, info)
 		},
 	}}
+}
+
+// fixEnvVars additively patches env var values in the docker-compose.yml
+// to include missing routing domains, then recreates the container.
+// Only list-style env vars that already contain the primary domain are patched.
+func (dc *DeploymentChecker) fixEnvVars(appName string, info *deploy.DeployedApp) error {
+	composePath := filepath.Join(dc.mgr.Config().AppDir(appName), aradeployconfig.ComposeFileName)
+	data, err := os.ReadFile(composePath) // #nosec G304 -- path is constructed internally
+	if err != nil {
+		return err
+	}
+
+	if info.Routing == nil || len(info.Routing.Domains) < 2 {
+		return nil
+	}
+
+	primary := info.Routing.Domains[0]
+	content := string(data)
+	var lines []string
+	changed := false
+
+	for _, line := range strings.Split(content, "\n") {
+		trimmed := strings.TrimSpace(line)
+		// Match env var lines like "- KEY=value" or "KEY: value"
+		if strings.Contains(trimmed, primary) && strings.ContainsAny(trimmed, " ,") {
+			for _, d := range info.Routing.Domains[1:] {
+				if strings.Contains(line, d) {
+					continue
+				}
+				// Determine separator: space-separated or comma-separated.
+				// Insert the new domain/URL right after the primary occurrence.
+				scheme := ""
+				if strings.Contains(line, "https://"+primary) {
+					scheme = "https://"
+				} else if strings.Contains(line, "http://"+primary) {
+					scheme = "http://"
+				}
+
+				old := scheme + primary
+				addition := old
+				if strings.Contains(line, old+",") || strings.Contains(line, ","+old) {
+					addition = old + "," + scheme + d
+				} else if strings.Contains(line, old+" ") || strings.Contains(line, " "+old) {
+					addition = old + " " + scheme + d
+				} else {
+					addition = old + "," + scheme + d
+				}
+				line = strings.Replace(line, old, addition, 1)
+				changed = true
+			}
+		}
+		lines = append(lines, line)
+	}
+
+	if !changed {
+		return nil
+	}
+
+	if err := os.WriteFile(composePath, []byte(strings.Join(lines, "\n")), 0o600); err != nil {
+		return fmt.Errorf("writing compose file: %w", err)
+	}
+
+	// Recreate the container to pick up the new env vars.
+	_, err = dc.mgr.Compose().Up(dc.mgr.Config().AppDir(appName))
+	return err
 }
 
 // findMissingDomains checks if an env var value is a domain list that

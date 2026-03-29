@@ -67,9 +67,71 @@ func (dc *DeploymentChecker) checkLabels(appName string, info *deploy.DeployedAp
 		Detail:   fmt.Sprintf("missing in labels: %s", strings.Join(missing, ", ")),
 		Fixable:  true,
 		FixFunc: func() error {
-			return dc.mgr.RegenerateCompose(appName)
+			return dc.fixLabelsViaComposeLabels(appName, info, missing)
 		},
 	}}
+}
+
+// fixLabelsViaComposeLabels additively patches the docker-compose.yml
+// to add missing domains to existing Traefik Host() rules, then recreates
+// the container. Only Traefik label lines are modified — all other content
+// including user-added env vars, volumes, etc. is preserved.
+func (dc *DeploymentChecker) fixLabelsViaComposeLabels(appName string, info *deploy.DeployedApp, missing []string) error {
+	composePath := filepath.Join(dc.mgr.Config().AppDir(appName), aradeployconfig.ComposeFileName)
+	data, err := os.ReadFile(composePath) // #nosec G304 -- path is constructed internally
+	if err != nil {
+		return err
+	}
+
+	content := string(data)
+
+	// Build additional Host() clauses.
+	var extraParts []string
+	for _, d := range missing {
+		extraParts = append(extraParts, fmt.Sprintf("Host(`%s`)", d))
+	}
+	extra := " || " + strings.Join(extraParts, " || ")
+
+	// Find all Traefik router rule lines and append missing hosts.
+	// This is a line-level text operation that preserves all other content.
+	var lines []string
+	changed := false
+	for _, line := range strings.Split(content, "\n") {
+		if (strings.Contains(line, ".rule=") || strings.Contains(line, ".rule:")) && strings.Contains(line, "Host(") {
+			// Only patch if this rule doesn't already contain all missing domains.
+			needsPatch := false
+			for _, d := range missing {
+				if !strings.Contains(line, d) {
+					needsPatch = true
+					break
+				}
+			}
+			if needsPatch {
+				// Insert extra hosts before the closing quote/bracket.
+				// Handle both label formats: "key=value" and key: "value"
+				if idx := strings.LastIndex(line, "\""); idx > 0 && strings.Contains(line[:idx], "Host(") {
+					line = line[:idx] + extra + line[idx:]
+					changed = true
+				} else if idx := strings.LastIndex(line, "'"); idx > 0 && strings.Contains(line[:idx], "Host(") {
+					line = line[:idx] + extra + line[idx:]
+					changed = true
+				}
+			}
+		}
+		lines = append(lines, line)
+	}
+
+	if !changed {
+		return fmt.Errorf("could not patch labels in compose file")
+	}
+
+	if err := os.WriteFile(composePath, []byte(strings.Join(lines, "\n")), 0o600); err != nil {
+		return fmt.Errorf("writing compose file: %w", err)
+	}
+
+	// Recreate the container to pick up new labels.
+	_, err = dc.mgr.Compose().Up(dc.mgr.Config().AppDir(appName))
+	return err
 }
 
 // extractDomainsFromCompose parses a docker-compose YAML and extracts

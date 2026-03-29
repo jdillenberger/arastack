@@ -39,6 +39,7 @@ func (srv *Server) Start(port int) error {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /api/health", srv.handleHealth)
+	mux.HandleFunc("GET /api/ca", srv.handleGetCA) // public — CA certs are not secrets
 	mux.HandleFunc("GET /api/peers", srv.withAuth(srv.handleGetPeers))
 	mux.HandleFunc("GET /api/peers/events", srv.withAuth(srv.handlePeerEvents))
 	mux.HandleFunc("POST /api/join", srv.handleJoin) // no withAuth — handler validates invite token

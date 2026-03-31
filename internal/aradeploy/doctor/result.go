@@ -36,11 +36,11 @@ func AllCategories() []Category {
 
 // DeployCheckResult holds the result of a single deployment consistency check.
 type DeployCheckResult struct {
-	Category Category `json:"category"`
-	App      string   `json:"app,omitempty"`
-	Name     string   `json:"name"`
-	Severity Severity `json:"severity"`
-	Detail   string   `json:"detail,omitempty"`
-	Fixable  bool     `json:"fixable,omitempty"`
+	Category Category     `json:"category"`
+	App      string       `json:"app,omitempty"`
+	Name     string       `json:"name"`
+	Severity Severity     `json:"severity"`
+	Detail   string       `json:"detail,omitempty"`
+	Fixable  bool         `json:"fixable,omitempty"`
 	FixFunc  func() error `json:"-"`
 }

@@ -133,7 +133,7 @@ func (dc *DeploymentChecker) fixLabelsViaComposeLabels(appName string, info *dep
 		return fmt.Errorf("could not patch labels in compose file")
 	}
 
-	if err := os.WriteFile(composePath, []byte(strings.Join(lines, "\n")), 0o600); err != nil {
+	if err := os.WriteFile(composePath, []byte(strings.Join(lines, "\n")), 0o600); err != nil { // #nosec G703 -- path is constructed internally
 		return fmt.Errorf("writing compose file: %w", err)
 	}
 

@@ -129,12 +129,13 @@ func (dc *DeploymentChecker) fixEnvVars(appName string, info *deploy.DeployedApp
 			}
 
 			old := scheme + primary
-			addition := old
-			if strings.Contains(line, old+",") || strings.Contains(line, ","+old) {
+			var addition string
+			switch {
+			case strings.Contains(line, old+",") || strings.Contains(line, ","+old):
 				addition = old + "," + scheme + d
-			} else if strings.Contains(line, old+" ") || strings.Contains(line, " "+old) {
+			case strings.Contains(line, old+" ") || strings.Contains(line, " "+old):
 				addition = old + " " + scheme + d
-			} else {
+			default:
 				addition = old + "," + scheme + d
 			}
 			line = strings.Replace(line, old, addition, 1)
@@ -147,7 +148,7 @@ func (dc *DeploymentChecker) fixEnvVars(appName string, info *deploy.DeployedApp
 		return nil
 	}
 
-	if err := os.WriteFile(composePath, []byte(strings.Join(lines, "\n")), 0o600); err != nil {
+	if err := os.WriteFile(composePath, []byte(strings.Join(lines, "\n")), 0o600); err != nil { // #nosec G703 -- path is constructed internally
 		return fmt.Errorf("writing compose file: %w", err)
 	}
 

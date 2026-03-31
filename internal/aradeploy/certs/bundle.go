@@ -48,5 +48,5 @@ func GenerateCABundle(localCACertPath string, peerCACerts []string, dataDir stri
 		return nil
 	}
 
-	return os.WriteFile(bundlePath, bundle, 0o644) // #nosec G306 -- CA bundle is public; path is constructed internally
+	return os.WriteFile(bundlePath, bundle, 0o644) // #nosec G306,G703 -- CA bundle is public; path is constructed internally
 }

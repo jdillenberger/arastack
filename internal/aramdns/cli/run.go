@@ -185,7 +185,6 @@ var runCmd = &cobra.Command{
 					}
 				}
 
-
 				// Discover peer domains via _aramdns._tcp mDNS browse.
 				peerEntries, err := peer.Browse(ctx, localIP)
 				if err != nil && !errors.Is(err, peer.ErrAvahiBrowseNotFound) {

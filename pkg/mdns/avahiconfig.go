@@ -6,9 +6,9 @@ import (
 )
 
 var (
-	allowIfacesRe      = regexp.MustCompile(`(?m)^#?\s*allow-interfaces\s*=.*$`)
-	allowP2PRe         = regexp.MustCompile(`(?m)^#?\s*allow-point-to-point\s*=.*$`)
-	enableReflectorRe  = regexp.MustCompile(`(?m)^#?\s*enable-reflector\s*=.*$`)
+	allowIfacesRe     = regexp.MustCompile(`(?m)^#?\s*allow-interfaces\s*=.*$`)
+	allowP2PRe        = regexp.MustCompile(`(?m)^#?\s*allow-point-to-point\s*=.*$`)
+	enableReflectorRe = regexp.MustCompile(`(?m)^#?\s*enable-reflector\s*=.*$`)
 )
 
 // BuildAvahiConfig applies the desired interface list and reflector setting to

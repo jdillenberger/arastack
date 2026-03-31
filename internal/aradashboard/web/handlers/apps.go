@@ -129,16 +129,17 @@ func (h *Handler) buildAppAddresses(info *discovery.DeployedApp) []AppAddress {
 				Display:       domain,
 				TraefikActive: traefikDomains[domain],
 			}
-			if strings.HasSuffix(domain, ".local") {
+			switch {
+			case strings.HasSuffix(domain, ".local"):
 				addr.Type = "Local Domain"
 				if checkMDNS(domain) {
 					addr.MDNSStatus = "resolved"
 				} else {
 					addr.MDNSStatus = "not resolved"
 				}
-			} else if strings.HasSuffix(domain, ".lan") {
+			case strings.HasSuffix(domain, ".lan"):
 				addr.Type = "Local Domain"
-			} else {
+			default:
 				addr.Type = "Domain"
 			}
 			addrs = append(addrs, addr)

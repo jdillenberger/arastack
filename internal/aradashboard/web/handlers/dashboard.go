@@ -86,10 +86,8 @@ func (h *Handler) Dashboard(c echo.Context) error {
 					if preferLAN && strings.HasSuffix(domain, ".lan") {
 						pa.LocalURL = url
 					}
-				} else {
-					if pa.DomainURL == "" {
-						pa.DomainURL = url
-					}
+				} else if pa.DomainURL == "" {
+					pa.DomainURL = url
 				}
 			}
 		}

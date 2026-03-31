@@ -85,12 +85,12 @@ func fetchDirectFromPeers(scannerDataDir string) []string {
 	httpClient := &http.Client{Timeout: 5 * time.Second}
 	var certs []string
 	for _, addr := range peers {
-		pem, err := fetchCA(httpClient, addr)
+		pemData, err := fetchCA(httpClient, addr)
 		if err != nil {
 			slog.Debug("could not fetch CA from peer", "address", addr, "error", err)
 			continue
 		}
-		certs = append(certs, pem)
+		certs = append(certs, pemData)
 	}
 	return certs
 }
@@ -98,7 +98,7 @@ func fetchDirectFromPeers(scannerDataDir string) []string {
 func fetchCA(client *http.Client, address string) (string, error) {
 	url := fmt.Sprintf("http://%s/api/ca", address)
 
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest("GET", url, http.NoBody)
 	if err != nil {
 		return "", err
 	}
@@ -107,7 +107,7 @@ func fetchCA(client *http.Client, address string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close() //nolint:errcheck
+	defer resp.Body.Close() //nolint:errcheck // best-effort close on HTTP response body
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("status %d", resp.StatusCode)

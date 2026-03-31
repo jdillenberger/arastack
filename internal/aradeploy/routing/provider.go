@@ -80,7 +80,7 @@ func ComputeRouting(hostname, networkDomain, routingDomain string, httpsEnabled 
 // SortDomainsByPriority reorders domains so that domains matching earlier
 // entries in the priority list come first. Domains that don't match any
 // priority suffix keep their relative order at the end.
-func SortDomainsByPriority(domains []string, priority []string) []string {
+func SortDomainsByPriority(domains, priority []string) []string {
 	if len(priority) == 0 || len(domains) <= 1 {
 		return domains
 	}

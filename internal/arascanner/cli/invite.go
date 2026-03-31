@@ -117,7 +117,7 @@ func createInviteViaAPI(port int, psk string, ttl time.Duration) (token string, 
 	}{TTLSeconds: int(ttl.Seconds())})
 
 	url := fmt.Sprintf("http://127.0.0.1:%d/api/invites", port)
-	req, err := http.NewRequest("POST", url, bytes.NewReader(reqBody))
+	req, err := http.NewRequestWithContext(context.Background(), "POST", url, bytes.NewReader(reqBody))
 	if err != nil {
 		return "", time.Time{}, err
 	}

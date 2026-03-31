@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -162,9 +163,12 @@ var joinCmd = &cobra.Command{
 
 		// Notify running daemon to reload store from disk.
 		reloadURL := fmt.Sprintf("http://127.0.0.1:%d/api/reload", cfg.Server.Port)
-		resp, err = http.Post(reloadURL, "", nil) //nolint:gosec // loopback only
-		if err == nil {
-			resp.Body.Close() //nolint:errcheck // best-effort notification
+		reloadReq, reqErr := http.NewRequestWithContext(context.Background(), "POST", reloadURL, nil)
+		if reqErr == nil {
+			resp, err = http.DefaultClient.Do(reloadReq) //nolint:gosec // loopback only
+		}
+		if err == nil && resp != nil {
+			_ = resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
 				slog.Info("notified running daemon to reload store")
 			}

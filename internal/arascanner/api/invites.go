@@ -50,5 +50,5 @@ func (srv *Server) handleCreateInvite(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp) //nolint:errcheck // best-effort response
+	_ = json.NewEncoder(w).Encode(resp)
 }

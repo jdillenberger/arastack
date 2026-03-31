@@ -69,7 +69,9 @@ var StandardValues = map[string]string{
 	"timezone":            "UTC",
 	"routing_base_domain": "lint-host.example.com",
 	"routing_domain":      "lint-app.example.com",
+	"routing_domains":     "lint-app.example.com lint-app.example.lan",
 	"routing_url":         "https://lint-app.example.com",
+	"routing_urls":        "https://lint-app.example.com,https://lint-app.example.lan",
 	"https_enabled":       "true",
 	"ca_cert_path":        "/etc/ssl/certs/ca.crt",
 }

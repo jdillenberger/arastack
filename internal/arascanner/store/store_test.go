@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jdillenberger/arastack/internal/arascanner/peer"
+	"gopkg.in/yaml.v3"
 )
 
 func tempStore(t *testing.T) *Store {
@@ -590,5 +591,100 @@ func TestCleanStalePeers_EmitsLeftEvents(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for left PeerEvent from CleanStalePeers")
+	}
+}
+
+func TestReload_MergesFromDisk(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create initial store with known state.
+	s := New(dir)
+	if err := s.Load(); err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	// Set up in-memory state.
+	s.SetPeerGroup(peer.PeerGroup{Name: "original", Secret: "old-secret"})
+	s.AddInvite(peer.PendingInvite{Token: "mem-invite", Expires: time.Now().Add(time.Hour)})
+	s.Upsert(peer.Peer{
+		Hostname: "mem-peer",
+		Address:  "10.0.0.1",
+		Port:     7120,
+		Source:   peer.SourceMDNS,
+		LastSeen: time.Now(),
+	})
+
+	memSelf := s.Self()
+
+	// Save to disk, then modify the on-disk file to simulate CLI changes.
+	if err := s.Save(); err != nil {
+		t.Fatalf("Save() error: %v", err)
+	}
+
+	// Write a modified peers.yaml to disk with updated secret, new invite, and new peer.
+	diskState := persistedState{
+		PeerGroup: peer.PeerGroup{Name: "updated-group", Secret: "new-secret"},
+		Self:      peer.Peer{Hostname: "disk-self", Address: "10.0.0.99"},
+		Peers: []peer.Peer{
+			{Hostname: "disk-peer", Address: "10.0.0.2", Port: 7120, Source: peer.SourceInvite},
+		},
+		Invites: []peer.PendingInvite{
+			{Token: "disk-invite", Expires: time.Now().Add(time.Hour)},
+			{Token: "mem-invite", Expires: time.Now().Add(time.Hour)}, // duplicate
+		},
+	}
+	data, err := yaml.Marshal(&diskState)
+	if err != nil {
+		t.Fatalf("marshal error: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, yamlFile), data, 0o600); err != nil {
+		t.Fatalf("write error: %v", err)
+	}
+
+	// Reload.
+	if err := s.Reload(); err != nil {
+		t.Fatalf("Reload() error: %v", err)
+	}
+
+	// PeerGroup should be updated from disk.
+	pg := s.PeerGroup()
+	if pg.Name != "updated-group" {
+		t.Errorf("PeerGroup.Name = %q, want %q", pg.Name, "updated-group")
+	}
+	if pg.Secret != "new-secret" {
+		t.Errorf("PeerGroup.Secret = %q, want %q", pg.Secret, "new-secret")
+	}
+
+	// Self should be preserved from memory.
+	self := s.Self()
+	if self.Hostname != memSelf.Hostname {
+		t.Errorf("Self.Hostname = %q, want %q (preserved from memory)", self.Hostname, memSelf.Hostname)
+	}
+
+	// In-memory peer should still exist.
+	if _, ok := s.Get("mem-peer"); !ok {
+		t.Error("in-memory peer 'mem-peer' should be preserved after Reload")
+	}
+
+	// Disk peer should be merged in.
+	if _, ok := s.Get("disk-peer"); !ok {
+		t.Error("disk peer 'disk-peer' should be added after Reload")
+	}
+
+	// Invites: mem-invite should exist once, disk-invite should be added.
+	s.mu.RLock()
+	invites := s.state.Invites
+	s.mu.RUnlock()
+
+	tokenCounts := make(map[string]int)
+	for _, inv := range invites {
+		tokenCounts[inv.Token]++
+	}
+
+	if tokenCounts["mem-invite"] != 1 {
+		t.Errorf("mem-invite count = %d, want 1 (no duplicates)", tokenCounts["mem-invite"])
+	}
+	if tokenCounts["disk-invite"] != 1 {
+		t.Errorf("disk-invite count = %d, want 1", tokenCounts["disk-invite"])
 	}
 }

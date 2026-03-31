@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
@@ -8,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"time"
@@ -33,7 +35,7 @@ var inviteCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ttl, _ := cmd.Flags().GetDuration("ttl")
 
-		// Load the local store directly (works without daemon).
+		// Load the local store to get PSK and peer group info.
 		st := store.New(cfg.Server.DataDir)
 		if err := st.Load(); err != nil {
 			return fmt.Errorf("loading store: %w", err)
@@ -41,23 +43,30 @@ var inviteCmd = &cobra.Command{
 
 		pg := st.PeerGroup()
 
-		// Generate a random 32-byte one-time token.
-		tokenBytes := make([]byte, 32)
-		if _, err := rand.Read(tokenBytes); err != nil {
-			return fmt.Errorf("generating invite token: %w", err)
-		}
-		oneTimeToken := hex.EncodeToString(tokenBytes)
-		expires := time.Now().Add(ttl)
+		var oneTimeToken string
+		var expires time.Time
 
-		// Store the pending invite so the server can validate it later.
-		st.AddInvite(peer.PendingInvite{
-			Token:   oneTimeToken,
-			Expires: expires,
-		})
+		// Try the daemon API first so the invite is registered in-memory.
+		if token, exp, err := createInviteViaAPI(cfg.Server.Port, pg.Secret, ttl); err == nil {
+			oneTimeToken = token
+			expires = exp
+		} else {
+			// Fallback: generate locally and write to disk directly.
+			tokenBytes := make([]byte, 32)
+			if _, err := rand.Read(tokenBytes); err != nil {
+				return fmt.Errorf("generating invite token: %w", err)
+			}
+			oneTimeToken = hex.EncodeToString(tokenBytes)
+			expires = time.Now().Add(ttl)
 
-		// Save the store (persists invite + any freshly initialised PSK).
-		if err := st.Save(); err != nil {
-			return fmt.Errorf("saving store: %w", err)
+			st.AddInvite(peer.PendingInvite{
+				Token:   oneTimeToken,
+				Expires: expires,
+			})
+
+			if err := st.Save(); err != nil {
+				return fmt.Errorf("saving store: %w", err)
+			}
 		}
 
 		// Detect local IP.
@@ -99,6 +108,43 @@ var inviteCmd = &cobra.Command{
 
 		return nil
 	},
+}
+
+// createInviteViaAPI tries to create an invite through the running daemon's API.
+func createInviteViaAPI(port int, psk string, ttl time.Duration) (token string, expires time.Time, err error) {
+	reqBody, _ := json.Marshal(struct {
+		TTLSeconds int `json:"ttl_seconds"`
+	}{TTLSeconds: int(ttl.Seconds())})
+
+	url := fmt.Sprintf("http://127.0.0.1:%d/api/invites", port)
+	req, err := http.NewRequest("POST", url, bytes.NewReader(reqBody))
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if psk != "" {
+		req.Header.Set("Authorization", "Bearer "+psk)
+	}
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	defer resp.Body.Close() //nolint:errcheck // read-only body
+
+	if resp.StatusCode != http.StatusOK {
+		return "", time.Time{}, fmt.Errorf("API returned status %d", resp.StatusCode)
+	}
+
+	var result struct {
+		Token   string    `json:"token"`
+		Expires time.Time `json:"expires"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", time.Time{}, err
+	}
+	return result.Token, result.Expires, nil
 }
 
 func detectLocalIP() (string, error) {

@@ -467,6 +467,63 @@ func (s *Store) CleanExpiredInvites() {
 	}
 }
 
+// Reload re-reads peers.yaml from disk and merges changes into the running
+// in-memory state. PeerGroup is updated unconditionally from disk. Invites
+// and Peers from disk are merged (new entries added, existing kept). Self is
+// preserved from memory since the daemon has authoritative self info.
+func (s *Store) Reload() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	data, err := os.ReadFile(s.path) // #nosec G304
+	if err != nil {
+		return fmt.Errorf("reading %s: %w", s.path, err)
+	}
+
+	var disk persistedState
+	if err := yaml.Unmarshal(data, &disk); err != nil {
+		return fmt.Errorf("parsing %s: %w", s.path, err)
+	}
+
+	// Migrate legacy "fleet:" key.
+	if disk.Fleet != nil {
+		if disk.PeerGroup.Name == "" && disk.PeerGroup.Secret == "" {
+			disk.PeerGroup = *disk.Fleet
+		}
+		disk.Fleet = nil
+	}
+
+	// PeerGroup: always take from disk.
+	s.state.PeerGroup = disk.PeerGroup
+
+	// Invites: merge from disk (add any not already in memory, dedupe by Token).
+	existingTokens := make(map[string]struct{}, len(s.state.Invites))
+	for _, inv := range s.state.Invites {
+		existingTokens[inv.Token] = struct{}{}
+	}
+	for _, inv := range disk.Invites {
+		if _, exists := existingTokens[inv.Token]; !exists {
+			s.state.Invites = append(s.state.Invites, inv)
+		}
+	}
+
+	// Peers: add new peers from disk, keep existing in-memory peers as-is.
+	existingPeers := make(map[string]struct{}, len(s.state.Peers))
+	for _, p := range s.state.Peers {
+		existingPeers[p.Hostname] = struct{}{}
+	}
+	for _, p := range disk.Peers {
+		if _, exists := existingPeers[p.Hostname]; !exists {
+			s.state.Peers = append(s.state.Peers, p)
+		}
+	}
+
+	// Self: keep from memory (daemon is authoritative).
+
+	s.dirty = true
+	return nil
+}
+
 // defaultState returns the initial persisted state used when no file exists.
 func defaultState() persistedState {
 	hn, _ := os.Hostname()

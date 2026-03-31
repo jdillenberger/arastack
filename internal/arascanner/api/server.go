@@ -44,6 +44,8 @@ func (srv *Server) Start(port int) error {
 	mux.HandleFunc("GET /api/peers/events", srv.withAuth(srv.handlePeerEvents))
 	mux.HandleFunc("POST /api/join", srv.handleJoin) // no withAuth — handler validates invite token
 	mux.HandleFunc("POST /api/heartbeat", srv.withAuth(srv.handleHeartbeat))
+	mux.HandleFunc("POST /api/reload", srv.handleReload)
+	mux.HandleFunc("POST /api/invites", srv.withAuth(srv.handleCreateInvite))
 
 	srv.startTime = unixNow()
 	srv.httpServer = &http.Server{

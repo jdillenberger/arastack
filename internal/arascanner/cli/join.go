@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -157,6 +158,16 @@ var joinCmd = &cobra.Command{
 
 		if err := st.Save(); err != nil {
 			return fmt.Errorf("saving store: %w", err)
+		}
+
+		// Notify running daemon to reload store from disk.
+		reloadURL := fmt.Sprintf("http://127.0.0.1:%d/api/reload", cfg.Server.Port)
+		resp, err = http.Post(reloadURL, "", nil) //nolint:gosec // loopback only
+		if err == nil {
+			resp.Body.Close() //nolint:errcheck // best-effort notification
+			if resp.StatusCode == http.StatusOK {
+				slog.Info("notified running daemon to reload store")
+			}
 		}
 
 		fmt.Printf("Joined peer group %q via %s.\n", joinResp.PeerGroup.Name, joinResp.Hostname)

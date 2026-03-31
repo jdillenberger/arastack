@@ -163,7 +163,7 @@ var joinCmd = &cobra.Command{
 
 		// Notify running daemon to reload store from disk.
 		reloadURL := fmt.Sprintf("http://127.0.0.1:%d/api/reload", cfg.Server.Port)
-		reloadReq, reqErr := http.NewRequestWithContext(context.Background(), "POST", reloadURL, nil)
+		reloadReq, reqErr := http.NewRequestWithContext(context.Background(), "POST", reloadURL, http.NoBody)
 		if reqErr == nil {
 			resp, err = http.DefaultClient.Do(reloadReq) //nolint:gosec // loopback only
 		}

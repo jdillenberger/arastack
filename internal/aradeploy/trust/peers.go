@@ -1,6 +1,7 @@
 package trust
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -98,7 +99,7 @@ func fetchDirectFromPeers(scannerDataDir string) []string {
 func fetchCA(client *http.Client, address string) (string, error) {
 	url := fmt.Sprintf("http://%s/api/ca", address)
 
-	req, err := http.NewRequest("GET", url, http.NoBody)
+	req, err := http.NewRequestWithContext(context.Background(), "GET", url, http.NoBody)
 	if err != nil {
 		return "", err
 	}

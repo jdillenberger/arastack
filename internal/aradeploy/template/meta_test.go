@@ -1,8 +1,8 @@
 package template
 
 import (
-	"testing"
 	"gopkg.in/yaml.v3"
+	"testing"
 )
 
 func TestAppMetaRoutingParsing(t *testing.T) {

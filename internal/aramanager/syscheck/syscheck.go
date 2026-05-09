@@ -69,16 +69,9 @@ func Fix(r doctor.CheckResult) error {
 	case r.Name == "arastack-group":
 		return sudoRun("groupadd", groupName)
 	case r.Name == "user-in-group":
-		username := os.Getenv("SUDO_USER")
-		if username == "" {
-			username = os.Getenv("USER")
-		}
-		if username == "" || username == "root" {
-			u, err := user.Current()
-			if err != nil {
-				return fmt.Errorf("cannot determine current user: %w", err)
-			}
-			username = u.Username
+		username, err := targetUsername()
+		if err != nil {
+			return fmt.Errorf("cannot determine target user: %w", err)
 		}
 		return sudoRun("usermod", "-aG", groupName, username)
 	case strings.HasPrefix(r.Name, "dir:"):
@@ -156,8 +149,29 @@ func checkDir(d dirSpec) doctor.CheckResult {
 	return doctor.CheckResult{Name: name, Installed: true, Version: fmt.Sprintf("%04o root:%s", rawMode, groupName)}
 }
 
-func userInGroup(gid string) bool {
+// targetUsername returns the user that should be a member of the arastack
+// group. When invoked under sudo, this is SUDO_USER (the human invoker), not
+// the effective root user. Falls back to $USER, then to the current user.
+func targetUsername() (string, error) {
+	if u := os.Getenv("SUDO_USER"); u != "" && u != "root" {
+		return u, nil
+	}
+	if u := os.Getenv("USER"); u != "" && u != "root" {
+		return u, nil
+	}
 	u, err := user.Current()
+	if err != nil {
+		return "", err
+	}
+	return u.Username, nil
+}
+
+func userInGroup(gid string) bool {
+	username, err := targetUsername()
+	if err != nil {
+		return false
+	}
+	u, err := user.Lookup(username)
 	if err != nil {
 		return false
 	}
@@ -185,7 +199,7 @@ func userInGroup(gid string) bool {
 		}
 		members := strings.Split(parts[3], ",")
 		for _, m := range members {
-			if m == u.Username {
+			if m == username {
 				return true
 			}
 		}

@@ -25,7 +25,7 @@ import (
 
 func newManager() (*deploy.Manager, error) {
 	runner := &executil.Runner{}
-	repoMgr := repo.NewManager(cfg.ReposDir(), cfg.ManifestPath(), runner)
+	repoMgr := repo.NewManager(cfg.ReposDir, cfg.ManifestPath(), runner)
 	if err := repoMgr.EnsureDefaults(); err != nil {
 		return nil, fmt.Errorf("ensuring default repos: %w", err)
 	}

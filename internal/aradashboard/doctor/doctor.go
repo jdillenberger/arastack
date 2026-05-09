@@ -8,7 +8,9 @@ import (
 	"os/exec"
 	"os/user"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/jdillenberger/arastack/internal/aradashboard/config"
@@ -134,9 +136,45 @@ func checkReposDir(name, path string) doctor.CheckResult {
 		result.Version = fmt.Sprintf("%s (empty — run: aradeploy repos add <url>)", path)
 		return result
 	}
+	// When invoked via sudo, verify that the configured user (SUDO_USER)
+	// actually owns the .aradeploy/ tree. The aradeploy and aradashboard
+	// daemons run as root and may have populated it, leaving root-owned
+	// files in a non-root user's home — which then cannot be read by the
+	// user when they invoke aradeploy directly.
+	if uid, _, ok := realUserUIDGID(); ok {
+		parent := filepath.Dir(path)
+		if badPath, isBad := findRootOwnedEntry(parent, uid); isBad {
+			result.Version = fmt.Sprintf("%s (owned by uid≠%d at %s — run --fix to chown)", path, uid, badPath)
+			return result
+		}
+	}
 	result.Installed = true
 	result.Version = fmt.Sprintf("%s (%d repo(s))", path, count)
 	return result
+}
+
+// findRootOwnedEntry walks root and returns the first path whose owning uid
+// differs from wantUID. Returns ok=false if all entries match.
+func findRootOwnedEntry(root string, wantUID int) (string, bool) {
+	var bad string
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		st, ok := info.Sys().(*syscall.Stat_t)
+		if !ok {
+			return nil
+		}
+		if int(st.Uid) != wantUID {
+			bad = path
+			return filepath.SkipAll
+		}
+		return nil
+	})
+	if err != nil || bad == "" {
+		return "", false
+	}
+	return bad, true
 }
 
 // Fix attempts to fix a failing check.
@@ -184,19 +222,58 @@ func fixAradeployConfig(cfg config.Config) error {
 	return nil
 }
 
-// fixTemplateRepos clones the default template repo using aradeploy.
+// fixTemplateRepos clones the default template repo using aradeploy when the
+// repos directory is empty. When invoked via sudo, it also chowns the
+// .aradeploy/ tree back to SUDO_USER so the clone, manifest, and parent
+// directory are usable without sudo (the daemons run as root and may have
+// populated the tree, leaving it root-owned).
 func fixTemplateRepos(cfg config.Config) error {
-	aradeploy, err := exec.LookPath("aradeploy")
+	ldc, err := config.ReadAradeployConfig(cfg.Aradeploy.Config)
 	if err != nil {
-		return fmt.Errorf("aradeploy not found in PATH")
+		return fmt.Errorf("reading aradeploy config: %w", err)
 	}
-	cmd := exec.CommandContext(context.Background(), aradeploy, "repos", "add", "https://github.com/jdillenberger/arastack-templates.git") // #nosec G204 -- trusted binary and URL
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("cloning default template repo: %w", err)
+	if ldc.ReposDir == "" {
+		return fmt.Errorf("repos_dir is not configured")
 	}
+
+	if isReposDirEmpty(ldc.ReposDir) {
+		aradeploy, err := exec.LookPath("aradeploy")
+		if err != nil {
+			return fmt.Errorf("aradeploy not found in PATH")
+		}
+		cmd := exec.CommandContext(context.Background(), aradeploy, "repos", "add", "https://github.com/jdillenberger/arastack-templates.git") // #nosec G204 -- trusted binary and URL
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("cloning default template repo: %w", err)
+		}
+	}
+
+	uid, gid, ok := realUserUIDGID()
+	if !ok {
+		return nil
+	}
+	parent := filepath.Dir(ldc.ReposDir)
+	if err := chownRecursive(parent, uid, gid); err != nil {
+		return fmt.Errorf("chown %s to uid=%d gid=%d: %w", parent, uid, gid, err)
+	}
+	fmt.Printf("    Chowned %s to %d:%d\n", parent, uid, gid)
 	return nil
+}
+
+// isReposDirEmpty returns true if path does not exist, is not a directory, or
+// contains no repo subdirectories.
+func isReposDirEmpty(path string) bool {
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return true
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			return false
+		}
+	}
+	return true
 }
 
 // realUserHome returns the home directory of the real (non-root) user.
@@ -210,6 +287,39 @@ func realUserHome() string {
 		return home
 	}
 	return ""
+}
+
+// realUserUIDGID returns the SUDO_USER's uid/gid. Returns ok=false when not
+// running under sudo or the lookup fails.
+func realUserUIDGID() (uid, gid int, ok bool) {
+	username := os.Getenv("SUDO_USER")
+	if username == "" {
+		return 0, 0, false
+	}
+	u, err := user.Lookup(username)
+	if err != nil {
+		return 0, 0, false
+	}
+	uidVal, err := strconv.Atoi(u.Uid)
+	if err != nil {
+		return 0, 0, false
+	}
+	gidVal, err := strconv.Atoi(u.Gid)
+	if err != nil {
+		return 0, 0, false
+	}
+	return uidVal, gidVal, true
+}
+
+func chownRecursive(root string, uid, gid int) error {
+	return filepath.Walk(root, func(path string, _ os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		// Lchown does not follow symlinks; path is from a trusted root
+		// (configured ReposDir parent) populated by aradeploy itself.
+		return os.Lchown(path, uid, gid) // #nosec G122 -- trusted root, Lchown does not follow symlinks
+	})
 }
 
 func checkHTTP(name, url string, optional bool) doctor.CheckResult {

@@ -22,12 +22,22 @@ func DefaultTemplatesDir() string {
 	return filepath.Join(home, ".aradeploy", "templates")
 }
 
+// DefaultReposDir returns the default template repos directory.
+func DefaultReposDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".aradeploy", "repos")
+}
+
 // Config holds the aradeploy configuration.
 type Config struct {
 	Hostname     string `yaml:"hostname"`
 	AppsDir      string `yaml:"apps_dir"`
 	DataDir      string `yaml:"data_dir"`
 	CodeDir      string `yaml:"code_dir"`
+	ReposDir     string `yaml:"repos_dir"`
 	TemplatesDir string `yaml:"templates_dir"`
 
 	Network  NetworkConfig `yaml:"network"`
@@ -83,6 +93,7 @@ func DefaultConfig() *Config {
 		AppsDir:      "/opt/aradeploy/apps",
 		DataDir:      "/opt/aradeploy/data",
 		CodeDir:      "/opt/aradeploy/code",
+		ReposDir:     DefaultReposDir(),
 		TemplatesDir: DefaultTemplatesDir(),
 		Network: NetworkConfig{
 			Domain:  "local",
@@ -195,22 +206,13 @@ func Validate(c *Config) []string {
 	return errs
 }
 
-// ReposDir returns the directory where template repos are cloned.
-func (c *Config) ReposDir() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ""
-	}
-	return filepath.Join(home, ".aradeploy", "repos")
-}
-
-// ManifestPath returns the path to the repos manifest file.
+// ManifestPath returns the path to the repos manifest file. The manifest lives
+// alongside the repos directory (e.g. <home>/.aradeploy/repos.yaml).
 func (c *Config) ManifestPath() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
+	if c.ReposDir == "" {
 		return ""
 	}
-	return filepath.Join(home, ".aradeploy", "repos.yaml")
+	return filepath.Join(filepath.Dir(c.ReposDir), "repos.yaml")
 }
 
 // RoutingDomain returns the effective routing domain.

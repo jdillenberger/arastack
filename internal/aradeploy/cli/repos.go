@@ -34,7 +34,7 @@ var reposAddCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		runner := &executil.Runner{}
-		mgr := repo.NewManager(cfg.ReposDir(), cfg.ManifestPath(), runner)
+		mgr := repo.NewManager(cfg.ReposDir, cfg.ManifestPath(), runner)
 
 		name, _ := cmd.Flags().GetString("name")
 		ref, _ := cmd.Flags().GetString("ref")
@@ -55,7 +55,7 @@ var reposRemoveCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		runner := &executil.Runner{}
-		mgr := repo.NewManager(cfg.ReposDir(), cfg.ManifestPath(), runner)
+		mgr := repo.NewManager(cfg.ReposDir, cfg.ManifestPath(), runner)
 
 		if err := mgr.Remove(args[0]); err != nil {
 			return err
@@ -70,7 +70,7 @@ var reposListCmd = &cobra.Command{
 	Short: "List template repositories",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		runner := &executil.Runner{}
-		mgr := repo.NewManager(cfg.ReposDir(), cfg.ManifestPath(), runner)
+		mgr := repo.NewManager(cfg.ReposDir, cfg.ManifestPath(), runner)
 
 		repos, err := mgr.List()
 		if err != nil {
@@ -106,7 +106,7 @@ var reposUpdateCmd = &cobra.Command{
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		runner := &executil.Runner{}
-		mgr := repo.NewManager(cfg.ReposDir(), cfg.ManifestPath(), runner)
+		mgr := repo.NewManager(cfg.ReposDir, cfg.ManifestPath(), runner)
 
 		var results []repo.UpdateResult
 		if len(args) > 0 {

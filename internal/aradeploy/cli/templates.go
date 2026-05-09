@@ -85,7 +85,7 @@ var templatesListCmd = &cobra.Command{
 		}
 
 		runner := &executil.Runner{}
-		repoMgr := repo.NewManager(cfg.ReposDir(), cfg.ManifestPath(), runner)
+		repoMgr := repo.NewManager(cfg.ReposDir, cfg.ManifestPath(), runner)
 		repoNames, _ := repoMgr.RepoNames()
 
 		deployed, _ := mgr.ListDeployed()
